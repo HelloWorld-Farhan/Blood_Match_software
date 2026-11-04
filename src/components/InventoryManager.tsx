@@ -36,27 +36,27 @@ export default function InventoryManager() {
         initial={{ y: -10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.35 }}
-        className="p-6 sm:p-8 rounded-2xl bg-[#0E0E10]/85 backdrop-blur-xl border border-[#6A040F]/50 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4"
+        className="p-6 sm:p-8 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
       >
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#D00000]/20 text-red-200 text-xs font-bold border border-[#D00000]/40 mb-2">
-            <Package className="w-3.5 h-3.5 text-[#D00000]" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/30 mb-2">
+            <Package className="w-3.5 h-3.5 text-[#D72638]" />
             <span>Blood Bank Cryo-Storage</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-black text-[#1A1D20] tracking-tight">
             Cryo-Vault Blood Reserves
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
+          <p className="text-xs sm:text-sm text-[#5A626A] mt-1 max-w-xl">
             Real-time tracking of cryo-preserved whole blood and packed red blood cells across all 8 ABO/Rh alleles.
           </p>
         </div>
 
-        <div className="flex items-center gap-4 bg-[#2A2A2F]/80 p-3.5 rounded-2xl border border-[#6A040F]/40 shrink-0">
+        <div className="flex items-center gap-4 bg-[#F5F1EF] p-3.5 rounded-2xl border border-[#D9C7C2] shrink-0">
           <div>
-            <span className="block text-[10px] uppercase font-bold text-slate-400">Total Bank Reserves</span>
-            <span className="text-2xl font-black text-white">{totalUnits} Pints</span>
+            <span className="block text-[10px] uppercase font-bold text-[#5A626A]">Total Bank Reserves</span>
+            <span className="text-2xl font-black text-[#1A1D20]">{totalUnits} Pints</span>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-[#D00000]/20 text-[#D00000] flex items-center justify-center border border-[#D00000]/30">
+          <div className="w-10 h-10 rounded-xl bg-[#D72638]/15 text-[#D72638] flex items-center justify-center border border-[#D72638]/30">
             <Droplet className="w-5 h-5 fill-current" />
           </div>
         </div>
@@ -75,18 +75,18 @@ export default function InventoryManager() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: index * 0.04 }}
               whileHover={{ y: -3, scale: 1.015 }}
-              className="p-5 rounded-2xl bg-[#0E0E10]/85 backdrop-blur-xl border border-[#6A040F]/45 shadow-xl flex flex-col justify-between"
+              className="p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col justify-between"
             >
               <div>
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#D00000] to-[#6A040F] flex flex-col items-center justify-center font-black text-white shadow-lg shadow-black/60 border border-[#D00000]/40">
-                      <span className="text-[10px] uppercase font-bold text-red-200">Type</span>
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] flex flex-col items-center justify-center font-black text-white shadow-md shadow-[#D72638]/20 border border-[#D72638]/40">
+                      <span className="text-[10px] uppercase font-bold text-red-100">Type</span>
                       <span className="text-base">{item.bloodType}</span>
                     </div>
                     <div>
-                      <h3 className="font-extrabold text-white text-base">Blood Group {item.bloodType}</h3>
-                      <div className="text-[11px] text-slate-300">
+                      <h3 className="font-extrabold text-[#1A1D20] text-base">Blood Group {item.bloodType}</h3>
+                      <div className="text-[11px] text-[#5A626A]">
                         {item.bloodType === 'O-' ? 'Universal Red Cell Donor' :
                          item.bloodType === 'AB+' ? 'Universal Red Cell Recipient' :
                          'Specific Transfusion Allele'}
@@ -96,21 +96,21 @@ export default function InventoryManager() {
                 </div>
 
                 {/* Stock Level Display */}
-                <div className="my-4 p-3 rounded-xl bg-[#2A2A2F]/80 border border-[#2A2A2F] text-center">
-                  <div className="text-3xl font-black text-white font-mono">
+                <div className="my-4 p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-center">
+                  <div className="text-3xl font-black text-[#1A1D20] font-mono">
                     {item.unitsAvailable}
                   </div>
-                  <div className="text-[10px] uppercase font-bold text-slate-400 mt-0.5">
+                  <div className="text-[10px] uppercase font-bold text-[#5A626A] mt-0.5">
                     Pints Available in Cryo-Vault
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between text-xs mb-2">
-                  <span className="text-slate-400">Reserve Health:</span>
+                  <span className="text-[#5A626A]">Reserve Health:</span>
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                    isCritical ? 'bg-[#D00000]/20 text-red-200 border-[#D00000]/50' :
-                    isLow ? 'bg-amber-500/20 text-amber-300 border-amber-500/50' :
-                    'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
+                    isCritical ? 'bg-red-100 text-[#D72638] border-red-200' :
+                    isLow ? 'bg-amber-100 text-amber-800 border-amber-200' :
+                    'bg-emerald-100 text-emerald-800 border-emerald-200'
                   }`}>
                     {isCritical ? 'CRITICAL SHORTAGE' : isLow ? 'LOW RESERVE' : 'HEALTHY'}
                   </span>
@@ -118,11 +118,11 @@ export default function InventoryManager() {
               </div>
 
               {/* Adjust Units Stepper */}
-              <div className="pt-3 border-t border-[#2A2A2F] flex items-center justify-between gap-2">
+              <div className="pt-3 border-t border-[#D9C7C2]/60 flex items-center justify-between gap-2">
                 <button
                   onClick={() => handleUpdateUnits(item.bloodType, -1)}
                   disabled={item.unitsAvailable <= 0}
-                  className="flex-1 py-2 rounded-xl bg-[#2A2A2F] hover:bg-[#2A2A2F]/80 text-slate-200 hover:text-white border border-[#2A2A2F] flex items-center justify-center gap-1 text-xs font-semibold disabled:opacity-40 cursor-pointer transition-colors"
+                  className="flex-1 py-2 rounded-xl bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] border border-[#D9C7C2] flex items-center justify-center gap-1 text-xs font-semibold disabled:opacity-40 cursor-pointer transition-colors"
                   title="Dispense 1 pint"
                 >
                   <Minus className="w-3.5 h-3.5" />
@@ -130,7 +130,7 @@ export default function InventoryManager() {
                 </button>
                 <button
                   onClick={() => handleUpdateUnits(item.bloodType, 1)}
-                  className="flex-1 py-2 rounded-xl bg-[#D00000]/25 hover:bg-[#D00000]/40 text-red-100 border border-[#D00000]/40 flex items-center justify-center gap-1 text-xs font-semibold cursor-pointer transition-colors"
+                  className="flex-1 py-2 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white border border-[#D72638]/40 flex items-center justify-center gap-1 text-xs font-semibold cursor-pointer transition-colors shadow-xs"
                   title="Restock 1 pint"
                 >
                   <Plus className="w-3.5 h-3.5" />

@@ -52,9 +52,9 @@ export const BloodDropsCanvas: React.FC = () => {
     const drawDroplet = (ctx: CanvasRenderingContext2D, d: Drop) => {
       ctx.save();
       ctx.translate(d.x, d.y);
-      // Crimson #D00000 with Burgundy #6A040F depth
-      ctx.fillStyle = `rgba(208, 0, 0, ${d.opacity})`;
-      ctx.shadowColor = 'rgba(208, 0, 0, 0.4)';
+      // Crimson #D72638 with Wine #7A0C17 depth
+      ctx.fillStyle = `rgba(215, 38, 56, ${d.opacity})`;
+      ctx.shadowColor = 'rgba(215, 38, 56, 0.4)';
       ctx.shadowBlur = d.radius * 2;
 
       ctx.beginPath();
@@ -83,12 +83,12 @@ export const BloodDropsCanvas: React.FC = () => {
       ctx.save();
       ctx.translate(d.x, d.y);
       const grad = ctx.createRadialGradient(0, 0, d.radius * 0.2, 0, 0, d.radius);
-      grad.addColorStop(0, `rgba(106, 4, 15, ${d.opacity * 0.9})`);
-      grad.addColorStop(0.7, `rgba(208, 0, 0, ${d.opacity})`);
+      grad.addColorStop(0, `rgba(122, 12, 23, ${d.opacity * 0.9})`);
+      grad.addColorStop(0.7, `rgba(215, 38, 56, ${d.opacity})`);
       grad.addColorStop(1, `rgba(185, 28, 28, ${d.opacity * 0.3})`);
 
       ctx.fillStyle = grad;
-      ctx.shadowColor = 'rgba(208, 0, 0, 0.3)';
+      ctx.shadowColor = 'rgba(215, 38, 56, 0.3)';
       ctx.shadowBlur = d.radius * 1.5;
 
       ctx.beginPath();

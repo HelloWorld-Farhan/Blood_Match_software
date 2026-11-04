@@ -98,7 +98,7 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen bg-[#0E0E10] font-sans text-white flex flex-col justify-between overflow-x-hidden selection:bg-[#D00000] selection:text-white">
+    <div className="relative min-h-screen bg-[#F5F1EF] font-sans text-[#1A1D20] flex flex-col justify-between overflow-x-hidden selection:bg-[#D72638] selection:text-white">
       {/* 4K UHD Ambient Background Video Layer */}
       <AmbientBackgroundVideo />
 
@@ -106,29 +106,29 @@ export default function Login() {
       <BloodDropsCanvas />
 
       {/* Top Header */}
-      <header className="relative w-full bg-[#0E0E10]/80 backdrop-blur-xl border-b border-[#6A040F]/40 z-30">
+      <header className="relative w-full bg-white/90 backdrop-blur-md border-b border-[#D9C7C2] z-30">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#D00000] to-[#6A040F] border border-[#D00000]/40 text-white flex items-center justify-center shadow-lg shadow-[#D00000]/20 group-hover:scale-105 transition-transform">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] border border-[#D72638]/40 text-white flex items-center justify-center shadow-md shadow-[#D72638]/20 group-hover:scale-105 transition-transform">
               <Droplet className="w-5 h-5 fill-current" />
             </div>
             <div>
-              <span className="font-bold text-xl tracking-tight text-white block leading-tight">
-                Blood<span className="text-[#D00000]">Match</span>
+              <span className="font-bold text-xl tracking-tight text-[#1A1D20] block leading-tight">
+                Blood<span className="text-[#D72638]">Match</span>
               </span>
-              <span className="text-[10px] uppercase tracking-widest text-red-300 font-semibold block">
+              <span className="text-[10px] uppercase tracking-widest text-[#7A0C17] font-bold block">
                 Transfusion Network
               </span>
             </div>
           </Link>
 
           <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-1.5 text-slate-200 text-xs font-medium bg-[#2A2A2F]/60 px-3 py-1.5 rounded-full border border-[#6A040F]/50 backdrop-blur-md">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+            <div className="hidden sm:flex items-center gap-1.5 text-[#5A626A] text-xs font-medium bg-[#F5F1EF] px-3 py-1.5 rounded-full border border-[#D9C7C2]">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <span>AABB & HIPAA Compliant 256-Bit</span>
             </div>
-            <div className="flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full bg-[#D00000]/20 text-red-200 border border-[#D00000]/40">
-              <span className="w-2 h-2 rounded-full bg-[#D00000] animate-ping"></span>
+            <div className="flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] border border-[#D72638]/30">
+              <span className="w-2 h-2 rounded-full bg-[#D72638] animate-ping"></span>
               <span>Emergency Dispatch Active</span>
             </div>
           </div>
@@ -138,14 +138,14 @@ export default function Login() {
       {/* Main Split-Screen Viewport */}
       <main className="relative z-10 w-full flex-1 flex flex-col items-center justify-center p-3 sm:p-6 lg:p-8">
         <div className="w-full max-w-6xl mx-auto py-2 sm:py-4">
-          <div className="relative w-full rounded-2xl overflow-hidden bg-[#0E0E10]/80 backdrop-blur-2xl shadow-2xl shadow-black/90 border border-[#6A040F]/50 flex flex-col lg:flex-row min-h-0 lg:min-h-[640px]">
+          <div className="relative w-full rounded-2xl overflow-hidden bg-white shadow-2xl border border-[#D9C7C2] flex flex-col lg:flex-row min-h-0 lg:min-h-[640px]">
             
             {/* LEFT PANEL: Login.mp4 Video Presentation with NO pause/mute icons */}
             <motion.div 
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
-              className="w-full lg:w-1/2 relative bg-black/90 flex flex-col justify-between overflow-hidden p-5 sm:p-8 border-b lg:border-b-0 lg:border-r border-[#6A040F]/40 min-h-[240px] sm:min-h-[320px] lg:min-h-full"
+              className="w-full lg:w-1/2 relative bg-black/90 flex flex-col justify-between overflow-hidden p-5 sm:p-8 border-b lg:border-b-0 lg:border-r border-[#D9C7C2] min-h-[240px] sm:min-h-[320px] lg:min-h-full"
             >
               {/* Responsive Video Container with Smooth Glitch-Free Loop */}
               <div className="absolute inset-0 w-full h-full">
@@ -160,17 +160,17 @@ export default function Login() {
                   className="w-full h-full object-cover object-center filter brightness-95 contrast-110"
                 />
                 {/* Crimson Gradient Film blending into user palette */}
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0E0E10] via-black/30 to-[#6A040F]/25 pointer-events-none"></div>
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_rgba(208,0,0,0.3)_0%,_transparent_60%)] pointer-events-none"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-[#7A0C17]/35 pointer-events-none"></div>
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_rgba(215,38,56,0.35)_0%,_transparent_60%)] pointer-events-none"></div>
               </div>
 
               {/* Top Video Header (Clean, NO mute or pause buttons) */}
               <div className="relative z-10 flex items-center justify-between">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0E0E10]/70 backdrop-blur-md border border-[#6A040F]/50 text-xs font-semibold text-slate-100">
-                  <Activity className="w-3.5 h-3.5 text-[#D00000] animate-pulse" />
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-xs font-semibold text-white">
+                  <Activity className="w-3.5 h-3.5 text-[#D72638] animate-pulse" />
                   <span>Clinical Cross-Match Portal</span>
                 </div>
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#6A040F]/40 border border-[#D00000]/30 text-[11px] font-medium text-red-200">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#7A0C17]/60 border border-[#D72638]/40 text-[11px] font-semibold text-white">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                   <span>Live Stream</span>
                 </div>
@@ -178,7 +178,7 @@ export default function Login() {
 
               {/* Bottom Video Telemetry Overlay */}
               <div className="relative z-10 pt-8 sm:pt-16 lg:pt-48">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#D00000]/30 border border-[#D00000]/40 text-red-200 text-xs font-bold mb-2">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#D72638]/40 border border-[#D72638]/50 text-white text-xs font-bold mb-2">
                   <Sparkles className="w-3.5 h-3.5" />
                   Zero-Tolerance ABO/Rh Triage
                 </div>
@@ -192,12 +192,12 @@ export default function Login() {
                   Autonomous 8-group ABO & RhD antigen cross-matching, instant cryo-reserve dispatch, and certified voluntary donor mobilization.
                 </p>
 
-                <div className="grid grid-cols-2 gap-2 text-[10px] sm:text-[11px] text-slate-200">
-                  <div className="p-2 rounded-lg bg-[#0E0E10]/80 backdrop-blur-md border border-[#6A040F]/40 flex items-center gap-1.5 sm:gap-2">
+                <div className="grid grid-cols-2 gap-2 text-[10px] sm:text-[11px] text-white">
+                  <div className="p-2 rounded-lg bg-black/60 backdrop-blur-md border border-white/20 flex items-center gap-1.5 sm:gap-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
                     <span className="truncate">Universal O- Synced</span>
                   </div>
-                  <div className="p-2 rounded-lg bg-[#0E0E10]/80 backdrop-blur-md border border-[#6A040F]/40 flex items-center gap-1.5 sm:gap-2">
+                  <div className="p-2 rounded-lg bg-black/60 backdrop-blur-md border border-white/20 flex items-center gap-1.5 sm:gap-2">
                     <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0"></span>
                     <span className="truncate">Cryo Telemetry 0ms</span>
                   </div>
@@ -210,26 +210,26 @@ export default function Login() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, ease: 'easeOut', delay: 0.05 }}
-              className="w-full lg:w-1/2 flex flex-col justify-between p-5 sm:p-8 lg:p-12 xl:p-14 bg-[#0E0E10]/95 backdrop-blur-xl"
+              className="w-full lg:w-1/2 flex flex-col justify-between p-5 sm:p-8 lg:p-12 xl:p-14 bg-white"
             >
               <div>
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                    <h1 className="text-2xl sm:text-3xl font-black text-[#1A1D20] tracking-tight">
                       Clinician Sign In
                     </h1>
-                    <p className="text-xs sm:text-sm text-slate-300 mt-1">
+                    <p className="text-xs sm:text-sm text-[#5A626A] mt-1">
                       Enter credentials to manage emergency reserves and donors
                     </p>
                   </div>
-                  <div className="w-12 h-12 rounded-2xl bg-[#6A040F]/30 border border-[#D00000]/30 flex items-center justify-center text-[#D00000] shadow-inner">
+                  <div className="w-12 h-12 rounded-2xl bg-[#7A0C17]/10 border border-[#D72638]/20 flex items-center justify-center text-[#D72638] shadow-inner">
                     <Droplet className="w-6 h-6 fill-current animate-pulse-subtle" />
                   </div>
                 </div>
 
                 {loginError && (
-                  <div className="mb-4 p-3 rounded-xl bg-[#6A040F]/60 border border-[#D00000]/60 text-red-200 text-xs flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#D00000]"></span>
+                  <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-[#D72638] text-xs flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#D72638]"></span>
                     <span>{loginError}</span>
                   </div>
                 )}
@@ -237,7 +237,7 @@ export default function Login() {
                 <form onSubmit={handleLogin} className="space-y-4">
                   {/* Email */}
                   <div>
-                    <label className="block text-xs font-semibold text-slate-200 uppercase tracking-wider mb-1.5">
+                    <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
                       Clinician Work Email
                     </label>
                     <div className="relative">
@@ -247,7 +247,7 @@ export default function Login() {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="doctor@bloodmatch.org"
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#2A2A2F]/70 border border-[#2A2A2F] focus:border-[#D00000] focus:ring-1 focus:ring-[#D00000] text-sm text-white placeholder-slate-400 outline-hidden transition-all"
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus:border-[#D72638] focus:ring-1 focus:ring-[#D72638] text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all"
                       />
                     </div>
                   </div>
@@ -255,10 +255,10 @@ export default function Login() {
                   {/* Password */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-semibold text-slate-200 uppercase tracking-wider">
+                      <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
                         Security Password
                       </label>
-                      <span className="text-[11px] text-[#D00000] hover:text-red-400 cursor-pointer">
+                      <span className="text-[11px] text-[#D72638] hover:underline cursor-pointer">
                         Forgot Access?
                       </span>
                     </div>
@@ -269,12 +269,12 @@ export default function Login() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="••••••••••••"
-                        className="w-full pl-10 pr-11 py-2.5 rounded-xl bg-[#2A2A2F]/70 border border-[#2A2A2F] focus:border-[#D00000] focus:ring-1 focus:ring-[#D00000] text-sm text-white placeholder-slate-400 outline-hidden transition-all"
+                        className="w-full pl-10 pr-11 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus:border-[#D72638] focus:ring-1 focus:ring-[#D72638] text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3.5 top-3 text-slate-400 hover:text-white transition-colors"
+                        className="absolute right-3.5 top-3 text-slate-400 hover:text-[#1A1D20] transition-colors"
                       >
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
@@ -288,18 +288,18 @@ export default function Login() {
                         type="checkbox"
                         checked={rememberMe}
                         onChange={(e) => setRememberMe(e.target.checked)}
-                        className="w-4 h-4 rounded-sm border-[#2A2A2F] bg-[#2A2A2F] text-[#D00000] focus:ring-[#D00000] accent-[#D00000] cursor-pointer"
+                        className="w-4 h-4 rounded-sm border-[#D9C7C2] bg-[#F5F1EF] text-[#D72638] focus:ring-[#D72638] accent-[#D72638] cursor-pointer"
                       />
-                      <span className="text-xs text-slate-300">Remember this terminal</span>
+                      <span className="text-xs text-[#5A626A]">Remember this terminal</span>
                     </label>
-                    <span className="text-[11px] text-slate-400">Session: 30 Days</span>
+                    <span className="text-[11px] text-[#5A626A]">Session: 30 Days</span>
                   </div>
 
                   {/* Primary Sign In Button */}
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-3 px-4 rounded-xl bg-[#D00000] hover:bg-[#b00000] text-white font-bold text-sm shadow-lg shadow-[#D00000]/40 hover:shadow-[#D00000]/60 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 mt-2"
+                    className="w-full py-3 px-4 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-sm shadow-md shadow-[#D72638]/30 hover:shadow-[#D72638]/50 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 mt-2"
                   >
                     {isLoading ? (
                       <>
@@ -319,21 +319,21 @@ export default function Login() {
                     type="button"
                     onClick={handleDemoLogin}
                     disabled={isLoading}
-                    className="w-full py-2.5 px-4 rounded-xl bg-[#2A2A2F]/60 hover:bg-[#2A2A2F] text-white border border-[#6A040F]/60 hover:border-[#D00000]/60 font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] border border-[#D9C7C2] font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-[#D00000]" />
+                    <Sparkles className="w-3.5 h-3.5 text-[#D72638]" />
                     <span>Quick Demo Login (1-Click Instant Access)</span>
                   </button>
                 </form>
 
                 {/* Switch to Signup */}
                 <div className="text-center pt-5">
-                  <p className="text-xs text-slate-300">
+                  <p className="text-xs text-[#5A626A]">
                     New volunteer donor or facility registry?{' '}
                     <button
                       type="button"
                       onClick={() => navigate('/signup')}
-                      className="text-[#D00000] font-bold hover:text-red-400 hover:underline cursor-pointer ml-1"
+                      className="text-[#D72638] font-bold hover:underline cursor-pointer ml-1"
                     >
                       Register here
                     </button>
@@ -342,14 +342,14 @@ export default function Login() {
               </div>
 
               {/* Footer Security Badges */}
-              <div className="pt-6 border-t border-[#2A2A2F] text-center text-slate-400 text-[11px] flex items-center justify-center gap-3">
+              <div className="pt-6 border-t border-[#D9C7C2] text-center text-[#5A626A] text-[11px] flex items-center justify-center gap-3">
                 <span className="flex items-center gap-1 font-medium">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                   HIPAA Compliant
                 </span>
                 <span>•</span>
                 <span className="flex items-center gap-1 font-medium">
-                  <Lock className="w-3.5 h-3.5 text-[#D00000]" />
+                  <Lock className="w-3.5 h-3.5 text-[#D72638]" />
                   256-Bit TLS
                 </span>
                 <span>•</span>
@@ -362,7 +362,7 @@ export default function Login() {
       </main>
 
       {/* Footer */}
-      <footer className="relative z-10 w-full py-4 text-center text-xs text-slate-400 border-t border-[#6A040F]/30 bg-[#0E0E10]/80 backdrop-blur-md">
+      <footer className="relative z-10 w-full py-4 text-center text-xs text-[#5A626A] border-t border-[#D9C7C2] bg-white/80 backdrop-blur-md">
         <p>© 2026 BloodMatch Transfusion Network. Emergency Hotline: +1 (800) 555-BLOOD</p>
       </footer>
     </div>

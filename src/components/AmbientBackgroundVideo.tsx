@@ -36,7 +36,7 @@ export const AmbientBackgroundVideo: React.FC = () => {
 
   return (
     <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none">
-      {/* 4K UHD Ambient Video Layer */}
+      {/* Ambient Red Fluid / Cell Video Layer */}
       <video
         ref={videoRef}
         src="/ambient_bg.mp4"
@@ -45,24 +45,21 @@ export const AmbientBackgroundVideo: React.FC = () => {
         muted
         playsInline
         preload="auto"
-        className="w-full h-full object-cover object-center filter brightness-[0.4] contrast-125 saturate-150 transition-opacity duration-1000"
+        className="w-full h-full object-cover object-center filter brightness-100 contrast-110 saturate-125 transition-opacity duration-1000"
       />
 
-      {/* Atmospheric Brand Color Gradient Overlays matching user palette:
-          #0E0E10 (Obsidian), #6A040F (Burgundy), #D00000 (Crimson) */}
+      {/* Soft Light Alabaster & Crimson Translucent Veil:
+          Allows video to be clearly visible while harmonizing with White & Red palette
+          #FFFFFF, #F5F1EF, #D72638, #7A0C17, #D9C7C2 */}
       <div 
-        className="absolute inset-0"
-        style={{
-          background: 'radial-gradient(circle at 50% 20%, rgba(106, 4, 15, 0.45) 0%, rgba(14, 14, 16, 0.85) 60%, #0E0E10 100%)',
-          mixBlendMode: 'multiply'
-        }}
+        className="absolute inset-0 bg-[#F5F1EF]/70 backdrop-blur-[1px]"
       />
       
-      {/* Arterial Crimson Light Bleed Accent */}
+      {/* Subtle Arterial Crimson Accent Glow */}
       <div 
-        className="absolute inset-0 opacity-40 pointer-events-none"
+        className="absolute inset-0 opacity-30 pointer-events-none"
         style={{
-          background: 'radial-gradient(circle at 15% 50%, rgba(208, 0, 0, 0.25) 0%, transparent 50%), radial-gradient(circle at 85% 60%, rgba(106, 4, 15, 0.3) 0%, transparent 50%)'
+          background: 'radial-gradient(circle at 20% 30%, rgba(215, 38, 56, 0.15) 0%, transparent 60%), radial-gradient(circle at 80% 70%, rgba(122, 12, 23, 0.12) 0%, transparent 60%)'
         }}
       />
     </div>

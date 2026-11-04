@@ -140,41 +140,42 @@ export default function Layout() {
   };
 
   return (
-    <div className="relative h-screen max-h-screen bg-[#0E0E10] font-sans text-white flex flex-col overflow-hidden selection:bg-[#D00000] selection:text-white">
-      {/* 4K UHD Ambient Background Video Layer */}
+    <div className="relative h-screen max-h-screen bg-[#F5F1EF] font-sans text-[#1A1D20] flex flex-col overflow-hidden selection:bg-[#D72638] selection:text-white">
+      {/* Ambient Red Fluid / Cell Video Layer in Background */}
       <AmbientBackgroundVideo />
 
       {/* Floating Blood Drops Canvas in Background */}
       <BloodDropsCanvas />
 
-      {/* Mobile Sidebar Overlay */}
+      {/* Mobile Sidebar Overlay - Clean dark tint WITHOUT blur to prevent whole-screen smudging */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/80 backdrop-blur-md z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Top Header Bar (Fixed / Shrink 0) */}
-      <header className="shrink-0 z-30 w-full h-16 bg-[#0E0E10]/85 backdrop-blur-xl border-b border-[#6A040F]/40 flex items-center justify-between px-4 sm:px-6 shadow-md shadow-black/60">
+      {/* Top Header Bar (Fixed / Shrink 0) - Crisp Solid White with #D9C7C2 border */}
+      <header className="shrink-0 z-30 w-full h-16 bg-white/95 backdrop-blur-md border-b border-[#D9C7C2] flex items-center justify-between px-4 sm:px-6 shadow-xs">
         <div className="flex items-center gap-3">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-xl bg-[#2A2A2F]/80 border border-[#2A2A2F] text-slate-300 hover:text-white lg:hidden cursor-pointer"
+            className="p-2 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-[#4A5568] hover:text-[#1A1D20] lg:hidden cursor-pointer"
+            aria-label="Toggle navigation"
           >
             {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
           <Link to="/dashboard" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#D00000] to-[#6A040F] border border-[#D00000]/40 text-white flex items-center justify-center shadow-md shadow-[#D00000]/20 group-hover:scale-105 transition-transform">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] border border-[#D72638]/40 text-white flex items-center justify-center shadow-md shadow-[#D72638]/20 group-hover:scale-105 transition-transform">
               <Droplet className="w-5 h-5 fill-current" />
             </div>
             <div>
-              <span className="font-bold text-lg tracking-tight text-white block leading-tight">
-                Blood<span className="text-[#D00000]">Match</span>
+              <span className="font-bold text-lg tracking-tight text-[#1A1D20] block leading-tight">
+                Blood<span className="text-[#D72638]">Match</span>
               </span>
-              <span className="text-[9px] uppercase tracking-wider text-red-300 font-semibold block">
-                Power BI Operations Hub
+              <span className="text-[9px] uppercase tracking-wider text-[#7A0C17] font-bold block">
+                Clinical Operations Hub
               </span>
             </div>
           </Link>
@@ -183,14 +184,14 @@ export default function Layout() {
         {/* Topbar Search & Actions */}
         <div className="flex items-center gap-3">
           {/* Global Search Bar */}
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#2A2A2F]/70 border border-[#2A2A2F] focus-within:border-[#D00000] transition-colors w-64">
-            <Search className="w-4 h-4 text-slate-400" />
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus-within:border-[#D72638] transition-colors w-64">
+            <Search className="w-4 h-4 text-[#7A0C17]/60" />
             <input
               type="text"
               placeholder="Search donor, group, case..."
-              className="w-full bg-transparent text-xs text-white placeholder-slate-400 outline-hidden"
+              className="w-full bg-transparent text-xs text-[#1A1D20] placeholder-slate-400 outline-hidden"
             />
-            <span className="text-[10px] text-slate-400 font-mono px-1.5 py-0.5 rounded bg-[#0E0E10] border border-[#2A2A2F]">
+            <span className="text-[10px] text-slate-500 font-mono px-1.5 py-0.5 rounded bg-white border border-[#D9C7C2]">
               ⌘K
             </span>
           </div>
@@ -198,45 +199,46 @@ export default function Layout() {
           {/* Quick Emergency Broadcast */}
           <Link
             to="/dashboard/emergency"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#D00000] hover:bg-[#b00000] text-white text-xs font-bold shadow-md shadow-[#D00000]/30 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold shadow-md shadow-[#D72638]/30 transition-all cursor-pointer"
           >
             <PlusCircle className="w-4 h-4" />
             <span className="hidden sm:inline">Dispatch Request</span>
           </Link>
 
-          {/* Notifications Dropdown */}
+          {/* Notifications Dropdown - Responsive Full Mobile Alignment (No Left Cutoff) */}
           <div className="relative" ref={notifRef}>
             <button
               onClick={() => setNotificationsOpen(!notificationsOpen)}
-              className="relative p-2 rounded-xl bg-[#2A2A2F]/80 border border-[#2A2A2F] text-slate-300 hover:text-white transition-colors cursor-pointer"
+              className="relative p-2 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-[#4A5568] hover:text-[#1A1D20] transition-colors cursor-pointer"
+              aria-label="View notifications"
             >
               <Bell className="w-4 h-4" />
               {notifications.some(n => n.unread) && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#D00000] animate-ping"></span>
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#D72638] animate-ping"></span>
               )}
             </button>
 
             {notificationsOpen && (
-              <div className="absolute right-0 mt-2 w-80 rounded-2xl bg-[#0E0E10]/95 backdrop-blur-2xl shadow-2xl p-4 border border-[#6A040F]/60 z-50 animate-slide-up">
-                <div className="flex items-center justify-between pb-3 border-b border-[#6A040F]/40">
-                  <span className="text-xs font-bold text-white uppercase tracking-wider">
+              <div className="fixed sm:absolute top-16 sm:top-full left-4 sm:left-auto right-4 sm:right-0 mt-2 sm:w-80 rounded-2xl bg-white shadow-2xl p-4 border border-[#D9C7C2] z-50 animate-slide-up text-[#1A1D20]">
+                <div className="flex items-center justify-between pb-3 border-b border-[#D9C7C2]">
+                  <span className="text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
                     Transfusion Alerts
                   </span>
                   <button
                     onClick={() => setNotifications(prev => prev.map(n => ({ ...n, unread: false })))}
-                    className="text-[11px] text-[#D00000] hover:underline cursor-pointer"
+                    className="text-[11px] font-semibold text-[#D72638] hover:underline cursor-pointer"
                   >
-                    Mark read
+                    Mark all read
                   </button>
                 </div>
                 <div className="space-y-2.5 pt-3 max-h-64 overflow-y-auto no-scrollbar">
                   {notifications.map(n => (
-                    <div key={n.id} className="p-2.5 rounded-xl bg-[#2A2A2F]/70 border border-[#2A2A2F] text-xs">
-                      <div className="font-semibold text-white flex items-center justify-between">
+                    <div key={n.id} className="p-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]/70 text-xs">
+                      <div className="font-bold text-[#1A1D20] flex items-center justify-between">
                         <span>{n.title}</span>
-                        <span className="text-[10px] text-slate-400">{n.time}</span>
+                        <span className="text-[10px] text-slate-500 font-normal">{n.time}</span>
                       </div>
-                      <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">{n.desc}</p>
+                      <p className="text-[11px] text-[#4A5568] mt-1 leading-relaxed">{n.desc}</p>
                     </div>
                   ))}
                 </div>
@@ -248,24 +250,24 @@ export default function Layout() {
           <div className="relative" ref={profileRef}>
             <button
               onClick={() => setProfileOpen(!profileOpen)}
-              className="flex items-center gap-2 p-1.5 sm:px-2.5 rounded-xl bg-[#2A2A2F]/80 border border-[#2A2A2F] hover:border-[#6A040F] transition-colors cursor-pointer"
+              className="flex items-center gap-2 p-1.5 sm:px-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] hover:border-[#D72638] transition-colors cursor-pointer"
             >
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#6A040F] to-[#D00000] flex items-center justify-center text-white text-xs font-bold">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-xs font-bold">
                 FK
               </div>
               <div className="hidden md:block text-left">
-                <div className="text-xs font-bold text-white leading-tight">{userName}</div>
-                <div className="text-[10px] text-red-300">{userFacility}</div>
+                <div className="text-xs font-bold text-[#1A1D20] leading-tight">{userName}</div>
+                <div className="text-[10px] text-[#7A0C17] font-semibold">{userFacility}</div>
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
 
             {profileOpen && (
-              <div className="absolute right-0 mt-2 w-64 rounded-2xl bg-[#0E0E10]/95 backdrop-blur-2xl shadow-2xl p-3 border border-[#6A040F]/60 z-50 animate-slide-up">
-                <div className="p-2 border-b border-[#6A040F]/40">
-                  <div className="text-xs font-bold text-white">{userName}</div>
-                  <div className="text-[11px] text-slate-300 truncate">{userEmail}</div>
-                  <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-400">
+              <div className="fixed sm:absolute top-16 sm:top-full left-4 sm:left-auto right-4 sm:right-0 mt-2 sm:w-64 rounded-2xl bg-white shadow-2xl p-3 border border-[#D9C7C2] z-50 animate-slide-up text-[#1A1D20]">
+                <div className="p-2 border-b border-[#D9C7C2]">
+                  <div className="text-xs font-bold text-[#1A1D20]">{userName}</div>
+                  <div className="text-[11px] text-slate-500 truncate">{userEmail}</div>
+                  <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600">
                     <CheckCircle2 className="w-3 h-3" />
                     <span>Verified Medical Practitioner</span>
                   </div>
@@ -274,7 +276,7 @@ export default function Layout() {
                 <div className="pt-2 space-y-1">
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-red-400 hover:bg-[#6A040F]/40 transition-colors cursor-pointer"
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[#D72638] hover:bg-[#F5F1EF] transition-colors cursor-pointer"
                   >
                     <LogOut className="w-4 h-4" />
                     <span>Lock Session & Sign Out</span>
@@ -286,31 +288,30 @@ export default function Layout() {
         </div>
       </header>
 
-      {/* Main Body Layout: Fixed Sidebar + Scrollable Center Content */}
-      <div className="relative z-10 flex-1 flex overflow-hidden w-full max-w-7xl mx-auto px-2 sm:px-4 lg:px-6 py-4 gap-4">
-        {/* Fixed / Non-Moving Left Navigation Sidebar */}
+      {/* Main Body Layout: Fixed Solid Sidebar Docked to Full Left + Scrollable Center Content */}
+      <div className="relative z-10 flex-1 flex overflow-hidden w-full h-full">
+        {/* Fixed Left Navigation Sidebar: 100% Solid White, NO Background Video Bleed */}
         <aside
           className={`
             fixed lg:static top-0 lg:top-auto bottom-0 left-0 z-50 lg:z-40 
             w-72 lg:w-64 shrink-0 h-full
-            bg-[#0E0E10]/95 lg:bg-[#0E0E10]/85 backdrop-blur-2xl lg:backdrop-blur-xl 
-            border-r lg:border border-[#6A040F]/50
-            p-4 lg:p-3.5 rounded-r-2xl lg:rounded-2xl rounded-l-none lg:rounded-l-2xl
+            bg-white border-r border-[#D9C7C2]
+            p-4 lg:p-4
             flex flex-col justify-between overflow-y-auto no-scrollbar
-            shadow-2xl shadow-black/90
+            shadow-xl lg:shadow-none
             transition-transform duration-300 ease-in-out
             ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           `}
         >
           {/* Navigation Items */}
           <div className="space-y-1.5">
-            <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-400 font-bold flex items-center justify-between">
+            <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-[#7A0C17] font-black flex items-center justify-between">
               <span>Operations Suite</span>
               <div className="flex items-center gap-2">
-                <Layers className="w-3.5 h-3.5 text-[#D00000]" />
+                <Layers className="w-3.5 h-3.5 text-[#D72638]" />
                 <button
                   onClick={() => setSidebarOpen(false)}
-                  className="lg:hidden p-1 rounded-md text-slate-400 hover:text-white"
+                  className="lg:hidden p-1 rounded-md text-slate-400 hover:text-[#1A1D20]"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -329,17 +330,21 @@ export default function Layout() {
                     w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold
                     transition-all duration-200 group
                     ${active
-                      ? 'bg-gradient-to-r from-[#D00000] to-[#6A040F] text-white shadow-lg shadow-[#D00000]/30 font-bold scale-[1.02]'
-                      : 'text-slate-300 hover:bg-[#2A2A2F]/60 hover:text-white'
+                      ? 'bg-gradient-to-r from-[#D72638] to-[#7A0C17] text-white shadow-md shadow-[#D72638]/25 font-bold scale-[1.01]'
+                      : 'text-[#4A5568] hover:bg-[#F5F1EF] hover:text-[#1A1D20]'
                     }
                   `}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 transition-transform group-hover:scale-110 ${active ? 'text-white' : 'text-slate-400 group-hover:text-[#D00000]'}`} />
+                    <Icon className={`w-4 h-4 transition-transform group-hover:scale-110 ${active ? 'text-white' : 'text-[#7A0C17] group-hover:text-[#D72638]'}`} />
                     <span>{item.name}</span>
                   </div>
                   {item.badge && (
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.badgeColor || 'bg-[#2A2A2F] text-slate-300'}`}>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      active 
+                        ? 'bg-white/20 text-white' 
+                        : (item.badgeColor || 'bg-[#F5F1EF] text-[#7A0C17] border border-[#D9C7C2]')
+                    }`}>
                       {item.badge}
                     </span>
                   )}
@@ -348,33 +353,33 @@ export default function Layout() {
             })}
           </div>
 
-          {/* Quick Telemetry & Support in Fixed Sidebar */}
-          <div className="pt-4 border-t border-[#6A040F]/40 space-y-2 shrink-0">
-            <div className="p-3 rounded-xl bg-[#2A2A2F]/70 border border-[#2A2A2F] text-xs">
-              <div className="flex items-center justify-between text-slate-300 mb-1">
-                <span className="flex items-center gap-1.5">
-                  <Activity className="w-3.5 h-3.5 text-emerald-400" />
+          {/* Quick Telemetry & Support in Solid Left Sidebar */}
+          <div className="pt-4 border-t border-[#D9C7C2] space-y-2 shrink-0">
+            <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-xs">
+              <div className="flex items-center justify-between text-[#4A5568] mb-1">
+                <span className="flex items-center gap-1.5 font-semibold">
+                  <Activity className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Cryo-Vault State</span>
                 </span>
-                <span className="text-emerald-400 font-bold">4.0°C</span>
+                <span className="text-emerald-700 font-bold">4.0°C</span>
               </div>
-              <div className="w-full bg-[#0E0E10] h-1.5 rounded-full overflow-hidden">
-                <div className="bg-gradient-to-r from-[#D00000] via-[#6A040F] to-emerald-400 h-full w-full"></div>
+              <div className="w-full bg-[#D9C7C2]/50 h-1.5 rounded-full overflow-hidden">
+                <div className="bg-gradient-to-r from-[#D72638] via-[#7A0C17] to-emerald-500 h-full w-full"></div>
               </div>
             </div>
 
-            <div className="flex items-center justify-between px-2 text-[11px] text-slate-400">
-              <span className="flex items-center gap-1">
-                <PhoneCall className="w-3 h-3 text-[#D00000]" />
+            <div className="flex items-center justify-between px-2 text-[11px] text-[#4A5568]">
+              <span className="flex items-center gap-1 font-medium">
+                <PhoneCall className="w-3 h-3 text-[#D72638]" />
                 <span>Trauma Hotline</span>
               </span>
-              <span className="text-red-300 font-mono font-bold">Ext 911</span>
+              <span className="text-[#D72638] font-mono font-bold">Ext 911</span>
             </div>
           </div>
         </aside>
 
-        {/* Center Content Router Outlet: ONLY THIS SECTION SCROLLS */}
-        <main className="flex-1 h-full min-w-0 overflow-y-auto no-scrollbar pr-1 pb-16">
+        {/* Center Content Router Outlet: Scrollable with ambient video visible in background */}
+        <main className="flex-1 h-full min-w-0 overflow-y-auto no-scrollbar px-3 sm:px-6 lg:px-8 py-4 lg:py-6 pb-20">
           <Outlet />
         </main>
       </div>
