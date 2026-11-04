@@ -160,3 +160,4 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 If this project helps your medical team or blood bank, please give it a ⭐ on GitHub!
 
 <p align="center">Made with ❤️ — React 19 · TypeScript · Vite · Tailwind CSS · Cloudflare</p>
+

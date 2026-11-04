@@ -115,3 +115,4 @@ export default function InventoryManager({ inventory, onUpdateUnits }: Inventory
     </div>
   );
 }
+

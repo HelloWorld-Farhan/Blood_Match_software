@@ -66,3 +66,4 @@ export interface UserSession {
 }
 
 export type ActiveTab = 'dashboard' | 'compatibility' | 'donors' | 'requests' | 'inventory';
+

@@ -101,3 +101,4 @@ export function checkCompatibility(donorType: BloodType, recipientType: BloodTyp
       : `SAFE COMPATIBLE MATCH: ${donorType} blood can be safely transfused to ${recipientType} recipient.`,
   };
 }
+
