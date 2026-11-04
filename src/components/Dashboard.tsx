@@ -116,8 +116,8 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Power BI Interactive Slicers */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 bg-[#2A2A2F]/80 p-1 rounded-xl border border-[#2A2A2F]">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-1 bg-[#2A2A2F]/80 p-1 rounded-xl border border-[#2A2A2F] overflow-x-auto no-scrollbar max-w-full">
             {['ALL', 'O-', 'O+', 'A+', 'B+', 'AB+'].map(type => (
               <button
                 key={type}

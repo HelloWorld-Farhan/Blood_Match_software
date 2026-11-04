@@ -204,7 +204,7 @@ export default function CompatibilityMatrix() {
           <span className="text-xs font-mono text-slate-400">Standard Red Blood Cells (RBC)</span>
         </div>
 
-        <table className="w-full text-center text-xs">
+        <table className="w-full min-w-[560px] text-center text-xs">
           <thead>
             <tr className="border-b border-[#2A2A2F] text-slate-400">
               <th className="py-2.5 text-left font-bold pl-2">Donor \ Recipient</th>

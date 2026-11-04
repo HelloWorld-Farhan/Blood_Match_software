@@ -268,8 +268,8 @@ export default function EmergencyRequests() {
 
       {/* Broadcast Request Modal */}
       {isOpenModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-          <div className="relative w-full max-w-xl rounded-2xl bg-[#0E0E10]/95 backdrop-blur-2xl border border-[#6A040F]/60 p-6 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+          <div className="relative w-full max-w-xl rounded-2xl bg-[#0E0E10]/95 backdrop-blur-2xl border border-[#6A040F]/60 p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar">
             <button
               onClick={() => setIsOpenModal(false)}
               className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-white cursor-pointer"
@@ -277,7 +277,7 @@ export default function EmergencyRequests() {
               <X className="w-5 h-5" />
             </button>
 
-            <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-1 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-[#D00000]" />
               <span>Broadcast Emergency Transfusion Request</span>
             </h2>
@@ -286,7 +286,7 @@ export default function EmergencyRequests() {
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">Patient Name</label>
                   <input
@@ -309,7 +309,7 @@ export default function EmergencyRequests() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">Blood Type</label>
                   <select
@@ -335,7 +335,7 @@ export default function EmergencyRequests() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">Hospital / Clinic</label>
                   <input
@@ -359,7 +359,7 @@ export default function EmergencyRequests() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">Emergency Phone</label>
                   <input

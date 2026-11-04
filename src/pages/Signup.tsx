@@ -112,16 +112,16 @@ export default function Signup() {
       </header>
 
       {/* Main Split Viewport */}
-      <main className="relative z-10 w-full flex-1 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
+      <main className="relative z-10 w-full flex-1 flex flex-col items-center justify-center p-3 sm:p-6 lg:p-8">
         <div className="w-full max-w-6xl mx-auto py-2 sm:py-4">
-          <div className="relative w-full rounded-2xl overflow-hidden bg-[#0E0E10]/80 backdrop-blur-2xl shadow-2xl shadow-black/90 border border-[#6A040F]/50 flex flex-col lg:flex-row min-h-[640px]">
+          <div className="relative w-full rounded-2xl overflow-hidden bg-[#0E0E10]/80 backdrop-blur-2xl shadow-2xl shadow-black/90 border border-[#6A040F]/50 flex flex-col lg:flex-row min-h-0 lg:min-h-[640px]">
             
             {/* LEFT PANEL: signup.mp4 Video Presentation with NO pause/mute icons */}
             <motion.div 
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
-              className="w-full lg:w-1/2 relative bg-black/90 flex flex-col justify-between overflow-hidden p-6 sm:p-8 border-b lg:border-b-0 lg:border-r border-[#6A040F]/40"
+              className="w-full lg:w-1/2 relative bg-black/90 flex flex-col justify-between overflow-hidden p-5 sm:p-8 border-b lg:border-b-0 lg:border-r border-[#6A040F]/40 min-h-[240px] sm:min-h-[320px] lg:min-h-full"
             >
               <div className="absolute inset-0 w-full h-full">
                 <video
@@ -151,23 +151,23 @@ export default function Signup() {
               </div>
 
               {/* Telemetry info */}
-              <div className="relative z-10 pt-32 sm:pt-48">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#D00000]/30 border border-[#D00000]/40 text-red-200 text-xs font-bold mb-3">
+              <div className="relative z-10 pt-8 sm:pt-16 lg:pt-48">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#D00000]/30 border border-[#D00000]/40 text-red-200 text-xs font-bold mb-2">
                   <Sparkles className="w-3.5 h-3.5" />
                   Life-Saving Rapid Response
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight mb-2">
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white leading-tight mb-2">
                   Empower Immediate <br />
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-red-100 to-white">
                     Emergency Matchmaking
                   </span>
                 </h2>
-                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed max-w-md font-light mb-4">
+                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed max-w-md font-light mb-3">
                   Every certified donor and registered clinician bridges the gap in critical trauma cases, open-heart surgeries, and blood bank shortfalls.
                 </p>
 
-                <div className="p-3 rounded-xl bg-[#0E0E10]/80 backdrop-blur-md border border-[#6A040F]/40 text-xs text-slate-200 flex items-center justify-between">
-                  <span>⚡ 1 Unit Donated can save up to 3 lives</span>
+                <div className="p-2.5 sm:p-3 rounded-xl bg-[#0E0E10]/80 backdrop-blur-md border border-[#6A040F]/40 text-xs text-slate-200 flex items-center justify-between">
+                  <span>⚡ 1 Unit saves up to 3 lives</span>
                   <span className="text-red-300 font-bold">100% Volunteer Network</span>
                 </div>
               </div>
@@ -178,7 +178,7 @@ export default function Signup() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, ease: 'easeOut', delay: 0.05 }}
-              className="w-full lg:w-1/2 flex flex-col justify-between p-6 sm:p-10 lg:p-12 xl:p-14 bg-[#0E0E10]/95 backdrop-blur-xl"
+              className="w-full lg:w-1/2 flex flex-col justify-between p-5 sm:p-8 lg:p-12 xl:p-14 bg-[#0E0E10]/95 backdrop-blur-xl"
             >
               <div>
                 <div className="mb-6">

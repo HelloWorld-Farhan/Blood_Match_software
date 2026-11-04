@@ -230,7 +230,7 @@ export default function DonorRegistry() {
       {/* Register Donor Modal */}
       {isOpenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-          <div className="relative w-full max-w-xl rounded-2xl bg-[#0E0E10]/95 backdrop-blur-2xl border border-[#6A040F]/60 p-6 shadow-2xl">
+          <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto no-scrollbar rounded-2xl bg-[#0E0E10]/95 backdrop-blur-2xl border border-[#6A040F]/60 p-5 sm:p-6 shadow-2xl">
             <button
               onClick={() => setIsOpenModal(false)}
               className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-white cursor-pointer"
@@ -247,7 +247,7 @@ export default function DonorRegistry() {
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">Full Legal Name</label>
                   <input
@@ -273,7 +273,7 @@ export default function DonorRegistry() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">Age (18 - 65)</label>
                   <input
@@ -299,7 +299,7 @@ export default function DonorRegistry() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">Phone Number</label>
                   <input
@@ -324,7 +324,7 @@ export default function DonorRegistry() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1">City</label>
                   <input

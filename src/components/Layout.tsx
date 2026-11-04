@@ -291,11 +291,13 @@ export default function Layout() {
         {/* Fixed / Non-Moving Left Navigation Sidebar */}
         <aside
           className={`
-            fixed lg:static top-20 bottom-4 left-4 z-40 w-64 shrink-0
-            h-[calc(100vh-6rem)] lg:h-full
-            bg-[#0E0E10]/85 backdrop-blur-xl border border-[#6A040F]/50
-            p-3.5 rounded-2xl flex flex-col justify-between overflow-y-auto no-scrollbar
-            shadow-2xl shadow-black/80
+            fixed lg:static top-0 lg:top-auto bottom-0 left-0 z-50 lg:z-40 
+            w-72 lg:w-64 shrink-0 h-full
+            bg-[#0E0E10]/95 lg:bg-[#0E0E10]/85 backdrop-blur-2xl lg:backdrop-blur-xl 
+            border-r lg:border border-[#6A040F]/50
+            p-4 lg:p-3.5 rounded-r-2xl lg:rounded-2xl rounded-l-none lg:rounded-l-2xl
+            flex flex-col justify-between overflow-y-auto no-scrollbar
+            shadow-2xl shadow-black/90
             transition-transform duration-300 ease-in-out
             ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           `}
@@ -304,7 +306,15 @@ export default function Layout() {
           <div className="space-y-1.5">
             <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-slate-400 font-bold flex items-center justify-between">
               <span>Operations Suite</span>
-              <Layers className="w-3 h-3 text-[#D00000]" />
+              <div className="flex items-center gap-2">
+                <Layers className="w-3.5 h-3.5 text-[#D00000]" />
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="lg:hidden p-1 rounded-md text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             {navItems.map((item) => {

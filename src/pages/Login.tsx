@@ -136,16 +136,16 @@ export default function Login() {
       </header>
 
       {/* Main Split-Screen Viewport */}
-      <main className="relative z-10 w-full flex-1 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
+      <main className="relative z-10 w-full flex-1 flex flex-col items-center justify-center p-3 sm:p-6 lg:p-8">
         <div className="w-full max-w-6xl mx-auto py-2 sm:py-4">
-          <div className="relative w-full rounded-2xl overflow-hidden bg-[#0E0E10]/80 backdrop-blur-2xl shadow-2xl shadow-black/90 border border-[#6A040F]/50 flex flex-col lg:flex-row min-h-[640px]">
+          <div className="relative w-full rounded-2xl overflow-hidden bg-[#0E0E10]/80 backdrop-blur-2xl shadow-2xl shadow-black/90 border border-[#6A040F]/50 flex flex-col lg:flex-row min-h-0 lg:min-h-[640px]">
             
             {/* LEFT PANEL: Login.mp4 Video Presentation with NO pause/mute icons */}
             <motion.div 
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
-              className="w-full lg:w-1/2 relative bg-black/90 flex flex-col justify-between overflow-hidden p-6 sm:p-8 border-b lg:border-b-0 lg:border-r border-[#6A040F]/40"
+              className="w-full lg:w-1/2 relative bg-black/90 flex flex-col justify-between overflow-hidden p-5 sm:p-8 border-b lg:border-b-0 lg:border-r border-[#6A040F]/40 min-h-[240px] sm:min-h-[320px] lg:min-h-full"
             >
               {/* Responsive Video Container with Smooth Glitch-Free Loop */}
               <div className="absolute inset-0 w-full h-full">
@@ -177,29 +177,29 @@ export default function Login() {
               </div>
 
               {/* Bottom Video Telemetry Overlay */}
-              <div className="relative z-10 pt-32 sm:pt-48">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#D00000]/30 border border-[#D00000]/40 text-red-200 text-xs font-bold mb-3">
+              <div className="relative z-10 pt-8 sm:pt-16 lg:pt-48">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#D00000]/30 border border-[#D00000]/40 text-red-200 text-xs font-bold mb-2">
                   <Sparkles className="w-3.5 h-3.5" />
                   Zero-Tolerance ABO/Rh Triage
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight mb-2">
+                <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white leading-tight mb-2">
                   Emergency Transfusion <br />
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-red-100 to-white">
                     Compatibility Network
                   </span>
                 </h2>
-                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed max-w-md font-light mb-4">
+                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed max-w-md font-light mb-3">
                   Autonomous 8-group ABO & RhD antigen cross-matching, instant cryo-reserve dispatch, and certified voluntary donor mobilization.
                 </p>
 
-                <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-200">
-                  <div className="p-2 rounded-lg bg-[#0E0E10]/80 backdrop-blur-md border border-[#6A040F]/40 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                    <span>Universal Donor O- Synced</span>
+                <div className="grid grid-cols-2 gap-2 text-[10px] sm:text-[11px] text-slate-200">
+                  <div className="p-2 rounded-lg bg-[#0E0E10]/80 backdrop-blur-md border border-[#6A040F]/40 flex items-center gap-1.5 sm:gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
+                    <span className="truncate">Universal O- Synced</span>
                   </div>
-                  <div className="p-2 rounded-lg bg-[#0E0E10]/80 backdrop-blur-md border border-[#6A040F]/40 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                    <span>Cryo-Vault Telemetry 0ms</span>
+                  <div className="p-2 rounded-lg bg-[#0E0E10]/80 backdrop-blur-md border border-[#6A040F]/40 flex items-center gap-1.5 sm:gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0"></span>
+                    <span className="truncate">Cryo Telemetry 0ms</span>
                   </div>
                 </div>
               </div>
@@ -210,7 +210,7 @@ export default function Login() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, ease: 'easeOut', delay: 0.05 }}
-              className="w-full lg:w-1/2 flex flex-col justify-between p-6 sm:p-10 lg:p-12 xl:p-14 bg-[#0E0E10]/95 backdrop-blur-xl"
+              className="w-full lg:w-1/2 flex flex-col justify-between p-5 sm:p-8 lg:p-12 xl:p-14 bg-[#0E0E10]/95 backdrop-blur-xl"
             >
               <div>
                 <div className="flex items-center justify-between mb-6">
