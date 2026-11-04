@@ -32,18 +32,17 @@ export const BloodDropsCanvas: React.FC = () => {
     };
     window.addEventListener('resize', handleResize);
 
-    // Generate initial drops
-    const dropsCount = Math.floor(Math.min(width, 1600) / 35);
+    const dropsCount = Math.floor(Math.min(width, 1600) / 45);
     const drops: Drop[] = [];
 
     for (let i = 0; i < dropsCount; i++) {
       drops.push({
         x: Math.random() * width,
         y: Math.random() * height,
-        radius: Math.random() * 4 + 2,
-        speedY: Math.random() * 0.45 + 0.2, // Gilded floating speed
-        speedX: (Math.random() - 0.5) * 0.2,
-        opacity: Math.random() * 0.35 + 0.15,
+        radius: Math.random() * 3.5 + 2,
+        speedY: Math.random() * 0.35 + 0.15,
+        speedX: (Math.random() - 0.5) * 0.15,
+        opacity: Math.random() * 0.3 + 0.1,
         type: i % 3 === 0 ? 'droplet' : i % 3 === 1 ? 'cell' : 'particle',
         wobble: Math.random() * Math.PI * 2,
         wobbleSpeed: Math.random() * 0.02 + 0.01,
@@ -53,11 +52,11 @@ export const BloodDropsCanvas: React.FC = () => {
     const drawDroplet = (ctx: CanvasRenderingContext2D, d: Drop) => {
       ctx.save();
       ctx.translate(d.x, d.y);
-      ctx.fillStyle = `rgba(220, 38, 38, ${d.opacity})`;
-      ctx.shadowColor = 'rgba(239, 68, 68, 0.4)';
+      // Crimson #D00000 with Burgundy #6A040F depth
+      ctx.fillStyle = `rgba(208, 0, 0, ${d.opacity})`;
+      ctx.shadowColor = 'rgba(208, 0, 0, 0.4)';
       ctx.shadowBlur = d.radius * 2;
 
-      // Teardrop shape
       ctx.beginPath();
       ctx.arc(0, 0, d.radius, 0, Math.PI, false);
       ctx.bezierCurveTo(
@@ -83,14 +82,13 @@ export const BloodDropsCanvas: React.FC = () => {
     const drawCell = (ctx: CanvasRenderingContext2D, d: Drop) => {
       ctx.save();
       ctx.translate(d.x, d.y);
-      // Erythrocyte / Red blood cell donut gradient
       const grad = ctx.createRadialGradient(0, 0, d.radius * 0.2, 0, 0, d.radius);
-      grad.addColorStop(0, `rgba(127, 29, 29, ${d.opacity * 0.8})`);
-      grad.addColorStop(0.7, `rgba(220, 38, 38, ${d.opacity})`);
-      grad.addColorStop(1, `rgba(185, 28, 28, ${d.opacity * 0.4})`);
+      grad.addColorStop(0, `rgba(106, 4, 15, ${d.opacity * 0.9})`);
+      grad.addColorStop(0.7, `rgba(208, 0, 0, ${d.opacity})`);
+      grad.addColorStop(1, `rgba(185, 28, 28, ${d.opacity * 0.3})`);
 
       ctx.fillStyle = grad;
-      ctx.shadowColor = 'rgba(220, 38, 38, 0.3)';
+      ctx.shadowColor = 'rgba(208, 0, 0, 0.3)';
       ctx.shadowBlur = d.radius * 1.5;
 
       ctx.beginPath();
@@ -102,9 +100,9 @@ export const BloodDropsCanvas: React.FC = () => {
     const drawParticle = (ctx: CanvasRenderingContext2D, d: Drop) => {
       ctx.save();
       ctx.translate(d.x, d.y);
-      ctx.fillStyle = `rgba(248, 113, 113, ${d.opacity * 0.6})`;
-      ctx.shadowColor = 'rgba(239, 68, 68, 0.5)';
-      ctx.shadowBlur = 6;
+      ctx.fillStyle = `rgba(248, 113, 113, ${d.opacity * 0.5})`;
+      ctx.shadowColor = 'rgba(208, 0, 0, 0.5)';
+      ctx.shadowBlur = 4;
       ctx.beginPath();
       ctx.arc(0, 0, d.radius * 0.6, 0, Math.PI * 2);
       ctx.fill();
@@ -114,28 +112,11 @@ export const BloodDropsCanvas: React.FC = () => {
     const animate = () => {
       ctx.clearRect(0, 0, width, height);
 
-      // Deep dark blood-red ambient glow backdrop
-      const radialBg = ctx.createRadialGradient(
-        width * 0.5,
-        height * 0.3,
-        50,
-        width * 0.5,
-        height * 0.5,
-        Math.max(width, height) * 0.8
-      );
-      radialBg.addColorStop(0, 'rgba(127, 29, 29, 0.12)');
-      radialBg.addColorStop(0.5, 'rgba(69, 10, 10, 0.08)');
-      radialBg.addColorStop(1, 'rgba(10, 2, 4, 0)');
-      ctx.fillStyle = radialBg;
-      ctx.fillRect(0, 0, width, height);
-
-      // Render floating droplets & blood cells
       for (const d of drops) {
         d.wobble += d.wobbleSpeed;
-        d.y -= d.speedY; // Floating upward organically
-        d.x += Math.sin(d.wobble) * 0.3 + d.speedX;
+        d.y -= d.speedY;
+        d.x += Math.sin(d.wobble) * 0.25 + d.speedX;
 
-        // Reset if offscreen top
         if (d.y < -30) {
           d.y = height + 30;
           d.x = Math.random() * width;
@@ -166,8 +147,8 @@ export const BloodDropsCanvas: React.FC = () => {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-0 w-full h-full"
-      style={{ opacity: 0.95 }}
+      className="fixed inset-0 pointer-events-none z-1 w-full h-full"
+      style={{ opacity: 0.85 }}
     />
   );
 };

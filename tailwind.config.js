@@ -8,22 +8,34 @@ export default {
   theme: {
     extend: {
       colors: {
+        obsidian: '#0E0E10',
+        charcoal: '#2A2A2F',
+        burgundy: '#6A040F',
+        crimson: '#D00000',
+        brand: {
+          dark: '#0E0E10',
+          panel: '#2A2A2F',
+          burgundy: '#6A040F',
+          red: '#D00000',
+          white: '#F8F9FA',
+        },
         blood: {
           50: '#FEF2F2',
           100: '#FEE2E2',
           200: '#FECACA',
           300: '#FCA5A5',
           400: '#F87171',
-          500: '#EF4444',
-          600: '#DC2626',
+          500: '#D00000',
+          600: '#D00000',
           700: '#B91C1C',
-          800: '#991B1B',
-          900: '#7F1D1D',
-          950: '#450A0A',
+          800: '#6A040F',
+          900: '#450A0A',
+          950: '#0E0E10',
         },
         slate: {
-          850: '#151E2E',
-          950: '#070B14',
+          850: '#1e1e24',
+          900: '#141418',
+          950: '#0E0E10',
         }
       },
       fontFamily: {
@@ -52,4 +64,3 @@ export default {
   },
   plugins: [],
 }
-

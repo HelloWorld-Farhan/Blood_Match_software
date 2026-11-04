@@ -19,6 +19,7 @@ import {
   PhoneCall
 } from 'lucide-react';
 import { BloodDropsCanvas } from './BloodDropsCanvas';
+import { AmbientBackgroundVideo } from './AmbientBackgroundVideo';
 import { getDonors, getEmergencyRequests, getInventory } from '../services/storage';
 
 interface NotificationItem {
@@ -137,7 +138,10 @@ export default function Layout() {
   };
 
   return (
-    <div className="relative min-h-screen bg-crimson-void font-sans text-slate-100 flex flex-col selection:bg-red-600 selection:text-white">
+    <div className="relative min-h-screen bg-[#0E0E10] font-sans text-white flex flex-col selection:bg-[#D00000] selection:text-white">
+      {/* 4K UHD Ambient Background Video Layer */}
+      <AmbientBackgroundVideo />
+
       {/* Floating Blood Drops Canvas in Background */}
       <BloodDropsCanvas />
 
@@ -357,3 +361,4 @@ export default function Layout() {
     </div>
   );
 }
+
