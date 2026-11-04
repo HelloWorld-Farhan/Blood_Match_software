@@ -24,6 +24,7 @@ export const BloodStorage = {
     try {
       localStorage.setItem(STORAGE_KEYS.DONORS, JSON.stringify(donors));
       window.dispatchEvent(new CustomEvent('bloodmatch_donors_updated'));
+      window.dispatchEvent(new Event('storage'));
     } catch (e) {
       console.warn('Failed to save donors', e);
     }
@@ -57,6 +58,7 @@ export const BloodStorage = {
     try {
       localStorage.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify(requests));
       window.dispatchEvent(new CustomEvent('bloodmatch_requests_updated'));
+      window.dispatchEvent(new Event('storage'));
     } catch (e) {
       console.warn('Failed to save requests', e);
     }
@@ -67,7 +69,7 @@ export const BloodStorage = {
     const newReq: EmergencyRequest = {
       ...reqData,
       id: 'REQ-' + Date.now().toString().slice(-6),
-      status: 'PENDING',
+      status: 'urgent',
       createdAt: new Date().toISOString(),
     };
     this.saveEmergencyRequests([newReq, ...current]);
@@ -96,9 +98,9 @@ export const BloodStorage = {
         id: `INV-${type}`,
         bloodType: type,
         unitsAvailable: 0,
-        storageFacility: 'Central Blood Bank',
+        storageFacility: 'Central Cryo-Vault 01',
         lastTestedDate: new Date().toISOString().split('T')[0],
-        status: 'CRITICAL',
+        status: 'critical',
       }));
       return initial;
     } catch {
@@ -111,6 +113,7 @@ export const BloodStorage = {
     try {
       localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(units));
       window.dispatchEvent(new CustomEvent('bloodmatch_inventory_updated'));
+      window.dispatchEvent(new Event('storage'));
     } catch (e) {
       console.warn('Failed to save inventory', e);
     }
@@ -123,8 +126,8 @@ export const BloodStorage = {
         return {
           ...item,
           unitsAvailable: nextUnits,
-          status: nextUnits >= 15 ? 'OPTIMAL' : nextUnits >= 5 ? 'LOW' : 'CRITICAL',
-        } as BloodInventoryUnit;
+          status: (nextUnits >= 15 ? 'optimal' : nextUnits >= 5 ? 'low' : 'critical') as BloodInventoryUnit['status'],
+        };
       }
       return item;
     });
@@ -151,9 +154,20 @@ export const BloodStorage = {
         localStorage.removeItem(STORAGE_KEYS.USER);
       }
       window.dispatchEvent(new CustomEvent('bloodmatch_user_updated'));
+      window.dispatchEvent(new Event('storage'));
     } catch (e) {
       console.warn('Failed to set user', e);
     }
   },
 };
 
+export const getDonors = () => BloodStorage.getDonors();
+export const saveDonors = (donors: Donor[]) => BloodStorage.saveDonors(donors);
+export const getEmergencyRequests = () => BloodStorage.getEmergencyRequests();
+export const saveEmergencyRequests = (requests: EmergencyRequest[]) => BloodStorage.saveEmergencyRequests(requests);
+export const getInventory = () => BloodStorage.getInventory();
+export const saveInventory = (units: BloodInventoryUnit[]) => BloodStorage.saveInventory(units);
+export const updateInventoryUnits = (type: BloodType, delta: number) => {
+  BloodStorage.updateUnits(type, delta);
+  return BloodStorage.getInventory();
+};

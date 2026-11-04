@@ -1,24 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BloodType, Donor } from '../types';
-import { Users, Plus, Search, Filter, Phone, MapPin, Calendar, Heart, ShieldCheck, Droplet } from 'lucide-react';
+import { Users, Plus, Search, Filter, Phone, MapPin, Calendar, Heart, ShieldCheck, Droplet, X, Mail } from 'lucide-react';
+import { getDonors, saveDonors } from '../services/storage';
 
-interface DonorRegistryProps {
-  donors: Donor[];
-  onAddDonor: (donor: Omit<Donor, 'id' | 'registeredAt' | 'unitsDonatedTotal'>) => void;
-  isOpenModal: boolean;
-  onOpenModal: () => void;
-  onCloseModal: () => void;
-}
-
-export default function DonorRegistry({
-  donors,
-  onAddDonor,
-  isOpenModal,
-  onOpenModal,
-  onCloseModal,
-}: DonorRegistryProps) {
+export default function DonorRegistry() {
+  const [donors, setDonors] = useState<Donor[]>([]);
   const [search, setSearch] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<string>('ALL');
+  const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
 
   // Form states for donor registration
   const [fullName, setFullName] = useState('');
@@ -32,6 +21,28 @@ export default function DonorRegistry({
   const [available, setAvailable] = useState(true);
 
   const bloodTypes: BloodType[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
+  const loadData = () => {
+    setDonors(getDonors());
+  };
+
+  useEffect(() => {
+    loadData();
+    window.addEventListener('storage', loadData);
+    return () => window.removeEventListener('storage', loadData);
+  }, []);
+
+  const onAddDonor = (newDonorData: Omit<Donor, 'id' | 'registeredAt' | 'unitsDonatedTotal'>) => {
+    const newDonor: Donor = {
+      ...newDonorData,
+      id: `DNR-${Date.now().toString().slice(-6)}`,
+      registeredAt: new Date().toISOString(),
+      unitsDonatedTotal: 0,
+    };
+    const updated = [newDonor, ...donors];
+    saveDonors(updated);
+    setDonors(updated);
+  };
 
   const filteredDonors = donors.filter(d => {
     const matchesFilter = selectedFilter === 'ALL' || d.bloodType === selectedFilter;
@@ -49,89 +60,75 @@ export default function DonorRegistry({
     if (!fullName || !phone || !email || !city) return;
 
     onAddDonor({
-      fullName: fullName.trim(),
+      fullName,
       bloodType,
-      age: Number(age),
+      age,
       gender,
-      phone: phone.trim(),
-      email: email.trim().toLowerCase(),
-      city: city.trim(),
-      state: state.trim() || 'Active Jurisdiction',
-      available,
-      lastDonationDate: new Date().toISOString().split('T')[0],
+      phone,
+      email,
+      city,
+      state: state || 'Central',
+      isAvailable: available,
     });
 
-    // Reset form
+    // Reset Form
     setFullName('');
     setPhone('');
     setEmail('');
     setCity('');
     setState('');
-    onCloseModal();
+    setIsOpenModal(false);
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-fade-in">
-      {/* Header Banner */}
-      <div className="p-6 sm:p-8 rounded-3xl bg-slate-900/80 border border-slate-800 backdrop-blur-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-6 sm:space-y-8 animate-fade-in pb-12">
+      {/* Header */}
+      <div className="p-6 sm:p-8 rounded-2xl glass-card border border-red-900/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-bold border border-blue-500/30 mb-2">
-            <Users className="w-3.5 h-3.5 text-blue-400" />
-            <span>Voluntary Donor Network</span>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-600/20 text-red-300 text-xs font-bold border border-red-500/30 mb-2">
+            <Users className="w-3.5 h-3.5 text-red-400" />
+            <span>Voluntary Transfusion Network</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-            Registered Donor Directory
+            Certified Donor Directory
           </h1>
           <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
-            Locate and coordinate certified voluntary blood donors with verified RhD status and immediate mobilization readiness.
+            Directory of screened, voluntary blood donors on standby for emergency cross-matching and local hospital response.
           </p>
         </div>
 
         <button
-          type="button"
-          onClick={onOpenModal}
-          className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blood-600 to-blood-700 hover:from-blood-500 hover:to-blood-600 text-white text-xs font-bold shadow-lg shadow-blood-900/50 flex items-center justify-center gap-2 transition-all cursor-pointer shrink-0"
+          onClick={() => setIsOpenModal(true)}
+          className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold text-sm shadow-xl shadow-red-900/40 hover:shadow-red-600/30 transition-all cursor-pointer shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span>Register New Donor</span>
         </button>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        {/* Search */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+      {/* Controls & Blood Group Filters */}
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+        {/* Search Input */}
+        <div className="relative w-full md:w-96">
+          <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-500" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search donors by name, city, blood type or phone..."
-            className="w-full bg-slate-900/80 border border-slate-800 rounded-2xl py-2.5 pl-10 pr-4 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blood-500 backdrop-blur-md"
+            placeholder="Search by name, city, phone..."
+            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-900/90 border border-slate-800 focus:border-red-500 text-xs text-white placeholder-slate-500 outline-hidden"
           />
         </div>
 
-        {/* Blood Group Filter Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-          <button
-            type="button"
-            onClick={() => setSelectedFilter('ALL')}
-            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              selectedFilter === 'ALL'
-                ? 'bg-blood-600 text-white shadow-md shadow-blood-900/40'
-                : 'bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800'
-            }`}
-          >
-            All Groups
-          </button>
-          {bloodTypes.map(bt => (
+        {/* Blood Group Filter Pills */}
+        <div className="flex flex-wrap gap-1.5 w-full md:w-auto">
+          {['ALL', ...bloodTypes].map(bt => (
             <button
               key={bt}
-              type="button"
               onClick={() => setSelectedFilter(bt)}
-              className={`px-2.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 selectedFilter === bt
-                  ? 'bg-blood-600 text-white shadow-md shadow-blood-900/40'
+                  ? 'bg-red-600 text-white shadow-md shadow-red-900/40'
                   : 'bg-slate-900/80 text-slate-400 hover:text-white border border-slate-800'
               }`}
             >
@@ -141,76 +138,75 @@ export default function DonorRegistry({
         </div>
       </div>
 
-      {/* Donor Grid or Empty State */}
+      {/* Donors Grid */}
       {filteredDonors.length === 0 ? (
-        <div className="p-12 text-center rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-xl space-y-4">
-          <div className="w-16 h-16 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center mx-auto border border-slate-700">
-            <Users className="w-8 h-8 text-blood-400" />
-          </div>
-          <div className="max-w-md mx-auto space-y-1">
-            <h3 className="text-base font-bold text-white">No Donors in Directory</h3>
-            <p className="text-xs text-slate-400">
-              {search || selectedFilter !== 'ALL'
-                ? 'No donors match your search or filter parameters. Try clearing your filters.'
-                : 'The donor directory is initially zero. Register verified volunteer donors to begin coordination.'}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onOpenModal}
-            className="px-5 py-2.5 rounded-xl bg-blood-600 hover:bg-blood-500 text-white text-xs font-bold shadow-lg transition-all cursor-pointer"
-          >
-            + Register First Donor
-          </button>
+        <div className="p-12 text-center rounded-2xl glass-card border border-dashed border-red-950/60">
+          <Heart className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+          <h3 className="text-lg font-bold text-white">No registered donors found</h3>
+          <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+            {search || selectedFilter !== 'ALL'
+              ? 'No donors match your search or filter criteria. Try resetting your filters.'
+              : 'The voluntary donor registry currently has zero donors. Register your first donor using the button above.'}
+          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredDonors.map(donor => (
             <div
               key={donor.id}
-              className="p-5 rounded-3xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 backdrop-blur-xl transition-all shadow-md hover:shadow-xl space-y-3"
+              className="p-5 rounded-2xl glass-card border border-red-900/30 hover:border-red-600/40 transition-all flex flex-col justify-between"
             >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white">{donor.fullName}</h3>
-                  <span className="text-[11px] text-slate-400 font-mono">
-                    ID: {donor.id} · {donor.age} yrs · {donor.gender}
+              <div>
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-600 to-red-900 flex flex-col items-center justify-center font-black text-white shadow-lg shadow-red-950/60 border border-red-500/30">
+                      <span className="text-[10px] uppercase font-bold text-red-200">Blood</span>
+                      <span className="text-base">{donor.bloodType}</span>
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-white text-base">{donor.fullName}</h3>
+                      <div className="text-xs text-slate-400 mt-0.5">
+                        {donor.age} yrs • {donor.gender}
+                      </div>
+                    </div>
+                  </div>
+
+                  <span className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full border ${
+                    donor.isAvailable 
+                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40' 
+                      : 'bg-slate-800 text-slate-400 border-slate-700'
+                  }`}>
+                    {donor.isAvailable ? 'Ready' : 'Resting'}
                   </span>
                 </div>
-                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-blood-600 to-blood-800 flex items-center justify-center text-white font-black text-sm shadow-md shadow-blood-950/60 border border-blood-500/40">
-                  {donor.bloodType}
-                </div>
-              </div>
 
-              <div className="space-y-1.5 text-xs text-slate-300 font-mono">
-                <div className="flex items-center gap-2">
-                  <Phone className="w-3.5 h-3.5 text-slate-500" />
-                  <a href={`tel:${donor.phone}`} className="hover:text-blood-400 transition-colors">
-                    {donor.phone}
-                  </a>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-3.5 h-3.5 text-slate-500" />
-                  <span>{donor.city}, {donor.state}</span>
-                </div>
-                {donor.lastDonationDate && (
+                <div className="space-y-1.5 text-xs text-slate-300 py-2 border-y border-red-900/20">
                   <div className="flex items-center gap-2">
-                    <Calendar className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Last Donated: {donor.lastDonationDate}</span>
+                    <MapPin className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                    <span>{donor.city}, {donor.state}</span>
                   </div>
-                )}
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    <span className="truncate">{donor.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span className="font-mono">{donor.phone}</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs">
-                <span className={`inline-flex items-center gap-1.5 text-[11px] font-bold ${
-                  donor.available ? 'text-emerald-400' : 'text-slate-500'
-                }`}>
-                  <span className={`w-2 h-2 rounded-full ${donor.available ? 'bg-emerald-500' : 'bg-slate-600'}`} />
-                  {donor.available ? 'Ready to Donate' : 'Unavailable'}
+              <div className="mt-4 pt-3 flex items-center justify-between text-xs">
+                <span className="text-slate-400 text-[11px]">
+                  Total Pints: <strong className="text-white">{donor.unitsDonatedTotal}</strong>
                 </span>
-                <span className="text-[11px] text-slate-400">
-                  {donor.unitsDonatedTotal} units logged
-                </span>
+                <a
+                  href={`tel:${donor.phone}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-950/60 hover:bg-red-900/60 text-red-300 border border-red-800/40 font-semibold transition-colors"
+                >
+                  <Phone className="w-3 h-3" />
+                  <span>Mobilize</span>
+                </a>
               </div>
             </div>
           ))}
@@ -219,65 +215,68 @@ export default function DonorRegistry({
 
       {/* Register Donor Modal */}
       {isOpenModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-3xl p-6 sm:p-8 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <Droplet className="w-5 h-5 text-blood-500" />
-                <h3 className="text-base font-bold text-white">Register Blood Donor</h3>
-              </div>
-              <button
-                type="button"
-                onClick={onCloseModal}
-                className="text-slate-400 hover:text-white cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+          <div className="relative w-full max-w-xl rounded-2xl glass-card border border-red-900/50 p-6 shadow-2xl">
+            <button
+              onClick={() => setIsOpenModal(false)}
+              className="absolute top-4 right-4 p-1 rounded-lg text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
 
-            <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Full Legal Name</label>
-                <input
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="e.g. Farhan Khalid"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-blood-500"
-                />
-              </div>
+            <h2 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
+              <Users className="w-5 h-5 text-red-500" />
+              <span>Register Voluntary Blood Donor</span>
+            </h2>
+            <p className="text-xs text-slate-400 mb-4">
+              Enrolls candidate into the emergency mobilization ledger with ABO/Rh screening.
+            </p>
 
-              <div className="grid grid-cols-3 gap-2">
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Blood Type</label>
-                  <select
-                    value={bloodType}
-                    onChange={(e) => setBloodType(e.target.value as BloodType)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-blood-400 font-bold focus:outline-none focus:border-blood-500"
-                  >
-                    {bloodTypes.map(bt => (
-                      <option key={bt} value={bt}>{bt}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Age</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Full Legal Name</label>
                   <input
-                    type="number"
-                    min={18}
-                    max={65}
-                    value={age}
-                    onChange={(e) => setAge(Number(e.target.value))}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-blood-500"
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Jane Doe"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Gender</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Blood Group</label>
+                  <select
+                    value={bloodType}
+                    onChange={(e) => setBloodType(e.target.value as BloodType)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white font-bold"
+                  >
+                    {bloodTypes.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Age (18 - 65)</label>
+                  <input
+                    type="number"
+                    min="18"
+                    max="65"
+                    value={age}
+                    onChange={(e) => setAge(Number(e.target.value))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Biological Gender</label>
                   <select
                     value={gender}
-                    onChange={(e) => setGender(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white focus:outline-none focus:border-blood-500"
+                    onChange={(e) => setGender(e.target.value as Donor['gender'])}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white"
                   >
                     <option value="MALE">Male</option>
                     <option value="FEMALE">Female</option>
@@ -286,81 +285,68 @@ export default function DonorRegistry({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Contact Phone</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Phone Number</label>
                   <input
                     type="tel"
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+91-9876543210"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-blood-500"
+                    placeholder="+1 (555) 019-2831"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Email Address</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>
                   <input
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="donor@mail.com"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-blood-500"
+                    placeholder="jane.doe@example.com"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">City / District</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">City</label>
                   <input
                     type="text"
                     required
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    placeholder="e.g. Mumbai"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-blood-500"
+                    placeholder="Metropolis"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-300 font-semibold mb-1">State</label>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">State / Province</label>
                   <input
                     type="text"
                     value={state}
                     onChange={(e) => setState(e.target.value)}
-                    placeholder="Maharashtra"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-blood-500"
+                    placeholder="NY"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white"
                   />
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-2">
-                <input
-                  type="checkbox"
-                  id="availCheck"
-                  checked={available}
-                  onChange={(e) => setAvailable(e.target.checked)}
-                  className="rounded border-slate-800 text-blood-600 focus:ring-blood-500"
-                />
-                <label htmlFor="availCheck" className="text-slate-300">
-                  Donor is currently healthy, eligible, and ready for call
-                </label>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+              <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={onCloseModal}
-                  className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white cursor-pointer"
+                  onClick={() => setIsOpenModal(false)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blood-600 hover:bg-blood-500 text-white font-bold cursor-pointer shadow-md shadow-blood-900/40"
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-bold shadow-md shadow-red-900/40"
                 >
-                  Save Donor Record
+                  Register Donor
                 </button>
               </div>
             </form>
@@ -370,4 +356,3 @@ export default function DonorRegistry({
     </div>
   );
 }
-

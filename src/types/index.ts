@@ -1,8 +1,8 @@
 export type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
 
-export type UrgencyLevel = 'CRITICAL' | 'URGENT' | 'STANDARD';
+export type UrgencyLevel = 'CRITICAL' | 'URGENT' | 'STANDARD' | 'ROUTINE';
 
-export type RequestStatus = 'PENDING' | 'MATCHED' | 'FULFILLED' | 'CANCELLED';
+export type RequestStatus = 'urgent' | 'critical' | 'fulfilled' | 'pending' | 'PENDING' | 'MATCHED' | 'FULFILLED' | 'CANCELLED';
 
 export interface BloodCompatibility {
   type: BloodType;
@@ -25,7 +25,8 @@ export interface Donor {
   city: string;
   state: string;
   lastDonationDate?: string;
-  available: boolean;
+  available?: boolean;
+  isAvailable?: boolean;
   registeredAt: string;
   unitsDonatedTotal: number;
 }
@@ -36,16 +37,17 @@ export interface EmergencyRequest {
   patientAge: number;
   bloodType: BloodType;
   unitsNeeded: number;
-  hospitalName: string;
-  hospitalCity: string;
-  hospitalWard?: string;
+  hospital: string;
+  hospitalCity?: string;
+  ward?: string;
   urgency: UrgencyLevel;
   contactName: string;
-  contactPhone: string;
-  reason: string;
+  contactNumber: string;
+  reason?: string;
   status: RequestStatus;
   createdAt: string;
   matchedDonorId?: string;
+  fulfilledAt?: string;
 }
 
 export interface BloodInventoryUnit {
@@ -54,7 +56,7 @@ export interface BloodInventoryUnit {
   unitsAvailable: number;
   storageFacility: string;
   lastTestedDate: string;
-  status: 'OPTIMAL' | 'LOW' | 'CRITICAL';
+  status: 'optimal' | 'low' | 'critical' | 'OPTIMAL' | 'LOW' | 'CRITICAL';
 }
 
 export interface UserSession {
@@ -66,4 +68,3 @@ export interface UserSession {
 }
 
 export type ActiveTab = 'dashboard' | 'compatibility' | 'donors' | 'requests' | 'inventory';
-

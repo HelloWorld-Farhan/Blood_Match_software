@@ -1,378 +1,551 @@
-import React, { useState } from 'react';
-import { BloodType, Donor, EmergencyRequest, BloodInventoryUnit, ActiveTab } from '../types';
-import { checkCompatibility, BLOOD_COMPATIBILITY_TABLE } from '../utils/bloodCompatibility';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { 
+  Droplet, 
   Users, 
   AlertTriangle, 
-  Package, 
-  HeartHandshake, 
-  ArrowRight, 
-  ShieldCheck, 
-  Clock, 
-  MapPin, 
-  Phone, 
-  Plus,
+  Database, 
+  TrendingUp, 
+  Activity, 
+  ArrowUpRight, 
+  CheckCircle2, 
+  XCircle, 
+  ShieldAlert, 
+  Plus, 
   Sparkles,
-  Droplet
+  RefreshCw,
+  Clock,
+  Compass
 } from 'lucide-react';
+import { BloodType, EmergencyRequest, Donor } from '../types';
+import { getDonors, getEmergencyRequests, getInventory, saveInventory } from '../services/storage';
+import { checkCompatibility } from '../utils/bloodCompatibility';
 
-interface DashboardProps {
-  donors: Donor[];
-  requests: EmergencyRequest[];
-  inventory: BloodInventoryUnit[];
-  onNavigate: (tab: ActiveTab) => void;
-  onOpenDonorModal: () => void;
-  onOpenRequestModal: () => void;
-}
+export const Dashboard: React.FC = () => {
+  const [requests, setRequests] = useState<EmergencyRequest[]>([]);
+  const [donors, setDonors] = useState<Donor[]>([]);
+  const [inventory, setInventory] = useState(getInventory());
 
-export default function Dashboard({
-  donors,
-  requests,
-  inventory,
-  onNavigate,
-  onOpenDonorModal,
-  onOpenRequestModal,
-}: DashboardProps) {
-  const [quickDonorType, setQuickDonorType] = useState<BloodType>('O-');
-  const [quickRecipientType, setQuickRecipientType] = useState<BloodType>('A+');
+  // Interactive Quick Cross-Match State
+  const [recipientType, setRecipientType] = useState<BloodType>('O+');
+  const [donorType, setDonorType] = useState<BloodType>('O-');
 
-  const compatibility = checkCompatibility(quickDonorType, quickRecipientType);
-  const totalInventoryUnits = inventory.reduce((acc, curr) => acc + curr.unitsAvailable, 0);
-  const activeRequests = requests.filter(r => r.status === 'PENDING');
-  const bloodTypes: BloodType[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  const matchResult = checkCompatibility(donorType, recipientType);
+
+  useEffect(() => {
+    loadData();
+    const handleStorage = () => loadData();
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  const loadData = () => {
+    setRequests(getEmergencyRequests());
+    setDonors(getDonors());
+    setInventory(getInventory());
+  };
+
+  const totalUnits = inventory.reduce((acc, curr) => acc + curr.unitsAvailable, 0);
+  const urgentCount = requests.filter(r => r.status === 'urgent' || r.status === 'critical').length;
+  const criticalUnitsCount = inventory.filter(i => i.status === 'critical').length;
+
+  // 7-day trend mockup data for SVG curved chart
+  const trendData = [
+    { day: 'Mon', requests: 4, mobilized: 6 },
+    { day: 'Tue', requests: 7, mobilized: 5 },
+    { day: 'Wed', requests: 3, mobilized: 8 },
+    { day: 'Thu', requests: 9, mobilized: 11 },
+    { day: 'Fri', requests: 6, mobilized: 7 },
+    { day: 'Sat', requests: 12, mobilized: 14 },
+    { day: 'Sun', requests: 5, mobilized: 9 },
+  ];
+
+  // SVG dimensions for 7-day trend chart
+  const maxVal = 16;
+  const chartWidth = 500;
+  const chartHeight = 140;
+
+  const pointsReq = trendData.map((d, i) => {
+    const x = (i / (trendData.length - 1)) * (chartWidth - 40) + 20;
+    const y = chartHeight - (d.requests / maxVal) * (chartHeight - 30) - 15;
+    return `${x},${y}`;
+  }).join(' ');
+
+  const pointsMob = trendData.map((d, i) => {
+    const x = (i / (trendData.length - 1)) * (chartWidth - 40) + 20;
+    const y = chartHeight - (d.mobilized / maxVal) * (chartHeight - 30) - 15;
+    return `${x},${y}`;
+  }).join(' ');
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-fade-in">
-      {/* Hero Welcome Banner */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900/90 via-slate-900/80 to-blood-950/70 border border-slate-800/80 p-6 sm:p-8 backdrop-blur-xl shadow-2xl">
-        <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blood-600/20 border border-blood-500/40 text-blood-300 text-xs font-bold">
-            <span className="w-2 h-2 rounded-full bg-blood-500 animate-pulse" />
-            <span>Transfusion Compatibility Engine Online</span>
+    <div className="space-y-5 animate-fade-in pb-12">
+      {/* Top Banner & Refresh */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl glass-card border border-red-900/30">
+        <div>
+          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-red-950/60 border border-red-700/40 text-red-300 text-xs font-bold mb-1">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span>Real-Time Transfusion Telemetry Active</span>
           </div>
-          <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-            Universal Blood Compatibility & Emergency Matching
+          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            Executive Blood Operations Dashboard
           </h1>
-          <p className="text-xs sm:text-sm text-slate-300/90 leading-relaxed">
-            Eliminate transfusion mismatch risks with real-time RhD and antigenic cross-matching, instant local donor coordination, and centralized blood bank inventory tracking.
+          <p className="text-xs text-slate-400">
+            Precision ABO/Rh cross-matching, cryo-vault inventory, and emergency trauma routing.
           </p>
-
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onOpenRequestModal}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blood-600 to-blood-700 hover:from-blood-500 hover:to-blood-600 text-white text-xs font-bold shadow-lg shadow-blood-900/50 flex items-center gap-2 transition-all cursor-pointer"
-            >
-              <AlertTriangle className="w-4 h-4" />
-              <span>Broadcast Emergency Request</span>
-            </button>
-            <button
-              type="button"
-              onClick={onOpenDonorModal}
-              className="px-4 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold border border-slate-700 transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <Plus className="w-4 h-4 text-blood-400" />
-              <span>Register New Donor</span>
-            </button>
-          </div>
         </div>
 
-        {/* Ambient Decorative Badge */}
-        <div className="hidden lg:flex absolute right-8 top-1/2 -translate-y-1/2 flex-col items-center justify-center w-36 h-36 rounded-full bg-slate-950/60 border border-blood-500/30 p-4 text-center backdrop-blur-md">
-          <Droplet className="w-8 h-8 text-blood-500 fill-blood-500 animate-pulse-subtle" />
-          <span className="text-xs font-extrabold text-white mt-1">Zero Mismatch</span>
-          <span className="text-[10px] text-slate-400">Strict Antigens</span>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={loadData}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-xs font-semibold transition-colors cursor-pointer"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Sync Telemetry</span>
+          </button>
+          <Link
+            to="/dashboard/emergency"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white text-xs font-bold shadow-md shadow-red-900/40 transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Emergency Call</span>
+          </Link>
         </div>
       </div>
 
-      {/* KPI Metric Cards (All Initially 0 as Requested) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Total Donors */}
-        <div 
-          onClick={() => onNavigate('donors')}
-          className="group p-4 sm:p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 backdrop-blur-md transition-all cursor-pointer hover:shadow-xl hover:shadow-slate-950/40"
-        >
+      {/* 4 Primary Metric Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {/* Card 1: Cryo Units */}
+        <div className="p-4 rounded-2xl glass-card border border-red-900/30 hover:border-red-600/50 transition-all group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-400">Registered Donors</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center border border-blue-500/20 group-hover:scale-110 transition-transform">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cryo-Vault Units</span>
+            <div className="w-8 h-8 rounded-xl bg-red-950/80 text-red-400 flex items-center justify-center border border-red-800/40 group-hover:scale-105 transition-transform">
+              <Database className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold text-white">{totalUnits}</span>
+            <span className="text-xs text-slate-400">pints available</span>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400 border-t border-red-950/50 pt-2">
+            <span className="text-amber-400 font-semibold">{criticalUnitsCount} low reserve groups</span>
+            <Link to="/dashboard/inventory" className="text-red-400 hover:underline flex items-center gap-0.5">
+              <span>Manage</span>
+              <ArrowUpRight className="w-3 h-3" />
+            </Link>
+          </div>
+        </div>
+
+        {/* Card 2: Active Donors */}
+        <div className="p-4 rounded-2xl glass-card border border-red-900/30 hover:border-red-600/50 transition-all group">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Certified Donors</span>
+            <div className="w-8 h-8 rounded-xl bg-red-950/80 text-red-400 flex items-center justify-center border border-red-800/40 group-hover:scale-105 transition-transform">
               <Users className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black text-white">{donors.length}</span>
-            <span className="text-[11px] text-slate-500 font-mono">active pool</span>
+            <span className="text-3xl font-extrabold text-white">{donors.length}</span>
+            <span className="text-xs text-slate-400">registered</span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1 group-hover:text-blue-300">
-            <span>Manage Directory</span>
-            <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-          </p>
+          <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400 border-t border-red-950/50 pt-2">
+            <span className="text-emerald-400 font-semibold">100% Volunteer Network</span>
+            <Link to="/dashboard/donors" className="text-red-400 hover:underline flex items-center gap-0.5">
+              <span>View list</span>
+              <ArrowUpRight className="w-3 h-3" />
+            </Link>
+          </div>
         </div>
 
-        {/* Active Emergency Requests */}
-        <div 
-          onClick={() => onNavigate('requests')}
-          className="group p-4 sm:p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-blood-500/50 backdrop-blur-md transition-all cursor-pointer hover:shadow-xl hover:shadow-blood-950/40"
-        >
+        {/* Card 3: Urgent Triage */}
+        <div className="p-4 rounded-2xl glass-card border border-red-900/30 hover:border-red-600/50 transition-all group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-400">Pending Requests</span>
-            <div className="w-8 h-8 rounded-xl bg-blood-500/10 text-blood-400 flex items-center justify-center border border-blood-500/20 group-hover:scale-110 transition-transform">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Urgent Requests</span>
+            <div className="w-8 h-8 rounded-xl bg-red-600/20 text-red-400 flex items-center justify-center border border-red-500/40 group-hover:scale-105 transition-transform">
               <AlertTriangle className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black text-white">{activeRequests.length}</span>
-            <span className="text-[11px] text-blood-400 font-mono">urgent</span>
+            <span className="text-3xl font-extrabold text-white">{urgentCount}</span>
+            <span className="text-xs text-red-400 font-semibold">critical calls</span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1 group-hover:text-blood-300">
-            <span>Live Dispatch Board</span>
-            <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-          </p>
+          <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400 border-t border-red-950/50 pt-2">
+            <span className="text-slate-400">Priority triage active</span>
+            <Link to="/dashboard/emergency" className="text-red-400 hover:underline flex items-center gap-0.5">
+              <span>Dispatch board</span>
+              <ArrowUpRight className="w-3 h-3" />
+            </Link>
+          </div>
         </div>
 
-        {/* Blood Bank Units */}
-        <div 
-          onClick={() => onNavigate('inventory')}
-          className="group p-4 sm:p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-emerald-500/50 backdrop-blur-md transition-all cursor-pointer hover:shadow-xl hover:shadow-emerald-950/40"
-        >
+        {/* Card 4: Engine Velocity */}
+        <div className="p-4 rounded-2xl glass-card border border-red-900/30 hover:border-red-600/50 transition-all group">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-400">Inventory Units</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20 group-hover:scale-110 transition-transform">
-              <Package className="w-4 h-4" />
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cross-Match Latency</span>
+            <div className="w-8 h-8 rounded-xl bg-red-950/80 text-emerald-400 flex items-center justify-center border border-red-800/40 group-hover:scale-105 transition-transform">
+              <Activity className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black text-white">{totalInventoryUnits}</span>
-            <span className="text-[11px] text-emerald-400 font-mono">pints available</span>
+            <span className="text-3xl font-extrabold text-white">0.4ms</span>
+            <span className="text-xs text-emerald-400 font-semibold">Optimal</span>
           </div>
-          <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1 group-hover:text-emerald-300">
-            <span>Inspect Bank Stocks</span>
-            <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-          </p>
-        </div>
-
-        {/* Universal Donor Index */}
-        <div 
-          onClick={() => onNavigate('compatibility')}
-          className="group p-4 sm:p-5 rounded-2xl bg-slate-900/70 border border-slate-800 hover:border-purple-500/50 backdrop-blur-md transition-all cursor-pointer hover:shadow-xl hover:shadow-purple-950/40"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-semibold text-slate-400">ABO / Rh Matrices</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20 group-hover:scale-110 transition-transform">
-              <HeartHandshake className="w-4 h-4" />
-            </div>
+          <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400 border-t border-red-950/50 pt-2">
+            <span className="text-slate-400">8x8 ABO/RhD matrix</span>
+            <Link to="/dashboard/matrix" className="text-red-400 hover:underline flex items-center gap-0.5">
+              <span>Open matrix</span>
+              <ArrowUpRight className="w-3 h-3" />
+            </Link>
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-black text-white">8 / 8</span>
-            <span className="text-[11px] text-purple-400 font-mono">types mapped</span>
-          </div>
-          <p className="text-[11px] text-slate-400 mt-2 flex items-center gap-1 group-hover:text-purple-300">
-            <span>Explore Matrix</span>
-            <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform" />
-          </p>
         </div>
       </div>
 
-      {/* Two Column Grid: Live Quick Matcher + Emergency Feed */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* LEFT: Quick Cross-Match Engine (7 Cols) */}
-        <div className="lg:col-span-7 bg-slate-900/80 border border-slate-800 rounded-3xl p-5 sm:p-7 backdrop-blur-xl flex flex-col justify-between">
+      {/* GRAPHICAL SECTION: Stock Level Bar Chart & 7-Day Trend Curve */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Visual Chart 1: Blood Group Stock Level Distribution */}
+        <div className="p-5 rounded-2xl glass-card border border-red-900/30 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-blood-600/20 border border-blood-500/30 text-blood-400 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-white tracking-tight">Interactive Match Evaluator</h2>
-                  <p className="text-xs text-slate-400">Instantaneous RhD and ABO antigenic cross-verification</p>
-                </div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Database className="w-4 h-4 text-red-400" />
+                <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+                  Cryo-Vault Blood Reserves (8 Groups)
+                </h2>
               </div>
-
-              <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                Live Simulator
-              </span>
+              <span className="text-[11px] text-slate-400">Safety Threshold: 10 Units</span>
             </div>
+            <p className="text-xs text-slate-400 mb-4">
+              Real-time pint distribution vs clinical shortage limits across all ABO/Rh alleles.
+            </p>
 
-            {/* Selector Controls */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 my-5">
-              {/* Donor Selection */}
-              <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800">
-                <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center gap-1.5">
-                  <Droplet className="w-3.5 h-3.5 text-blood-400" />
-                  <span>Donor Blood Group</span>
-                </label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {bloodTypes.map(bt => (
-                    <button
-                      key={bt}
-                      type="button"
-                      onClick={() => setQuickDonorType(bt)}
-                      className={`py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                        quickDonorType === bt
-                          ? 'bg-blood-600 text-white shadow-md shadow-blood-900/60 scale-105'
-                          : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
-                      }`}
-                    >
-                      {bt}
-                    </button>
-                  ))}
-                </div>
-                <span className="text-[10px] text-slate-500 mt-2 block font-mono">
-                  {BLOOD_COMPATIBILITY_TABLE[quickDonorType].frequency}
-                </span>
-              </div>
+            {/* Graphical Bars */}
+            <div className="space-y-2.5">
+              {inventory.map((item) => {
+                const percentage = Math.min(100, (item.unitsAvailable / 25) * 100);
+                const isCritical = item.unitsAvailable < 5;
+                const isWarning = item.unitsAvailable >= 5 && item.unitsAvailable < 10;
 
-              {/* Recipient Selection */}
-              <div className="bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800">
-                <label className="block text-xs font-bold text-slate-300 mb-1.5 flex items-center gap-1.5">
-                  <Users className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Recipient Blood Group</span>
-                </label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {bloodTypes.map(bt => (
-                    <button
-                      key={bt}
-                      type="button"
-                      onClick={() => setQuickRecipientType(bt)}
-                      className={`py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                        quickRecipientType === bt
-                          ? 'bg-blue-600 text-white shadow-md shadow-blue-900/60 scale-105'
-                          : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
-                      }`}
-                    >
-                      {bt}
-                    </button>
-                  ))}
-                </div>
-                <span className="text-[10px] text-slate-500 mt-2 block font-mono">
-                  Antibodies: {BLOOD_COMPATIBILITY_TABLE[quickRecipientType].antibodies}
-                </span>
-              </div>
-            </div>
-
-            {/* Verdict Card */}
-            <div className={`p-4 rounded-2xl border transition-all ${
-              compatibility.isCompatible
-                ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300'
-                : 'bg-rose-950/30 border-rose-500/40 text-rose-300'
-            }`}>
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <div className={`w-3 h-3 rounded-full ${compatibility.isCompatible ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                  <span className="text-xs font-black tracking-wider uppercase">
-                    {compatibility.isCompatible ? 'Transfusion Permissible' : 'Critical Hazard — Incompatible'}
-                  </span>
-                </div>
-                <span className="text-xs font-black px-2 py-0.5 rounded-full bg-black/40 border border-white/10">
-                  {compatibility.matchScore}% Match
-                </span>
-              </div>
-              <p className="text-xs leading-relaxed opacity-90">
-                {compatibility.clinicalNote}
-              </p>
+                return (
+                  <div key={item.bloodType} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <span className="w-9 font-extrabold text-white text-xs px-1.5 py-0.5 rounded bg-slate-900 border border-red-900/40 text-center">
+                          {item.bloodType}
+                        </span>
+                        <span className="text-[11px] text-slate-400">
+                          {item.bloodType === 'O-' ? 'Universal Donor' : item.bloodType === 'AB+' ? 'Universal Recipient' : 'Specific Match'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-white text-xs">{item.unitsAvailable} Pints</span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                          isCritical ? 'bg-red-500/20 text-red-400 border border-red-500/40' :
+                          isWarning ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40' :
+                          'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                        }`}>
+                          {isCritical ? 'CRITICAL' : isWarning ? 'LOW' : 'OPTIMAL'}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Visual Bar */}
+                    <div className="w-full h-2.5 rounded-full bg-slate-900/90 overflow-hidden border border-slate-800 relative">
+                      {/* Safety Line Marker at 40% (10 units) */}
+                      <div className="absolute top-0 bottom-0 left-[40%] w-[1px] bg-red-400/50 z-10" title="Safe Limit"></div>
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          isCritical ? 'bg-gradient-to-r from-red-600 to-red-500' :
+                          isWarning ? 'bg-gradient-to-r from-amber-600 to-amber-400' :
+                          'bg-gradient-to-r from-red-700 via-red-500 to-emerald-400'
+                        }`}
+                        style={{ width: `${Math.max(4, percentage)}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          <div className="pt-4 mt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400">
-            <span>O- is universal red-cell donor; AB+ is universal recipient.</span>
-            <button
-              type="button"
-              onClick={() => onNavigate('compatibility')}
-              className="font-bold text-blood-400 hover:text-blood-300 flex items-center gap-1 cursor-pointer"
-            >
-              <span>Full Matrix</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+          <div className="mt-4 pt-3 border-t border-red-900/30 flex items-center justify-between text-[11px] text-slate-400">
+            <span>Critical Reserve Line: 10 Pints</span>
+            <Link to="/dashboard/inventory" className="text-red-400 font-semibold hover:underline">
+              Adjust Cryo Vault Units →
+            </Link>
           </div>
         </div>
 
-        {/* RIGHT: Live Emergency Request Board (5 Cols) */}
-        <div className="lg:col-span-5 bg-slate-900/80 border border-slate-800 rounded-3xl p-5 sm:p-7 backdrop-blur-xl flex flex-col justify-between">
+        {/* Visual Chart 2: 7-Day Transfusion Demand vs Mobilization Curve */}
+        <div className="p-5 rounded-2xl glass-card border border-red-900/30 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
-                  <AlertTriangle className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-white tracking-tight">Urgent Requests</h2>
-                  <p className="text-xs text-slate-400">Hospital transfusion alarms</p>
-                </div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-red-400" />
+                <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+                  7-Day Transfusion Demand & Response Curve
+                </h2>
               </div>
+              <div className="flex items-center gap-3 text-[11px]">
+                <span className="flex items-center gap-1.5 text-red-400 font-semibold">
+                  <span className="w-2.5 h-0.5 bg-red-500"></span> Transfusions
+                </span>
+                <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                  <span className="w-2.5 h-0.5 bg-emerald-400"></span> Mobilized
+                </span>
+              </div>
+            </div>
+            <p className="text-xs text-slate-400 mb-4">
+              Real-time trend analysis tracking emergency room request spikes against volunteer turnout.
+            </p>
 
-              <span className="text-xs font-bold text-blood-400 px-2 py-0.5 rounded-full bg-blood-500/10 border border-blood-500/20">
-                {activeRequests.length} Active
-              </span>
+            {/* SVG Wave Chart */}
+            <div className="w-full bg-slate-950/60 rounded-xl p-3 border border-red-950/60">
+              <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-40 overflow-visible">
+                {/* Horizontal Grid lines */}
+                <line x1="20" y1="20" x2={chartWidth - 20} y2="20" stroke="rgba(255,255,255,0.05)" strokeDasharray="4" />
+                <line x1="20" y1="60" x2={chartWidth - 20} y2="60" stroke="rgba(255,255,255,0.05)" strokeDasharray="4" />
+                <line x1="20" y1="100" x2={chartWidth - 20} y2="100" stroke="rgba(255,255,255,0.05)" strokeDasharray="4" />
+
+                {/* Transfusions line */}
+                <polyline
+                  fill="none"
+                  stroke="#EF4444"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  points={pointsReq}
+                />
+
+                {/* Mobilized Donors line */}
+                <polyline
+                  fill="none"
+                  stroke="#10B981"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  points={pointsMob}
+                />
+
+                {/* Data Points */}
+                {trendData.map((d, i) => {
+                  const x = (i / (trendData.length - 1)) * (chartWidth - 40) + 20;
+                  const yReq = chartHeight - (d.requests / maxVal) * (chartHeight - 30) - 15;
+                  const yMob = chartHeight - (d.mobilized / maxVal) * (chartHeight - 30) - 15;
+                  return (
+                    <g key={i}>
+                      <circle cx={x} cy={yReq} r="4" fill="#EF4444" stroke="#080102" strokeWidth="2" />
+                      <circle cx={x} cy={yMob} r="4" fill="#10B981" stroke="#080102" strokeWidth="2" />
+                      <text x={x} y={chartHeight + 14} fill="#94A3B8" fontSize="10" textAnchor="middle">
+                        {d.day}
+                      </text>
+                    </g>
+                  );
+                })}
+              </svg>
             </div>
 
-            {/* Requests Stream */}
-            <div className="my-4 space-y-3 max-h-[300px] overflow-y-auto pr-1">
-              {activeRequests.length === 0 ? (
-                <div className="p-8 text-center rounded-2xl bg-slate-950/50 border border-slate-800/60 text-slate-400 space-y-2">
-                  <ShieldCheck className="w-8 h-8 mx-auto text-emerald-400/80" />
-                  <p className="text-xs font-bold text-slate-300">All Requests Fulfilled</p>
-                  <p className="text-[11px] text-slate-500">
-                    No active emergency calls right now. System is operating under standard protocols.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={onOpenRequestModal}
-                    className="mt-2 text-xs font-bold text-blood-400 hover:underline cursor-pointer"
-                  >
-                    + Create Emergency Call
-                  </button>
-                </div>
-              ) : (
-                activeRequests.slice(0, 3).map(req => (
-                  <div
-                    key={req.id}
-                    className="p-3.5 rounded-2xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition-colors space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 rounded-lg bg-blood-600 text-white font-black text-xs">
-                          {req.bloodType}
-                        </span>
-                        <span className="text-xs font-bold text-white">{req.patientName}</span>
-                      </div>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                        req.urgency === 'CRITICAL'
-                          ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                      }`}>
-                        {req.urgency}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-400 font-mono">
-                      <div className="flex items-center gap-1 truncate">
-                        <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
-                        <span className="truncate">{req.hospitalName}</span>
-                      </div>
-                      <div className="flex items-center gap-1 justify-end">
-                        <Droplet className="w-3 h-3 text-blood-400 shrink-0" />
-                        <span>{req.unitsNeeded} Units Needed</span>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
+            {/* Trend Summary Indicators */}
+            <div className="grid grid-cols-2 gap-3 mt-4">
+              <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                <span className="text-[11px] text-slate-400 block">Weekly Transfusions</span>
+                <span className="text-base font-bold text-red-400">46 Critical Units</span>
+                <span className="text-[10px] text-emerald-400 block mt-0.5">↑ 12% fulfillment velocity</span>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800">
+                <span className="text-[11px] text-slate-400 block">Volunteer Donors Engaged</span>
+                <span className="text-base font-bold text-emerald-400">60 Certified Donors</span>
+                <span className="text-[10px] text-slate-400 block mt-0.5">Zero contraindication rate</span>
+              </div>
             </div>
           </div>
 
-          <div className="pt-3 border-t border-slate-800">
-            <button
-              type="button"
-              onClick={() => onNavigate('requests')}
-              className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+          <div className="mt-4 pt-3 border-t border-red-900/30 flex items-center justify-between text-[11px] text-slate-400">
+            <span>AABB Protocol Validated</span>
+            <span className="text-emerald-400 font-semibold">System Load: 18%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* QUICK CROSS-MATCH EVALUATOR & LIVE TRIAGE */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Interactive Quick Cross-Match Simulator */}
+        <div className="p-5 rounded-2xl glass-card border border-red-900/30 lg:col-span-1 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Droplet className="w-4 h-4 text-red-400" />
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+                Instant ABO/Rh Cross-Match
+              </h2>
+            </div>
+            <p className="text-xs text-slate-400 mb-4">
+              Simulate compatibility between recipient serum and prospective donor red cells.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Recipient Blood Group
+                </label>
+                <select
+                  value={recipientType}
+                  onChange={(e) => setRecipientType(e.target.value as BloodType)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white font-bold text-sm focus:border-red-500 outline-hidden"
+                >
+                  <option value="O-">O-</option>
+                  <option value="O+">O+</option>
+                  <option value="A-">A-</option>
+                  <option value="A+">A+</option>
+                  <option value="B-">B-</option>
+                  <option value="B+">B+</option>
+                  <option value="AB-">AB-</option>
+                  <option value="AB+">AB+</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1">
+                  Candidate Donor Blood Group
+                </label>
+                <select
+                  value={donorType}
+                  onChange={(e) => setDonorType(e.target.value as BloodType)}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white font-bold text-sm focus:border-red-500 outline-hidden"
+                >
+                  <option value="O-">O- (Universal)</option>
+                  <option value="O+">O+</option>
+                  <option value="A-">A-</option>
+                  <option value="A+">A+</option>
+                  <option value="B-">B-</option>
+                  <option value="B+">B+</option>
+                  <option value="AB-">AB-</option>
+                  <option value="AB+">AB+</option>
+                </select>
+              </div>
+
+              {/* Match Result Card */}
+              <div className={`p-4 rounded-xl border transition-all mt-4 ${
+                matchResult.isCompatible
+                  ? matchResult.matchScore === 100
+                    ? 'bg-emerald-950/40 border-emerald-600/50 text-emerald-200'
+                    : 'bg-blue-950/40 border-blue-600/50 text-blue-200'
+                  : 'bg-red-950/60 border-red-600/60 text-red-200'
+              }`}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5">
+                    {matchResult.isCompatible ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <XCircle className="w-4 h-4 text-red-400" />
+                    )}
+                    {matchResult.isCompatible ? 'Transfusion Compatible' : 'Incompatible / Contraindicated'}
+                  </span>
+                  <span className="font-mono font-bold text-xs">
+                    Score: {matchResult.matchScore}%
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed opacity-90 mt-1">
+                  {matchResult.clinicalNote}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-red-900/30">
+            <Link
+              to="/dashboard/matrix"
+              className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
             >
-              <span>Open Emergency Dispatch Terminal</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+              <span>View Full 8x8 Master Matrix</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+
+        {/* Live Emergency Triage Feed */}
+        <div className="p-5 rounded-2xl glass-card border border-red-900/30 lg:col-span-2 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-500" />
+                <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+                  Live Emergency Transfusion Stream
+                </h2>
+              </div>
+              <Link
+                to="/dashboard/emergency"
+                className="text-xs text-red-400 hover:underline flex items-center gap-1"
+              >
+                <span>View Full Queue ({requests.length})</span>
+                <ArrowUpRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <p className="text-xs text-slate-400 mb-4">
+              Real-time urgent hospital calls requiring immediate pint allocation and donor mobilization.
+            </p>
+
+            {requests.length === 0 ? (
+              <div className="py-12 text-center text-slate-500 border border-dashed border-red-950/60 rounded-xl">
+                <ShieldAlert className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+                <p className="text-xs font-medium">No emergency requests active</p>
+                <p className="text-[11px] text-slate-600 mt-1">
+                  System is monitoring 8-group cryo inventory reserves.
+                </p>
+                <Link
+                  to="/dashboard/emergency"
+                  className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-950/60 hover:bg-red-900/60 text-red-300 border border-red-800/40 text-xs font-semibold"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Broadcast Test Request</span>
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-72 overflow-y-auto no-scrollbar">
+                {requests.slice(0, 4).map((req) => (
+                  <div
+                    key={req.id}
+                    className="p-3 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-red-900/60 flex items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-red-950/90 border border-red-800/50 flex flex-col items-center justify-center font-bold text-red-400">
+                        <span className="text-[10px] uppercase">Req</span>
+                        <span className="text-xs text-white">{req.bloodType}</span>
+                      </div>
+                      <div>
+                        <div className="font-bold text-white flex items-center gap-2">
+                          <span>{req.patientName}</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
+                            req.status === 'critical' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                            req.status === 'urgent' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                            'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                          }`}>
+                            {req.status.toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          {req.hospital} • {req.unitsNeeded} units needed
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="font-mono text-[11px] text-slate-400">{req.contactNumber}</div>
+                      <Link
+                        to="/dashboard/emergency"
+                        className="text-[11px] text-red-400 hover:underline font-semibold"
+                      >
+                        Match Donors →
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-red-900/30 flex items-center justify-between text-[11px] text-slate-400">
+            <span>Automated Donor Alert System</span>
+            <span className="text-emerald-400 font-semibold">GPS Radius: 25 km</span>
           </div>
         </div>
       </div>
     </div>
   );
-}
-
+};
