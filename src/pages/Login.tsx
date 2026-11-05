@@ -32,7 +32,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  // Seamless auto-play video reference with glitch-free loop
+  // Seamless instant auto-play video reference with glitch-free loop and zero black frames
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -44,22 +44,35 @@ export default function Login() {
     video.playsInline = true;
     video.loop = true;
 
-    const playPromise = video.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        video.muted = true;
-        video.play();
-      });
-    }
-
-    const handleEnded = () => {
-      video.currentTime = 0;
+    // Faststart seek to 0.52s to immediately bypass initial black frames (0.0s - 0.5s)
+    const handleLoadedMetadata = () => {
+      if (video.currentTime < 0.52) {
+        video.currentTime = 0.52;
+      }
       video.play().catch(() => {});
     };
 
-    video.addEventListener('ended', handleEnded);
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    video.addEventListener('canplay', () => video.play().catch(() => {}));
+
+    if (video.readyState >= 1) {
+      if (video.currentTime < 0.52) video.currentTime = 0.52;
+      video.play().catch(() => {});
+    }
+
+    // Seamless loop returning to 0.52s to eliminate the black frame flash on repeat
+    const handleTimeUpdate = () => {
+      if (video.duration && video.currentTime >= video.duration - 0.1) {
+        video.currentTime = 0.52;
+        video.play().catch(() => {});
+      }
+    };
+
+    video.addEventListener('timeupdate', handleTimeUpdate);
+
     return () => {
-      video.removeEventListener('ended', handleEnded);
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
     };
   }, []);
 
@@ -151,13 +164,15 @@ export default function Login() {
               <div className="absolute inset-0 w-full h-full">
                 <video
                   ref={videoRef}
-                  src="/Login.mp4"
+                  src="/Login.mp4#t=0.52"
+                  poster="/login_poster.jpg"
                   autoPlay
                   loop
                   muted
                   playsInline
                   preload="auto"
-                  className="w-full h-full object-cover object-center filter brightness-95 contrast-110"
+                  className="w-full h-full object-cover object-center pointer-events-none"
+                  style={{ transform: 'translateZ(0)' }}
                 />
                 {/* Crimson Gradient Film blending into user palette */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-[#7A0C17]/35 pointer-events-none"></div>

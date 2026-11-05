@@ -38,11 +38,13 @@ export default function Signup() {
     video.playsInline = true;
     video.loop = true;
 
+    video.addEventListener('canplay', () => video.play().catch(() => {}));
+
     const playPromise = video.play();
     if (playPromise !== undefined) {
       playPromise.catch(() => {
         video.muted = true;
-        video.play();
+        video.play().catch(() => {});
       });
     }
 
@@ -127,12 +129,14 @@ export default function Signup() {
                 <video
                   ref={videoRef}
                   src="/signup.mp4"
+                  poster="/signup_poster.jpg"
                   autoPlay
                   loop
                   muted
                   playsInline
                   preload="auto"
-                  className="w-full h-full object-cover object-center filter brightness-95 contrast-110"
+                  className="w-full h-full object-cover object-center pointer-events-none"
+                  style={{ transform: 'translateZ(0)' }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-[#7A0C17]/35 pointer-events-none"></div>
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_rgba(215,38,56,0.35)_0%,_transparent_60%)] pointer-events-none"></div>

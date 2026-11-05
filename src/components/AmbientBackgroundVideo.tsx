@@ -49,6 +49,7 @@ export const AmbientBackgroundVideo: React.FC = () => {
       <video
         ref={videoRef}
         src="/ambient_bg.mp4"
+        poster="/ambient_poster.jpg"
         autoPlay
         loop
         muted
