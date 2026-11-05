@@ -19,7 +19,6 @@ import {
   Activity,
   Layers
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { BloodDropsCanvas } from './BloodDropsCanvas';
 import { AmbientBackgroundVideo } from './AmbientBackgroundVideo';
 import { getDonors, getEmergencyRequests, getInventory } from '../services/storage';
@@ -101,6 +100,11 @@ export default function Layout() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
+
   const handleLogout = () => {
     sessionStorage.removeItem('bloodmatch_auth');
     sessionStorage.removeItem('bloodmatch_user_name');
@@ -139,6 +143,135 @@ export default function Layout() {
     return location.pathname.startsWith(itemPath);
   };
 
+  // Reusable Sidebar Content Component (shared between Mobile Drawer and Desktop Sidebar)
+  const renderSidebarContent = (isMobileDrawer: boolean) => (
+    <div className="flex flex-col justify-between h-full space-y-4">
+      {/* Top Section */}
+      <div className="space-y-3">
+        {/* Mobile-Only Drawer Header with large touch-friendly close button */}
+        {isMobileDrawer ? (
+          <div className="pb-3 border-b border-[#D9C7C2] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] text-white flex items-center justify-center shadow-xs">
+                <Droplet className="w-4 h-4 fill-current" />
+              </div>
+              <div>
+                <span className="font-black text-sm tracking-tight text-[#1A1D20] block leading-tight">
+                  Blood<span className="text-[#D72638]">Match</span>
+                </span>
+                <span className="text-[9px] uppercase tracking-wider text-[#7A0C17] font-bold block">
+                  Operations Suite
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="p-2 rounded-xl bg-[#F5F1EF] hover:bg-red-50 border border-[#D9C7C2] text-[#4A5568] hover:text-[#D72638] active:scale-95 cursor-pointer transition-colors"
+              aria-label="Close navigation"
+            >
+              <X className="w-5 h-5 text-[#D72638]" />
+            </button>
+          </div>
+        ) : (
+          <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-[#7A0C17] font-black flex items-center justify-between">
+            <span>Operations Suite</span>
+            <Layers className="w-3.5 h-3.5 text-[#D72638]" />
+          </div>
+        )}
+
+        {/* Navigation Items */}
+        <div className="space-y-1.5">
+          {navItems.map((item) => {
+            const active = isActive(item.path, item.exact);
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={() => setSidebarOpen(false)}
+                className={`
+                  w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold
+                  transition-all duration-200 group cursor-pointer
+                  ${active
+                    ? 'bg-gradient-to-r from-[#D72638] to-[#7A0C17] text-white shadow-md shadow-[#D72638]/25 font-bold scale-[1.01]'
+                    : 'text-[#4A5568] hover:bg-[#F5F1EF] hover:text-[#1A1D20]'
+                  }
+                `}
+              >
+                <div className="flex items-center gap-3">
+                  <Icon className={`w-4 h-4 transition-transform group-hover:scale-110 ${active ? 'text-white' : 'text-[#7A0C17] group-hover:text-[#D72638]'}`} />
+                  <span>{item.name}</span>
+                </div>
+                {item.badge && (
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                    active 
+                      ? 'bg-white/20 text-white' 
+                      : (item.badgeColor || 'bg-[#F5F1EF] text-[#7A0C17] border border-[#D9C7C2]')
+                  }`}>
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Bottom Section: Telemetry & Full Clinician Profile Card */}
+      <div className="pt-3 border-t border-[#D9C7C2] space-y-3 shrink-0">
+        {/* Quick Telemetry & Support */}
+        <div className="p-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-xs">
+          <div className="flex items-center justify-between text-[#4A5568] mb-1">
+            <span className="flex items-center gap-1.5 font-semibold">
+              <Activity className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Cryo-Vault State</span>
+            </span>
+            <span className="text-emerald-700 font-bold">4.0°C</span>
+          </div>
+          <div className="w-full bg-[#D9C7C2]/50 h-1.5 rounded-full overflow-hidden">
+            <div className="bg-gradient-to-r from-[#D72638] via-[#7A0C17] to-emerald-500 h-full w-full"></div>
+          </div>
+          <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#D9C7C2]/40 text-[10px] text-[#4A5568]">
+            <span className="flex items-center gap-1 font-medium">
+              <PhoneCall className="w-3 h-3 text-[#D72638]" />
+              <span>Trauma Hotline</span>
+            </span>
+            <span className="text-[#D72638] font-mono font-bold">Ext 911</span>
+          </div>
+        </div>
+
+        {/* Dedicated Clinician Profile Card */}
+        <div className="p-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] space-y-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-xs font-bold shadow-2xs shrink-0">
+              FK
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs font-bold text-[#1A1D20] truncate leading-tight">
+                {userName}
+              </div>
+              <div className="text-[10px] text-[#7A0C17] font-semibold truncate">
+                {userFacility}
+              </div>
+              <div className="flex items-center gap-1 text-[9px] font-semibold text-emerald-700 mt-0.5">
+                <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                <span>Verified Clinician</span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-red-50 border border-[#D9C7C2] hover:border-[#D72638] text-[#D72638] text-[11px] font-bold shadow-2xs transition-colors cursor-pointer active:scale-95"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out & Lock</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="relative h-screen max-h-screen bg-[#F5F1EF] font-sans text-[#1A1D20] flex flex-col overflow-hidden selection:bg-[#D72638] selection:text-white">
       {/* Ambient Red Fluid / Cell Video Layer in Background */}
@@ -147,24 +280,44 @@ export default function Layout() {
       {/* Floating Blood Drops Canvas in Background */}
       <BloodDropsCanvas />
 
-      {/* Mobile Sidebar Overlay - Clean dark tint WITHOUT blur to prevent whole-screen smudging and allow clean touch */}
+      {/* =========================================================================
+          MOBILE DRAWER SYSTEM (Root-Level Stacking: Drawer z-50, Backdrop z-40)
+          Completely outside nested containers to guarantee ZERO stacking context trapping!
+          ========================================================================= */}
+      {/* 1. Backdrop Scrim */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/45 z-40 lg:hidden cursor-pointer transition-opacity"
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden cursor-pointer transition-opacity duration-200"
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
         />
       )}
 
-      {/* Top Header Bar (Fixed / Shrink 0) - Crisp Solid White with #D9C7C2 border */}
-      <header className="shrink-0 z-30 w-full h-16 bg-white/95 backdrop-blur-xs border-b border-[#D9C7C2] flex items-center justify-between px-3 sm:px-6 shadow-xs">
+      {/* 2. Mobile Drawer Navigation (Slides in at z-50 over everything) */}
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] h-full
+          bg-white border-r border-[#D9C7C2] p-4
+          overflow-y-auto no-scrollbar shadow-2xl
+          transition-transform duration-300 ease-in-out lg:hidden
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'}
+        `}
+      >
+        {renderSidebarContent(true)}
+      </aside>
+
+      {/* =========================================================================
+          TOP HEADER BAR (Fixed / Shrink 0, z-30 below mobile drawer z-50)
+          ========================================================================= */}
+      <header className="shrink-0 z-30 w-full h-16 bg-white/95 border-b border-[#D9C7C2] flex items-center justify-between px-3 sm:px-6 shadow-xs">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {/* Mobile Hamburger Trigger */}
           <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
+            onClick={() => setSidebarOpen(true)}
             className="p-2 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-[#4A5568] hover:text-[#1A1D20] active:scale-95 lg:hidden cursor-pointer shrink-0"
-            aria-label="Toggle navigation"
+            aria-label="Open navigation"
           >
-            {sidebarOpen ? <X className="w-5 h-5 text-[#D72638]" /> : <Menu className="w-5 h-5" />}
+            <Menu className="w-5 h-5 text-[#1A1D20]" />
           </button>
 
           <Link to="/dashboard" className="flex items-center gap-2 sm:gap-2.5 group min-w-0">
@@ -184,7 +337,7 @@ export default function Layout() {
 
         {/* Topbar Search & Actions */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Global Search Bar */}
+          {/* Global Search Bar (Hidden on Mobile) */}
           <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus-within:border-[#D72638] transition-colors w-56 lg:w-64">
             <Search className="w-4 h-4 text-[#7A0C17]/60" />
             <input
@@ -206,7 +359,7 @@ export default function Layout() {
             <span className="hidden sm:inline">Dispatch Request</span>
           </Link>
 
-          {/* Notifications Dropdown - Responsive Full Mobile Alignment (No Left Cutoff) */}
+          {/* Notifications Dropdown */}
           <div className="relative" ref={notifRef}>
             <button
               onClick={() => setNotificationsOpen(!notificationsOpen)}
@@ -247,7 +400,7 @@ export default function Layout() {
             )}
           </div>
 
-          {/* Clinician Profile Dropdown (Clean compact avatar button, full profile card in Left Sidebar) */}
+          {/* Clinician Profile Dropdown */}
           <div className="relative" ref={profileRef}>
             <button
               onClick={() => setProfileOpen(!profileOpen)}
@@ -286,143 +439,13 @@ export default function Layout() {
         </div>
       </header>
 
-      {/* Main Body Layout: Fixed Solid Sidebar Docked to Full Left + Scrollable Center Content */}
-      <div className="relative z-10 flex-1 flex overflow-hidden w-full h-full">
-        {/* Fixed Left Navigation Sidebar: 100% Solid White, NO Background Video Bleed */}
-        <aside
-          className={`
-            fixed lg:static top-0 lg:top-auto bottom-0 left-0 z-50 lg:z-40 
-            w-72 lg:w-64 shrink-0 h-full
-            bg-white border-r border-[#D9C7C2]
-            p-4
-            flex flex-col justify-between overflow-y-auto no-scrollbar
-            shadow-2xl lg:shadow-none
-            transition-transform duration-300 ease-in-out
-            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          `}
-        >
-          {/* Top Section: Drawer Brand Header (Mobile) & Navigation Items */}
-          <div className="space-y-3">
-            {/* Mobile-Only Drawer Header with high-touch close button */}
-            <div className="lg:hidden pb-3 border-b border-[#D9C7C2] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] text-white flex items-center justify-center shadow-xs">
-                  <Droplet className="w-4 h-4 fill-current" />
-                </div>
-                <div>
-                  <span className="font-bold text-sm tracking-tight text-[#1A1D20] block leading-tight">
-                    Blood<span className="text-[#D72638]">Match</span>
-                  </span>
-                  <span className="text-[9px] uppercase tracking-wider text-[#7A0C17] font-semibold block">
-                    Operations Suite
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="p-2 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-[#4A5568] hover:text-[#D72638] active:scale-95 cursor-pointer"
-                aria-label="Close navigation"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Desktop Operations Suite Label */}
-            <div className="hidden lg:flex px-3 py-1 text-[10px] uppercase tracking-wider text-[#7A0C17] font-black items-center justify-between">
-              <span>Operations Suite</span>
-              <Layers className="w-3.5 h-3.5 text-[#D72638]" />
-            </div>
-
-            {/* Navigation Items */}
-            <div className="space-y-1.5">
-              {navItems.map((item) => {
-                const active = isActive(item.path, item.exact);
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={() => setSidebarOpen(false)}
-                    className={`
-                      w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold
-                      transition-all duration-200 group
-                      ${active
-                        ? 'bg-gradient-to-r from-[#D72638] to-[#7A0C17] text-white shadow-md shadow-[#D72638]/25 font-bold scale-[1.01]'
-                        : 'text-[#4A5568] hover:bg-[#F5F1EF] hover:text-[#1A1D20]'
-                      }
-                    `}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Icon className={`w-4 h-4 transition-transform group-hover:scale-110 ${active ? 'text-white' : 'text-[#7A0C17] group-hover:text-[#D72638]'}`} />
-                      <span>{item.name}</span>
-                    </div>
-                    {item.badge && (
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        active 
-                          ? 'bg-white/20 text-white' 
-                          : (item.badgeColor || 'bg-[#F5F1EF] text-[#7A0C17] border border-[#D9C7C2]')
-                      }`}>
-                        {item.badge}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Bottom Section: Telemetry & Full Clinician Profile Card */}
-          <div className="pt-4 border-t border-[#D9C7C2] space-y-3 shrink-0">
-            {/* Quick Telemetry & Support in Solid Left Sidebar */}
-            <div className="p-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-xs">
-              <div className="flex items-center justify-between text-[#4A5568] mb-1">
-                <span className="flex items-center gap-1.5 font-semibold">
-                  <Activity className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Cryo-Vault State</span>
-                </span>
-                <span className="text-emerald-700 font-bold">4.0°C</span>
-              </div>
-              <div className="w-full bg-[#D9C7C2]/50 h-1.5 rounded-full overflow-hidden">
-                <div className="bg-gradient-to-r from-[#D72638] via-[#7A0C17] to-emerald-500 h-full w-full"></div>
-              </div>
-              <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#D9C7C2]/40 text-[10px] text-[#4A5568]">
-                <span className="flex items-center gap-1 font-medium">
-                  <PhoneCall className="w-3 h-3 text-[#D72638]" />
-                  <span>Trauma Hotline</span>
-                </span>
-                <span className="text-[#D72638] font-mono font-bold">Ext 911</span>
-              </div>
-            </div>
-
-            {/* Dedicated Clinician Profile Card in Left Sidebar */}
-            <div className="p-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] space-y-2">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-xs font-bold shadow-2xs shrink-0">
-                  FK
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-bold text-[#1A1D20] truncate leading-tight">
-                    {userName}
-                  </div>
-                  <div className="text-[10px] text-[#7A0C17] font-semibold truncate">
-                    {userFacility}
-                  </div>
-                  <div className="flex items-center gap-1 text-[9px] font-semibold text-emerald-700 mt-0.5">
-                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
-                    <span>Verified Clinician</span>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-red-50 border border-[#D9C7C2] hover:border-[#D72638] text-[#D72638] text-[11px] font-bold shadow-2xs transition-colors cursor-pointer"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Sign Out & Lock</span>
-              </button>
-            </div>
-          </div>
+      {/* =========================================================================
+          DESKTOP MAIN BODY LAYOUT (Sidebar + Main Content)
+          ========================================================================= */}
+      <div className="flex-1 flex overflow-hidden w-full h-full">
+        {/* Desktop Fixed Left Navigation Sidebar: 100% Solid White, NO Background Video Bleed */}
+        <aside className="hidden lg:flex lg:w-64 shrink-0 h-full bg-white border-r border-[#D9C7C2] p-4 flex-col justify-between overflow-y-auto no-scrollbar">
+          {renderSidebarContent(false)}
         </aside>
 
         {/* Center Content Router Outlet: Scrollable with ambient video visible in background */}
