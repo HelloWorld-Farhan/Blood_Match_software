@@ -173,9 +173,12 @@ export default function Layout() {
             </button>
           </div>
         ) : (
-          <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-[#7A0C17] font-black flex items-center justify-between">
-            <span>Operations Suite</span>
-            <Layers className="w-3.5 h-3.5 text-[#D72638]" />
+          <div className="px-3 py-1.5 mb-1 text-[10px] uppercase tracking-wider text-[#7A0C17] font-black flex items-center justify-between border-b border-[#D9C7C2]/60 pb-2">
+            <span className="flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-[#D72638]" />
+              <span>Operations Suite</span>
+            </span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="System Online" />
           </div>
         )}
 
@@ -442,14 +445,14 @@ export default function Layout() {
       {/* =========================================================================
           DESKTOP MAIN BODY LAYOUT (Sidebar + Main Content)
           ========================================================================= */}
-      <div className="flex-1 flex overflow-hidden w-full h-full">
+      <div className="flex-1 flex overflow-hidden w-full h-full relative z-10">
         {/* Desktop Fixed Left Navigation Sidebar: 100% Solid White, NO Background Video Bleed */}
-        <aside className="hidden lg:flex lg:w-64 shrink-0 h-full bg-white border-r border-[#D9C7C2] p-4 flex-col justify-between overflow-y-auto no-scrollbar">
+        <aside className="hidden lg:flex lg:w-64 shrink-0 h-full bg-white border-r border-[#D9C7C2] p-4 flex-col justify-between overflow-y-auto no-scrollbar relative z-20 shadow-xs">
           {renderSidebarContent(false)}
         </aside>
 
         {/* Center Content Router Outlet: Scrollable with ambient video visible in background */}
-        <main className="flex-1 h-full min-w-0 overflow-y-auto no-scrollbar px-3 sm:px-6 lg:px-8 py-4 lg:py-6 pb-20">
+        <main className="flex-1 h-full min-w-0 overflow-y-auto no-scrollbar px-3 sm:px-6 lg:px-8 py-4 lg:py-6 pb-20 relative z-10">
           <Outlet />
         </main>
       </div>

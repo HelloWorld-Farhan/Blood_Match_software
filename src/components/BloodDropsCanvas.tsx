@@ -161,7 +161,7 @@ export const BloodDropsCanvas: React.FC = () => {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-1 overflow-hidden"
+      className="fixed inset-0 pointer-events-none z-0 overflow-hidden"
       style={{
         transform: 'translate3d(0, 0, 0)',
         willChange: 'transform'
