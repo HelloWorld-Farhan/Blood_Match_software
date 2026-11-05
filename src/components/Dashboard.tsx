@@ -95,28 +95,53 @@ export const Dashboard: React.FC = () => {
       transition={{ duration: 0.4 }}
       className="space-y-4 pb-12"
     >
-      {/* Power BI Top Navigation & Slicer Bar */}
+      {/* Power BI Top Navigation & Slicer Bar with Live Cellular Telemetry Window */}
       <motion.div 
         initial={{ y: -10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.35 }}
-        className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm"
+        className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-sm relative overflow-hidden"
       >
-        <div>
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#7A0C17]/10 border border-[#D72638]/30 text-[#7A0C17] text-xs font-bold mb-1">
-            <span className="w-2 h-2 rounded-full bg-[#D72638] animate-ping"></span>
-            <span>Clinical Telemetry Active</span>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 z-10 min-w-0">
+          {/* Live Microscopic Telemetry Video Pill (3995-176277710.mp4) */}
+          <div className="relative w-28 h-16 sm:w-36 sm:h-20 rounded-xl overflow-hidden border border-[#D72638]/40 shadow-xs shrink-0 bg-black">
+            <video
+              src="/3995-176277710.mp4?v=2"
+              poster="/3995-176277710_poster.jpg"
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+              className="w-full h-full object-cover pointer-events-none"
+              style={{ transform: 'translateZ(0)' }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+            <div className="absolute bottom-1 left-1.5 right-1.5 flex items-center justify-between text-[9px] text-white font-bold pointer-events-none">
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#D72638] animate-ping" />
+                Live Feed
+              </span>
+              <span className="text-red-200 font-mono">60fps</span>
+            </div>
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-[#1A1D20] tracking-tight flex items-center gap-2">
-            <span>Executive Transfusion Intelligence Hub</span>
-          </h1>
-          <p className="text-xs text-[#5A626A]">
-            Real-time ABO/Rh cross-matching analytics, cryogenic inventory volume, and emergency trauma triage.
-          </p>
+
+          <div>
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#7A0C17]/10 border border-[#D72638]/30 text-[#7A0C17] text-xs font-bold mb-1">
+              <Activity className="w-3.5 h-3.5 text-[#D72638] animate-pulse" />
+              <span>Hemodynamic Intelligence Active</span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black text-[#1A1D20] tracking-tight flex items-center gap-2">
+              <span>Executive Transfusion Intelligence Hub</span>
+            </h1>
+            <p className="text-xs text-[#5A626A]">
+              Real-time ABO/Rh cross-matching analytics, cryogenic inventory volume, and emergency trauma triage.
+            </p>
+          </div>
         </div>
 
         {/* Power BI Interactive Slicers */}
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full md:w-auto">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full lg:w-auto z-10 shrink-0">
           <div className="flex items-center gap-1 bg-[#F5F1EF] p-1 rounded-xl border border-[#D9C7C2] overflow-x-auto no-scrollbar max-w-full">
             {['ALL', 'O-', 'O+', 'A+', 'B+', 'AB+'].map(type => (
               <button
@@ -135,7 +160,7 @@ export const Dashboard: React.FC = () => {
 
           <button
             onClick={loadData}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] text-xs font-semibold transition-all cursor-pointer shadow-xs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95"
           >
             <RefreshCw className="w-3.5 h-3.5 text-[#D72638]" />
             <span>Sync Hub</span>
@@ -288,7 +313,24 @@ export const Dashboard: React.FC = () => {
                   Cryo-Vault Reserve Distribution (8 Alleles)
                 </h2>
               </div>
-              <span className="text-[11px] text-[#7A0C17] font-mono font-semibold">Benchmark: 10 Pints</span>
+              <div className="flex items-center gap-2">
+                {/* Mini Cryo-Vault Video Telemetry (385816_medium.mp4) */}
+                <div className="w-16 h-8 rounded-lg overflow-hidden border border-[#D9C7C2] shadow-2xs relative bg-black hidden sm:block">
+                  <video
+                    src="/385816_medium.mp4?v=2"
+                    poster="/385816_medium_poster.jpg"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                    className="w-full h-full object-cover pointer-events-none"
+                    style={{ transform: 'translateZ(0)' }}
+                  />
+                  <div className="absolute inset-0 bg-red-900/10 pointer-events-none" />
+                </div>
+                <span className="text-[11px] text-[#7A0C17] font-mono font-semibold">Benchmark: 10 Pints</span>
+              </div>
             </div>
             <p className="text-xs text-[#5A626A] mb-4">
               Real-time pint volume against clinical minimum safe thresholds.
@@ -517,7 +559,7 @@ export const Dashboard: React.FC = () => {
                     : 'bg-[#F5F1EF] border-[#D9C7C2] text-[#1A1D20]'
                   : 'bg-red-50 border-red-300 text-red-900'
               }`}>
-                <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5">
                     {matchResult.isCompatible ? (
                       <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -530,6 +572,26 @@ export const Dashboard: React.FC = () => {
                     Score: {matchResult.matchScore}%
                   </span>
                 </div>
+
+                {/* Microscopic Agglutination Stream Video (4122-177145595_medium.mp4) */}
+                <div className="w-full h-14 rounded-lg overflow-hidden border border-[#D9C7C2]/70 relative bg-black my-2 shadow-2xs">
+                  <video
+                    src="/4122-177145595_medium.mp4?v=2"
+                    poster="/4122-177145595_medium_poster.jpg"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                    className="w-full h-full object-cover pointer-events-none opacity-85"
+                    style={{ transform: 'translateZ(0)' }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40 pointer-events-none" />
+                  <span className="absolute bottom-1 right-2 text-[9px] font-bold text-white/90 font-mono">
+                    Serology In-Vitro Stream
+                  </span>
+                </div>
+
                 <p className="text-xs leading-relaxed opacity-90 mt-1 font-medium">
                   {matchResult.clinicalNote}
                 </p>
@@ -563,13 +625,31 @@ export const Dashboard: React.FC = () => {
                   Live Emergency Transfusion Stream
                 </h2>
               </div>
-              <Link
-                to="/dashboard/emergency"
-                className="text-xs text-[#D72638] font-bold hover:underline flex items-center gap-1"
-              >
-                <span>Full Queue ({requests.length})</span>
-                <ArrowUpRight className="w-3 h-3" />
-              </Link>
+              <div className="flex items-center gap-3">
+                {/* Trauma Dispatch Live Feed Pill (16531-273379399_medium.mp4) */}
+                <div className="w-20 h-8 rounded-lg overflow-hidden border border-[#D9C7C2] shadow-2xs relative bg-black hidden sm:block">
+                  <video
+                    src="/16531-273379399_medium.mp4?v=2"
+                    poster="/16531-273379399_medium_poster.jpg"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                    className="w-full h-full object-cover pointer-events-none"
+                    style={{ transform: 'translateZ(0)' }}
+                  />
+                  <div className="absolute inset-0 bg-red-900/10 pointer-events-none" />
+                </div>
+
+                <Link
+                  to="/dashboard/emergency"
+                  className="text-xs text-[#D72638] font-bold hover:underline flex items-center gap-1"
+                >
+                  <span>Full Queue ({requests.length})</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                </Link>
+              </div>
             </div>
             <p className="text-xs text-[#5A626A] mb-4">
               Real-time urgent hospital calls requiring immediate pint allocation and donor mobilization.

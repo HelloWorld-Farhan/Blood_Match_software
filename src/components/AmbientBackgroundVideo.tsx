@@ -13,6 +13,8 @@ export const AmbientBackgroundVideo: React.FC = () => {
     video.loop = true;
     video.playsInline = true;
 
+    video.addEventListener('canplay', () => video.play().catch(() => {}));
+
     const playPromise = video.play();
     if (playPromise !== undefined) {
       playPromise.catch(() => {
@@ -45,11 +47,11 @@ export const AmbientBackgroundVideo: React.FC = () => {
         willChange: 'transform'
       }}
     >
-      {/* Hardware-Decoded Ambient Red Fluid / Cell Video Layer (Zero CSS Filters for 60fps Native Playback) */}
+      {/* 6973-197914400_medium.mp4 Ambient Video Layer (2.1MB Fast Hardware Decoding) */}
       <video
         ref={videoRef}
-        src="/ambient_bg.mp4"
-        poster="/ambient_poster.jpg"
+        src="/6973-197914400_medium.mp4?v=2"
+        poster="/6973-197914400_medium_poster.jpg"
         autoPlay
         loop
         muted
@@ -62,7 +64,7 @@ export const AmbientBackgroundVideo: React.FC = () => {
         }}
       />
 
-      {/* Pure GPU-Composited Translucent Alabaster Veil (No expensive backdrop-blur for zero lag) */}
+      {/* Pure GPU-Composited Translucent Alabaster Veil (Harmonizes with White & Red clinical palette) */}
       <div 
         className="absolute inset-0 bg-[#F5F1EF]/75 pointer-events-none"
       />
