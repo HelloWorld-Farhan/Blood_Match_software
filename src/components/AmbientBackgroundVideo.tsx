@@ -47,11 +47,11 @@ export const AmbientBackgroundVideo: React.FC = () => {
         willChange: 'transform'
       }}
     >
-      {/* 6973-197914400_medium.mp4 Ambient Video Layer (2.1MB Fast Hardware Decoding) */}
+      {/* 3995-176277710.mp4 Luminous Arterial Erythrocyte Flow (Bright White & Red Palette) */}
       <video
         ref={videoRef}
-        src="/6973-197914400_medium.mp4?v=2"
-        poster="/6973-197914400_medium_poster.jpg"
+        src="/3995-176277710.mp4?v=3"
+        poster="/3995-176277710_poster.jpg"
         autoPlay
         loop
         muted
@@ -64,16 +64,16 @@ export const AmbientBackgroundVideo: React.FC = () => {
         }}
       />
 
-      {/* Pure GPU-Composited Translucent Alabaster Veil (Harmonizes with White & Red clinical palette) */}
+      {/* Pure GPU-Composited Translucent Alabaster Veil (Bright, Pristine White & Red Clinical Palette) */}
       <div 
-        className="absolute inset-0 bg-[#F5F1EF]/75 pointer-events-none"
+        className="absolute inset-0 bg-[#F5F1EF]/60 pointer-events-none"
       />
       
       {/* Subtle Arterial Crimson Depth Gradient */}
       <div 
-        className="absolute inset-0 opacity-25 pointer-events-none"
+        className="absolute inset-0 opacity-20 pointer-events-none"
         style={{
-          background: 'radial-gradient(circle at 20% 30%, rgba(215, 38, 56, 0.12) 0%, transparent 60%), radial-gradient(circle at 80% 70%, rgba(122, 12, 23, 0.10) 0%, transparent 60%)'
+          background: 'radial-gradient(circle at 15% 25%, rgba(215, 38, 56, 0.10) 0%, transparent 60%), radial-gradient(circle at 85% 75%, rgba(122, 12, 23, 0.08) 0%, transparent 60%)'
         }}
       />
     </div>

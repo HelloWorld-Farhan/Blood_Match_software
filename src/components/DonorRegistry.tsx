@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { BloodType, Donor } from '../types';
-import { Users, Plus, Search, Phone, MapPin, Heart, X, Mail } from 'lucide-react';
+import { Users, Plus, Search, Phone, MapPin, Heart, X, Mail, Activity, ShieldCheck, HeartPulse } from 'lucide-react';
 import { getDonors, saveDonors } from '../services/storage';
 
 export default function DonorRegistry() {
@@ -85,7 +85,7 @@ export default function DonorRegistry() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.35 }}
-      className="space-y-6 sm:space-y-8 pb-12"
+      className="space-y-6 sm:space-y-8 pb-12 relative z-10"
     >
       {/* Header */}
       <motion.div 
@@ -114,6 +114,101 @@ export default function DonorRegistry() {
           <Plus className="w-4 h-4" />
           <span>Register New Donor</span>
         </button>
+      </motion.div>
+
+      {/* Featured Large-Format Apheresis Mobilization Live Monitor (6973-197914400_medium.mp4) */}
+      <motion.div 
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="p-5 sm:p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-hidden"
+      >
+        <div className="flex flex-col lg:flex-row items-stretch gap-6">
+          {/* Prominent High-Definition Cellular Apheresis Video Monitor */}
+          <div className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black min-h-[260px] sm:min-h-[300px] flex items-center justify-center">
+            <video
+              src="/6973-197914400_medium.mp4?v=3"
+              poster="/6973-197914400_medium_poster.jpg"
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+              className="w-full h-full object-cover pointer-events-none"
+              style={{ transform: 'translateZ(0)' }}
+            />
+            {/* Live Mobilization Telemetry Overlays */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
+            
+            <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-xs pointer-events-none">
+              <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white font-bold">
+                <span className="w-2 h-2 rounded-full bg-[#D72638] animate-ping" />
+                Live Apheresis Mobilization Bay
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-[#D72638]/90 text-white font-mono font-bold text-[11px] shadow-xs">
+                Cellular Stream 60fps
+              </span>
+            </div>
+
+            <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white pointer-events-none">
+              <div>
+                <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Apheresis Readiness Pool</span>
+                <span className="text-sm font-black font-mono">{donors.length} Screened Voluntary Donors</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Mobilization Latency</span>
+                  <span className="text-sm font-black text-emerald-400 font-mono">24m Avg Response</span>
+                </div>
+                <div className="text-right border-l border-white/20 pl-3">
+                  <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Standby Status</span>
+                  <span className="text-sm font-black text-white font-mono">100% Ready</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Apheresis Mobilization Insights */}
+          <div className="w-full lg:w-2/5 flex flex-col justify-between space-y-4">
+            <div>
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/20 mb-2">
+                <Activity className="w-3.5 h-3.5 text-[#D72638]" />
+                <span>Apheresis & Voluntary Extraction</span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-black text-[#1A1D20] tracking-tight">
+                Platelet & Packed RBC Cellular Mobilization
+              </h2>
+              <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
+                Direct monitoring of active apheresis centrifuges separating whole blood into red cell concentrates, fresh frozen plasma, and high-titer platelets for trauma response.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]">
+                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Active Roster</span>
+                <span className="text-sm font-black text-[#1A1D20] mt-0.5 block truncate">{donors.length} Verified Donors</span>
+                <span className="text-[10px] text-[#5A626A] mt-0.5 block">100% Screened</span>
+              </div>
+              <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]">
+                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Emergency Standby</span>
+                <span className="text-sm font-black text-emerald-700 mt-0.5 block truncate">
+                  {donors.filter(d => d.isAvailable).length} Available
+                </span>
+                <span className="text-[10px] text-[#5A626A] mt-0.5 block">Immediate dispatch</span>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span className="text-emerald-900 font-semibold text-xs">Donor Health & Serology Clearance</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 font-bold text-[10px]">
+                VALIDATED
+              </span>
+            </div>
+          </div>
+        </div>
       </motion.div>
 
       {/* Controls & Blood Group Filters */}

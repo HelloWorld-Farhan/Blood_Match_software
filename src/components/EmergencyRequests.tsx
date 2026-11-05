@@ -103,7 +103,7 @@ export default function EmergencyRequests() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.35 }}
-      className="space-y-6 sm:space-y-8 pb-12"
+      className="space-y-6 sm:space-y-8 pb-12 relative z-10"
     >
       {/* Header */}
       <motion.div 

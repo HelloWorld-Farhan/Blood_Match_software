@@ -16,7 +16,8 @@ import {
   Filter, 
   Activity, 
   Layers,
-  ArrowUpRight
+  ArrowUpRight,
+  Database
 } from 'lucide-react';
 import { getInventory, updateInventoryUnits, saveInventory } from '../services/storage';
 
@@ -121,7 +122,7 @@ export default function InventoryManager() {
   }, [inventory, selectedFilter, searchQuery]);
 
   return (
-    <div className="space-y-6 sm:space-y-8 pb-16">
+    <div className="space-y-6 sm:space-y-8 pb-16 relative z-10">
       {/* Power BI Executive Header */}
       <div className="p-6 sm:p-8 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6">
         <div>
@@ -278,6 +279,96 @@ export default function InventoryManager() {
                 className="bg-[#7A0C17] h-full transition-all duration-500"
                 style={{ width: `${rhStats.negPct}%` }}
               />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Featured Large-Format Cryo-Vault Atmospheric Surveillance Bay (16531-273379399_medium.mp4) */}
+      <div className="p-5 sm:p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-hidden">
+        <div className="flex flex-col lg:flex-row items-stretch gap-6">
+          {/* Prominent High-Definition Cryo-Chamber Video Monitor */}
+          <div className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black min-h-[260px] sm:min-h-[300px] flex items-center justify-center">
+            <video
+              src="/16531-273379399_medium.mp4?v=3"
+              poster="/16531-273379399_medium_poster.jpg"
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+              className="w-full h-full object-cover pointer-events-none"
+              style={{ transform: 'translateZ(0)' }}
+            />
+            {/* Live Cryo Telemetry Overlays */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
+            
+            <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-xs pointer-events-none">
+              <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white font-bold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                Cryo-Chamber Sensor Bay 04
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-[#D72638]/90 text-white font-mono font-bold text-[11px] shadow-xs">
+                Deep-Cold Storage 60fps
+              </span>
+            </div>
+
+            <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white pointer-events-none">
+              <div>
+                <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Chamber Environment</span>
+                <span className="text-sm font-black font-mono">Core Temp: 4.0°C Stable</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">LN2 Vapor Seal</span>
+                  <span className="text-sm font-black text-emerald-400 font-mono">100% Sealed</span>
+                </div>
+                <div className="text-right border-l border-white/20 pl-3">
+                  <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Thermal Vacuum</span>
+                  <span className="text-sm font-black text-white font-mono">0.02 mbar</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Cryo Surveillance Diagnostics & Preservation Safety */}
+          <div className="w-full lg:w-2/5 flex flex-col justify-between space-y-4">
+            <div>
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/20 mb-2">
+                <Database className="w-3.5 h-3.5 text-[#D72638]" />
+                <span>Cryogenic Environmental Integrity</span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-black text-[#1A1D20] tracking-tight">
+                Sub-Zero Whole Blood & Packed Red Cell Preservation
+              </h2>
+              <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
+                Autonomous thermal surveillance actively maintaining CPD/SAGM blood packs within the strict AABB +2°C to +6°C clinical refrigeration corridor.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]">
+                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Reserve Saturation</span>
+                <span className="text-sm font-black text-[#1A1D20] mt-0.5 block truncate">{totalUnits} / 160 Pints</span>
+                <span className="text-[10px] text-[#5A626A] mt-0.5 block">{capacityPercent}% Banked</span>
+              </div>
+              <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]">
+                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Deficit Alleles</span>
+                <span className={`text-sm font-black mt-0.5 block truncate ${criticalGroupsCount > 0 ? 'text-[#D72638]' : 'text-emerald-700'}`}>
+                  {criticalGroupsCount} Groups Low
+                </span>
+                <span className="text-[10px] text-[#5A626A] mt-0.5 block">Threshold: &lt;5 Pts</span>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span className="text-emerald-900 font-semibold text-xs">AABB Cryo-Chain Compliance</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 font-bold text-[10px]">
+                CERTIFIED
+              </span>
             </div>
           </div>
         </div>

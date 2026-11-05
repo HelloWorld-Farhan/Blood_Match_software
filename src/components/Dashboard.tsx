@@ -11,6 +11,7 @@ import {
   CheckCircle2, 
   XCircle, 
   ShieldAlert, 
+  ShieldCheck,
   Plus, 
   Sparkles,
   RefreshCw,
@@ -95,7 +96,7 @@ export const Dashboard: React.FC = () => {
       transition={{ duration: 0.4 }}
       className="space-y-4 pb-12"
     >
-      {/* Power BI Top Navigation & Slicer Bar with Live Cellular Telemetry Window */}
+      {/* Power BI Top Navigation & Slicer Bar */}
       <motion.div 
         initial={{ y: -10, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -103,29 +104,6 @@ export const Dashboard: React.FC = () => {
         className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-sm relative overflow-hidden"
       >
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 z-10 min-w-0">
-          {/* Live Microscopic Telemetry Video Pill (3995-176277710.mp4) */}
-          <div className="relative w-28 h-16 sm:w-36 sm:h-20 rounded-xl overflow-hidden border border-[#D72638]/40 shadow-xs shrink-0 bg-black">
-            <video
-              src="/3995-176277710.mp4?v=2"
-              poster="/3995-176277710_poster.jpg"
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="auto"
-              className="w-full h-full object-cover pointer-events-none"
-              style={{ transform: 'translateZ(0)' }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
-            <div className="absolute bottom-1 left-1.5 right-1.5 flex items-center justify-between text-[9px] text-white font-bold pointer-events-none">
-              <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#D72638] animate-ping" />
-                Live Feed
-              </span>
-              <span className="text-red-200 font-mono">60fps</span>
-            </div>
-          </div>
-
           <div>
             <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#7A0C17]/10 border border-[#D72638]/30 text-[#7A0C17] text-xs font-bold mb-1">
               <Activity className="w-3.5 h-3.5 text-[#D72638] animate-pulse" />
@@ -296,6 +274,99 @@ export const Dashboard: React.FC = () => {
         </motion.div>
       </div>
 
+      {/* Featured Large-Format Clinical Telemetry Theater (385816_medium.mp4) */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
+        className="p-5 sm:p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-hidden"
+      >
+        <div className="flex flex-col lg:flex-row items-stretch gap-6">
+          {/* Prominent High-Definition Clinical Video Monitor */}
+          <div className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black min-h-[260px] sm:min-h-[320px] flex items-center justify-center">
+            <video
+              src="/385816_medium.mp4?v=3"
+              poster="/385816_medium_poster.jpg"
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="auto"
+              className="w-full h-full object-cover pointer-events-none"
+              style={{ transform: 'translateZ(0)' }}
+            />
+            {/* Clinical Live Telemetry Overlays */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
+            
+            <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-xs pointer-events-none">
+              <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white font-bold">
+                <span className="w-2 h-2 rounded-full bg-[#D72638] animate-ping" />
+                Live Hemodynamic Stream
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-[#D72638]/90 text-white font-mono font-bold text-[11px] shadow-xs">
+                Ultra-HD 60fps
+              </span>
+            </div>
+
+            <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white pointer-events-none">
+              <div>
+                <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Microvascular Circulation</span>
+                <span className="text-sm font-black font-mono">Erythrocyte Flow: 1.24 m/s</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Perfusion Index</span>
+                  <span className="text-sm font-black text-emerald-400 font-mono">98.6%</span>
+                </div>
+                <div className="text-right border-l border-white/20 pl-3">
+                  <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Hemoglobin Sat</span>
+                  <span className="text-sm font-black text-red-300 font-mono">SpO2 99%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Telemetry Diagnostics & Live Clinical Insights */}
+          <div className="w-full lg:w-2/5 flex flex-col justify-between space-y-4">
+            <div>
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/20 mb-2">
+                <Activity className="w-3.5 h-3.5 text-[#D72638]" />
+                <span>Hemodynamic Diagnostics</span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-black text-[#1A1D20] tracking-tight">
+                Live Erythrocyte Velocity & Tissue Perfusion
+              </h2>
+              <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
+                Direct in-vivo microvascular feed visualizing cellular rheology, erythrocyte aggregation resistance, and oxygen transport capacity under active transfusion protocols.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]">
+                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Agglutination Rate</span>
+                <span className="text-base font-black text-emerald-700 font-mono mt-0.5 block">0.00% Zero</span>
+                <span className="text-[10px] text-[#5A626A] mt-0.5 block">No antigen clumping</span>
+              </div>
+              <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]">
+                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Vessel Viscosity</span>
+                <span className="text-base font-black text-[#1A1D20] font-mono mt-0.5 block">3.2 cP</span>
+                <span className="text-[10px] text-emerald-700 font-semibold mt-0.5 block">Normo-rheologic</span>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-[#7A0C17]/5 border border-[#D72638]/20 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span className="text-[#1A1D20] font-semibold text-xs">Transfusion Cross-Safety Lock</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
+                ENGAGED
+              </span>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Power BI Visual Row 1: Stock Bar Matrix & 7-Day Area Analytics */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Power BI Visual 1: Stock Level Bar Matrix */}
@@ -314,21 +385,6 @@ export const Dashboard: React.FC = () => {
                 </h2>
               </div>
               <div className="flex items-center gap-2">
-                {/* Mini Cryo-Vault Video Telemetry (385816_medium.mp4) */}
-                <div className="w-16 h-8 rounded-lg overflow-hidden border border-[#D9C7C2] shadow-2xs relative bg-black hidden sm:block">
-                  <video
-                    src="/385816_medium.mp4?v=2"
-                    poster="/385816_medium_poster.jpg"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="auto"
-                    className="w-full h-full object-cover pointer-events-none"
-                    style={{ transform: 'translateZ(0)' }}
-                  />
-                  <div className="absolute inset-0 bg-red-900/10 pointer-events-none" />
-                </div>
                 <span className="text-[11px] text-[#7A0C17] font-mono font-semibold">Benchmark: 10 Pints</span>
               </div>
             </div>
@@ -573,26 +629,7 @@ export const Dashboard: React.FC = () => {
                   </span>
                 </div>
 
-                {/* Microscopic Agglutination Stream Video (4122-177145595_medium.mp4) */}
-                <div className="w-full h-14 rounded-lg overflow-hidden border border-[#D9C7C2]/70 relative bg-black my-2 shadow-2xs">
-                  <video
-                    src="/4122-177145595_medium.mp4?v=2"
-                    poster="/4122-177145595_medium_poster.jpg"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="auto"
-                    className="w-full h-full object-cover pointer-events-none opacity-85"
-                    style={{ transform: 'translateZ(0)' }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/40 pointer-events-none" />
-                  <span className="absolute bottom-1 right-2 text-[9px] font-bold text-white/90 font-mono">
-                    Serology In-Vitro Stream
-                  </span>
-                </div>
-
-                <p className="text-xs leading-relaxed opacity-90 mt-1 font-medium">
+                <p className="text-xs leading-relaxed opacity-90 mt-2 font-medium">
                   {matchResult.clinicalNote}
                 </p>
               </div>
@@ -626,22 +663,6 @@ export const Dashboard: React.FC = () => {
                 </h2>
               </div>
               <div className="flex items-center gap-3">
-                {/* Trauma Dispatch Live Feed Pill (16531-273379399_medium.mp4) */}
-                <div className="w-20 h-8 rounded-lg overflow-hidden border border-[#D9C7C2] shadow-2xs relative bg-black hidden sm:block">
-                  <video
-                    src="/16531-273379399_medium.mp4?v=2"
-                    poster="/16531-273379399_medium_poster.jpg"
-                    autoPlay
-                    loop
-                    muted
-                    playsInline
-                    preload="auto"
-                    className="w-full h-full object-cover pointer-events-none"
-                    style={{ transform: 'translateZ(0)' }}
-                  />
-                  <div className="absolute inset-0 bg-red-900/10 pointer-events-none" />
-                </div>
-
                 <Link
                   to="/dashboard/emergency"
                   className="text-xs text-[#D72638] font-bold hover:underline flex items-center gap-1"
