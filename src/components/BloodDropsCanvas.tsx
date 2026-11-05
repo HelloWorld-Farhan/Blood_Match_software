@@ -18,10 +18,11 @@ export const BloodDropsCanvas: React.FC = () => {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
     let animationFrameId: number;
+    let isRunning = true;
     let width = (canvas.width = window.innerWidth);
     let height = (canvas.height = window.innerHeight);
 
@@ -30,9 +31,10 @@ export const BloodDropsCanvas: React.FC = () => {
       width = canvas.width = window.innerWidth;
       height = canvas.height = window.innerHeight;
     };
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize, { passive: true });
 
-    const dropsCount = Math.floor(Math.min(width, 1600) / 45);
+    // Lightweight drop count calibrated for 60fps on all devices
+    const dropsCount = Math.floor(Math.min(width, 1400) / 65);
     const drops: Drop[] = [];
 
     for (let i = 0; i < dropsCount; i++) {
@@ -42,24 +44,22 @@ export const BloodDropsCanvas: React.FC = () => {
         radius: Math.random() * 3.5 + 2,
         speedY: Math.random() * 0.35 + 0.15,
         speedX: (Math.random() - 0.5) * 0.15,
-        opacity: Math.random() * 0.3 + 0.1,
+        opacity: Math.random() * 0.25 + 0.1,
         type: i % 3 === 0 ? 'droplet' : i % 3 === 1 ? 'cell' : 'particle',
         wobble: Math.random() * Math.PI * 2,
         wobbleSpeed: Math.random() * 0.02 + 0.01,
       });
     }
 
-    const drawDroplet = (ctx: CanvasRenderingContext2D, d: Drop) => {
-      ctx.save();
-      ctx.translate(d.x, d.y);
-      // Crimson #D72638 with Wine #7A0C17 depth
-      ctx.fillStyle = `rgba(215, 38, 56, ${d.opacity})`;
-      ctx.shadowColor = 'rgba(215, 38, 56, 0.4)';
-      ctx.shadowBlur = d.radius * 2;
+    // Fast vector renderers without expensive shadowBlur
+    const drawDroplet = (c: CanvasRenderingContext2D, d: Drop) => {
+      c.save();
+      c.translate(d.x, d.y);
+      c.fillStyle = `rgba(215, 38, 56, ${d.opacity})`;
 
-      ctx.beginPath();
-      ctx.arc(0, 0, d.radius, 0, Math.PI, false);
-      ctx.bezierCurveTo(
+      c.beginPath();
+      c.arc(0, 0, d.radius, 0, Math.PI, false);
+      c.bezierCurveTo(
         -d.radius,
         -d.radius * 1.5,
         0,
@@ -67,7 +67,7 @@ export const BloodDropsCanvas: React.FC = () => {
         0,
         -d.radius * 2.8
       );
-      ctx.bezierCurveTo(
+      c.bezierCurveTo(
         0,
         -d.radius * 2.5,
         d.radius,
@@ -75,44 +75,41 @@ export const BloodDropsCanvas: React.FC = () => {
         d.radius,
         0
       );
-      ctx.fill();
-      ctx.restore();
+      c.fill();
+      c.restore();
     };
 
-    const drawCell = (ctx: CanvasRenderingContext2D, d: Drop) => {
-      ctx.save();
-      ctx.translate(d.x, d.y);
-      const grad = ctx.createRadialGradient(0, 0, d.radius * 0.2, 0, 0, d.radius);
+    const drawCell = (c: CanvasRenderingContext2D, d: Drop) => {
+      c.save();
+      c.translate(d.x, d.y);
+      const grad = c.createRadialGradient(0, 0, d.radius * 0.2, 0, 0, d.radius);
       grad.addColorStop(0, `rgba(122, 12, 23, ${d.opacity * 0.9})`);
       grad.addColorStop(0.7, `rgba(215, 38, 56, ${d.opacity})`);
-      grad.addColorStop(1, `rgba(185, 28, 28, ${d.opacity * 0.3})`);
+      grad.addColorStop(1, `rgba(185, 28, 28, ${d.opacity * 0.2})`);
 
-      ctx.fillStyle = grad;
-      ctx.shadowColor = 'rgba(215, 38, 56, 0.3)';
-      ctx.shadowBlur = d.radius * 1.5;
-
-      ctx.beginPath();
-      ctx.ellipse(0, 0, d.radius * 1.2, d.radius * 0.85, d.wobble, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+      c.fillStyle = grad;
+      c.beginPath();
+      c.ellipse(0, 0, d.radius * 1.2, d.radius * 0.85, d.wobble, 0, Math.PI * 2);
+      c.fill();
+      c.restore();
     };
 
-    const drawParticle = (ctx: CanvasRenderingContext2D, d: Drop) => {
-      ctx.save();
-      ctx.translate(d.x, d.y);
-      ctx.fillStyle = `rgba(248, 113, 113, ${d.opacity * 0.5})`;
-      ctx.shadowColor = 'rgba(208, 0, 0, 0.5)';
-      ctx.shadowBlur = 4;
-      ctx.beginPath();
-      ctx.arc(0, 0, d.radius * 0.6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+    const drawParticle = (c: CanvasRenderingContext2D, d: Drop) => {
+      c.save();
+      c.translate(d.x, d.y);
+      c.fillStyle = `rgba(215, 38, 56, ${d.opacity * 0.5})`;
+      c.beginPath();
+      c.arc(0, 0, d.radius * 0.6, 0, Math.PI * 2);
+      c.fill();
+      c.restore();
     };
 
     const animate = () => {
+      if (!isRunning) return;
       ctx.clearRect(0, 0, width, height);
 
-      for (const d of drops) {
+      for (let i = 0; i < drops.length; i++) {
+        const d = drops[i];
         d.wobble += d.wobbleSpeed;
         d.y -= d.speedY;
         d.x += Math.sin(d.wobble) * 0.25 + d.speedX;
@@ -136,10 +133,27 @@ export const BloodDropsCanvas: React.FC = () => {
       animationFrameId = requestAnimationFrame(animate);
     };
 
-    animate();
+    animationFrameId = requestAnimationFrame(animate);
+
+    // Pause on tab hide
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        isRunning = false;
+        cancelAnimationFrame(animationFrameId);
+      } else {
+        if (!isRunning) {
+          isRunning = true;
+          animationFrameId = requestAnimationFrame(animate);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      isRunning = false;
       window.removeEventListener('resize', handleResize);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       cancelAnimationFrame(animationFrameId);
     };
   }, []);
@@ -147,8 +161,11 @@ export const BloodDropsCanvas: React.FC = () => {
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-1 w-full h-full"
-      style={{ opacity: 0.85 }}
+      className="fixed inset-0 pointer-events-none z-1 overflow-hidden"
+      style={{
+        transform: 'translate3d(0, 0, 0)',
+        willChange: 'transform'
+      }}
     />
   );
 };

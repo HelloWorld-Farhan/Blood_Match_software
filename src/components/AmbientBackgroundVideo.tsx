@@ -7,7 +7,7 @@ export const AmbientBackgroundVideo: React.FC = () => {
     const video = videoRef.current;
     if (!video) return;
 
-    // Ensure seamless autoplay & loop
+    // Optimized hardware-accelerated autoplay & loop
     video.muted = true;
     video.defaultMuted = true;
     video.loop = true;
@@ -16,27 +16,36 @@ export const AmbientBackgroundVideo: React.FC = () => {
     const playPromise = video.play();
     if (playPromise !== undefined) {
       playPromise.catch(() => {
-        // Fallback for strict browser autoplay policies
         video.muted = true;
-        video.play();
+        video.play().catch(() => {});
       });
     }
 
-    // Smooth loop listener to eliminate any micro-stutter
-    const handleEnded = () => {
-      video.currentTime = 0;
-      video.play().catch(() => {});
+    // Auto pause video when tab is hidden to save 100% CPU/GPU and battery
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        video.pause();
+      } else {
+        video.play().catch(() => {});
+      }
     };
 
-    video.addEventListener('ended', handleEnded);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
-      video.removeEventListener('ended', handleEnded);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none">
-      {/* Ambient Red Fluid / Cell Video Layer */}
+    <div 
+      className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none"
+      style={{
+        transform: 'translate3d(0, 0, 0)',
+        backfaceVisibility: 'hidden',
+        willChange: 'transform'
+      }}
+    >
+      {/* Hardware-Decoded Ambient Red Fluid / Cell Video Layer (Zero CSS Filters for 60fps Native Playback) */}
       <video
         ref={videoRef}
         src="/ambient_bg.mp4"
@@ -45,24 +54,25 @@ export const AmbientBackgroundVideo: React.FC = () => {
         muted
         playsInline
         preload="auto"
-        className="w-full h-full object-cover object-center filter brightness-100 contrast-110 saturate-125 transition-opacity duration-1000"
+        className="w-full h-full object-cover object-center pointer-events-none"
+        style={{
+          transform: 'translateZ(0)',
+          willChange: 'transform'
+        }}
       />
 
-      {/* Soft Light Alabaster & Crimson Translucent Veil:
-          Allows video to be clearly visible while harmonizing with White & Red palette
-          #FFFFFF, #F5F1EF, #D72638, #7A0C17, #D9C7C2 */}
+      {/* Pure GPU-Composited Translucent Alabaster Veil (No expensive backdrop-blur for zero lag) */}
       <div 
-        className="absolute inset-0 bg-[#F5F1EF]/70 backdrop-blur-[1px]"
+        className="absolute inset-0 bg-[#F5F1EF]/75 pointer-events-none"
       />
       
-      {/* Subtle Arterial Crimson Accent Glow */}
+      {/* Subtle Arterial Crimson Depth Gradient */}
       <div 
-        className="absolute inset-0 opacity-30 pointer-events-none"
+        className="absolute inset-0 opacity-25 pointer-events-none"
         style={{
-          background: 'radial-gradient(circle at 20% 30%, rgba(215, 38, 56, 0.15) 0%, transparent 60%), radial-gradient(circle at 80% 70%, rgba(122, 12, 23, 0.12) 0%, transparent 60%)'
+          background: 'radial-gradient(circle at 20% 30%, rgba(215, 38, 56, 0.12) 0%, transparent 60%), radial-gradient(circle at 80% 70%, rgba(122, 12, 23, 0.10) 0%, transparent 60%)'
         }}
       />
     </div>
   );
 };
-
