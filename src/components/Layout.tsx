@@ -147,34 +147,35 @@ export default function Layout() {
       {/* Floating Blood Drops Canvas in Background */}
       <BloodDropsCanvas />
 
-      {/* Mobile Sidebar Overlay - Clean dark tint WITHOUT blur to prevent whole-screen smudging */}
+      {/* Mobile Sidebar Overlay - Clean dark tint WITHOUT blur to prevent whole-screen smudging and allow clean touch */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/45 z-40 lg:hidden cursor-pointer transition-opacity"
           onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
         />
       )}
 
       {/* Top Header Bar (Fixed / Shrink 0) - Crisp Solid White with #D9C7C2 border */}
-      <header className="shrink-0 z-30 w-full h-16 bg-white/95 backdrop-blur-md border-b border-[#D9C7C2] flex items-center justify-between px-4 sm:px-6 shadow-xs">
-        <div className="flex items-center gap-3">
+      <header className="shrink-0 z-30 w-full h-16 bg-white/95 backdrop-blur-xs border-b border-[#D9C7C2] flex items-center justify-between px-3 sm:px-6 shadow-xs">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-[#4A5568] hover:text-[#1A1D20] lg:hidden cursor-pointer"
+            className="p-2 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-[#4A5568] hover:text-[#1A1D20] active:scale-95 lg:hidden cursor-pointer shrink-0"
             aria-label="Toggle navigation"
           >
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {sidebarOpen ? <X className="w-5 h-5 text-[#D72638]" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          <Link to="/dashboard" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] border border-[#D72638]/40 text-white flex items-center justify-center shadow-md shadow-[#D72638]/20 group-hover:scale-105 transition-transform">
-              <Droplet className="w-5 h-5 fill-current" />
+          <Link to="/dashboard" className="flex items-center gap-2 sm:gap-2.5 group min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] border border-[#D72638]/40 text-white flex items-center justify-center shadow-md shadow-[#D72638]/20 group-hover:scale-105 transition-transform shrink-0">
+              <Droplet className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
             </div>
-            <div>
-              <span className="font-bold text-lg tracking-tight text-[#1A1D20] block leading-tight">
+            <div className="min-w-0">
+              <span className="font-black text-base sm:text-lg tracking-tight text-[#1A1D20] block leading-tight">
                 Blood<span className="text-[#D72638]">Match</span>
               </span>
-              <span className="text-[9px] uppercase tracking-wider text-[#7A0C17] font-bold block">
+              <span className="hidden sm:block text-[9px] uppercase tracking-wider text-[#7A0C17] font-bold truncate">
                 Clinical Operations Hub
               </span>
             </div>
@@ -182,9 +183,9 @@ export default function Layout() {
         </div>
 
         {/* Topbar Search & Actions */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {/* Global Search Bar */}
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus-within:border-[#D72638] transition-colors w-64">
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus-within:border-[#D72638] transition-colors w-56 lg:w-64">
             <Search className="w-4 h-4 text-[#7A0C17]/60" />
             <input
               type="text"
@@ -199,7 +200,7 @@ export default function Layout() {
           {/* Quick Emergency Broadcast */}
           <Link
             to="/dashboard/emergency"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold shadow-md shadow-[#D72638]/30 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] active:scale-95 text-white text-xs font-bold shadow-md shadow-[#D72638]/30 transition-all cursor-pointer shrink-0"
           >
             <PlusCircle className="w-4 h-4" />
             <span className="hidden sm:inline">Dispatch Request</span>
@@ -209,7 +210,7 @@ export default function Layout() {
           <div className="relative" ref={notifRef}>
             <button
               onClick={() => setNotificationsOpen(!notificationsOpen)}
-              className="relative p-2 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-[#4A5568] hover:text-[#1A1D20] transition-colors cursor-pointer"
+              className="relative p-2 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-[#4A5568] hover:text-[#1A1D20] active:scale-95 transition-colors cursor-pointer shrink-0"
               aria-label="View notifications"
             >
               <Bell className="w-4 h-4" />
@@ -246,20 +247,17 @@ export default function Layout() {
             )}
           </div>
 
-          {/* Clinician Profile Dropdown */}
+          {/* Clinician Profile Dropdown (Clean compact avatar button, full profile card in Left Sidebar) */}
           <div className="relative" ref={profileRef}>
             <button
               onClick={() => setProfileOpen(!profileOpen)}
-              className="flex items-center gap-2 p-1.5 sm:px-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] hover:border-[#D72638] transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 p-1 sm:p-1.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] hover:border-[#D72638] active:scale-95 transition-colors cursor-pointer shrink-0"
+              aria-label="Clinician Profile"
             >
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-xs font-bold">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-xs font-bold shadow-2xs">
                 FK
               </div>
-              <div className="hidden md:block text-left">
-                <div className="text-xs font-bold text-[#1A1D20] leading-tight">{userName}</div>
-                <div className="text-[10px] text-[#7A0C17] font-semibold">{userFacility}</div>
-              </div>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
             </button>
 
             {profileOpen && (
@@ -296,66 +294,87 @@ export default function Layout() {
             fixed lg:static top-0 lg:top-auto bottom-0 left-0 z-50 lg:z-40 
             w-72 lg:w-64 shrink-0 h-full
             bg-white border-r border-[#D9C7C2]
-            p-4 lg:p-4
+            p-4
             flex flex-col justify-between overflow-y-auto no-scrollbar
-            shadow-xl lg:shadow-none
+            shadow-2xl lg:shadow-none
             transition-transform duration-300 ease-in-out
             ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           `}
         >
-          {/* Navigation Items */}
-          <div className="space-y-1.5">
-            <div className="px-3 py-2 text-[10px] uppercase tracking-wider text-[#7A0C17] font-black flex items-center justify-between">
-              <span>Operations Suite</span>
+          {/* Top Section: Drawer Brand Header (Mobile) & Navigation Items */}
+          <div className="space-y-3">
+            {/* Mobile-Only Drawer Header with high-touch close button */}
+            <div className="lg:hidden pb-3 border-b border-[#D9C7C2] flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Layers className="w-3.5 h-3.5 text-[#D72638]" />
-                <button
-                  onClick={() => setSidebarOpen(false)}
-                  className="lg:hidden p-1 rounded-md text-slate-400 hover:text-[#1A1D20]"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] text-white flex items-center justify-center shadow-xs">
+                  <Droplet className="w-4 h-4 fill-current" />
+                </div>
+                <div>
+                  <span className="font-bold text-sm tracking-tight text-[#1A1D20] block leading-tight">
+                    Blood<span className="text-[#D72638]">Match</span>
+                  </span>
+                  <span className="text-[9px] uppercase tracking-wider text-[#7A0C17] font-semibold block">
+                    Operations Suite
+                  </span>
+                </div>
               </div>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="p-2 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-[#4A5568] hover:text-[#D72638] active:scale-95 cursor-pointer"
+                aria-label="Close navigation"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            {navItems.map((item) => {
-              const active = isActive(item.path, item.exact);
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`
-                    w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold
-                    transition-all duration-200 group
-                    ${active
-                      ? 'bg-gradient-to-r from-[#D72638] to-[#7A0C17] text-white shadow-md shadow-[#D72638]/25 font-bold scale-[1.01]'
-                      : 'text-[#4A5568] hover:bg-[#F5F1EF] hover:text-[#1A1D20]'
-                    }
-                  `}
-                >
-                  <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 transition-transform group-hover:scale-110 ${active ? 'text-white' : 'text-[#7A0C17] group-hover:text-[#D72638]'}`} />
-                    <span>{item.name}</span>
-                  </div>
-                  {item.badge && (
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      active 
-                        ? 'bg-white/20 text-white' 
-                        : (item.badgeColor || 'bg-[#F5F1EF] text-[#7A0C17] border border-[#D9C7C2]')
-                    }`}>
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+            {/* Desktop Operations Suite Label */}
+            <div className="hidden lg:flex px-3 py-1 text-[10px] uppercase tracking-wider text-[#7A0C17] font-black items-center justify-between">
+              <span>Operations Suite</span>
+              <Layers className="w-3.5 h-3.5 text-[#D72638]" />
+            </div>
+
+            {/* Navigation Items */}
+            <div className="space-y-1.5">
+              {navItems.map((item) => {
+                const active = isActive(item.path, item.exact);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setSidebarOpen(false)}
+                    className={`
+                      w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold
+                      transition-all duration-200 group
+                      ${active
+                        ? 'bg-gradient-to-r from-[#D72638] to-[#7A0C17] text-white shadow-md shadow-[#D72638]/25 font-bold scale-[1.01]'
+                        : 'text-[#4A5568] hover:bg-[#F5F1EF] hover:text-[#1A1D20]'
+                      }
+                    `}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon className={`w-4 h-4 transition-transform group-hover:scale-110 ${active ? 'text-white' : 'text-[#7A0C17] group-hover:text-[#D72638]'}`} />
+                      <span>{item.name}</span>
+                    </div>
+                    {item.badge && (
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        active 
+                          ? 'bg-white/20 text-white' 
+                          : (item.badgeColor || 'bg-[#F5F1EF] text-[#7A0C17] border border-[#D9C7C2]')
+                      }`}>
+                        {item.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Quick Telemetry & Support in Solid Left Sidebar */}
-          <div className="pt-4 border-t border-[#D9C7C2] space-y-2 shrink-0">
-            <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-xs">
+          {/* Bottom Section: Telemetry & Full Clinician Profile Card */}
+          <div className="pt-4 border-t border-[#D9C7C2] space-y-3 shrink-0">
+            {/* Quick Telemetry & Support in Solid Left Sidebar */}
+            <div className="p-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-xs">
               <div className="flex items-center justify-between text-[#4A5568] mb-1">
                 <span className="flex items-center gap-1.5 font-semibold">
                   <Activity className="w-3.5 h-3.5 text-emerald-600" />
@@ -366,14 +385,42 @@ export default function Layout() {
               <div className="w-full bg-[#D9C7C2]/50 h-1.5 rounded-full overflow-hidden">
                 <div className="bg-gradient-to-r from-[#D72638] via-[#7A0C17] to-emerald-500 h-full w-full"></div>
               </div>
+              <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#D9C7C2]/40 text-[10px] text-[#4A5568]">
+                <span className="flex items-center gap-1 font-medium">
+                  <PhoneCall className="w-3 h-3 text-[#D72638]" />
+                  <span>Trauma Hotline</span>
+                </span>
+                <span className="text-[#D72638] font-mono font-bold">Ext 911</span>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between px-2 text-[11px] text-[#4A5568]">
-              <span className="flex items-center gap-1 font-medium">
-                <PhoneCall className="w-3 h-3 text-[#D72638]" />
-                <span>Trauma Hotline</span>
-              </span>
-              <span className="text-[#D72638] font-mono font-bold">Ext 911</span>
+            {/* Dedicated Clinician Profile Card in Left Sidebar */}
+            <div className="p-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] space-y-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-xs font-bold shadow-2xs shrink-0">
+                  FK
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-[#1A1D20] truncate leading-tight">
+                    {userName}
+                  </div>
+                  <div className="text-[10px] text-[#7A0C17] font-semibold truncate">
+                    {userFacility}
+                  </div>
+                  <div className="flex items-center gap-1 text-[9px] font-semibold text-emerald-700 mt-0.5">
+                    <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                    <span>Verified Clinician</span>
+                  </div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-red-50 border border-[#D9C7C2] hover:border-[#D72638] text-[#D72638] text-[11px] font-bold shadow-2xs transition-colors cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Sign Out & Lock</span>
+              </button>
             </div>
           </div>
         </aside>
