@@ -52,24 +52,7 @@ export default function Layout() {
   const [donorsCount, setDonorsCount] = useState(0);
   const [totalUnits, setTotalUnits] = useState(0);
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: '1',
-      title: 'Transfusion Engine Initialized',
-      desc: 'Zero-synthetic-data vault connected. Ready for clinical triage.',
-      time: 'Just now',
-      type: 'inventory',
-      unread: true,
-    },
-    {
-      id: '2',
-      title: 'Universal Donor O- Reserve Guard',
-      desc: 'Automatic threshold surveillance enabled for all 8 blood groups.',
-      time: '2m ago',
-      type: 'urgent',
-      unread: true,
-    }
-  ]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   useEffect(() => {
     const updateStats = () => {
@@ -371,7 +354,7 @@ export default function Layout() {
             >
               <Bell className="w-4 h-4" />
               {notifications.some(n => n.unread) && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#D72638] animate-ping"></span>
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#D72638]"></span>
               )}
             </button>
 
@@ -381,23 +364,33 @@ export default function Layout() {
                   <span className="text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
                     Transfusion Alerts
                   </span>
-                  <button
-                    onClick={() => setNotifications(prev => prev.map(n => ({ ...n, unread: false })))}
-                    className="text-[11px] font-semibold text-[#D72638] hover:underline cursor-pointer"
-                  >
-                    Mark all read
-                  </button>
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={() => setNotifications(prev => prev.map(n => ({ ...n, unread: false })))}
+                      className="text-[11px] font-semibold text-[#D72638] hover:underline cursor-pointer"
+                    >
+                      Mark all read
+                    </button>
+                  )}
                 </div>
                 <div className="space-y-2.5 pt-3 max-h-64 overflow-y-auto no-scrollbar">
-                  {notifications.map(n => (
-                    <div key={n.id} className="p-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]/70 text-xs">
-                      <div className="font-bold text-[#1A1D20] flex items-center justify-between">
-                        <span>{n.title}</span>
-                        <span className="text-[10px] text-slate-500 font-normal">{n.time}</span>
-                      </div>
-                      <p className="text-[11px] text-[#4A5568] mt-1 leading-relaxed">{n.desc}</p>
+                  {notifications.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-[#5A626A]">
+                      <Bell className="w-6 h-6 mx-auto mb-2 text-slate-300" />
+                      <p className="font-bold text-[#1A1D20]">No alerts at this time</p>
+                      <p className="text-[11px] mt-0.5 text-[#5A626A]">Transfusion queue clear</p>
                     </div>
-                  ))}
+                  ) : (
+                    notifications.map(n => (
+                      <div key={n.id} className="p-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]/70 text-xs">
+                        <div className="font-bold text-[#1A1D20] flex items-center justify-between">
+                          <span>{n.title}</span>
+                          <span className="text-[10px] text-slate-500 font-normal">{n.time}</span>
+                        </div>
+                        <p className="text-[11px] text-[#4A5568] mt-1 leading-relaxed">{n.desc}</p>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}

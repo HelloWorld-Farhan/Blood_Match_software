@@ -1,8 +1,27 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, Variants } from 'framer-motion';
 import { BloodType } from '../types';
 import { BLOOD_COMPATIBILITY_TABLE } from '../utils/bloodCompatibility';
 import { HeartPulse, CheckCircle2, Info, Activity, ShieldCheck, Dna } from 'lucide-react';
+
+const scrollBlurVariants: Variants = {
+  hidden: { 
+    opacity: 0, 
+    y: 24, 
+    filter: 'blur(12px)',
+    scale: 0.985,
+  },
+  visible: { 
+    opacity: 1, 
+    y: 0, 
+    filter: 'blur(0px)',
+    scale: 1,
+    transition: { 
+      duration: 0.55, 
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
 
 export default function CompatibilityMatrix() {
   const bloodTypes: BloodType[] = ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'];
@@ -11,17 +30,13 @@ export default function CompatibilityMatrix() {
   const selectedInfo = BLOOD_COMPATIBILITY_TABLE[selectedType];
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.35 }}
-      className="space-y-6 sm:space-y-8 pb-12 relative z-10"
-    >
+    <div className="space-y-6 sm:space-y-8 pb-12 relative z-10">
       {/* Header */}
       <motion.div 
-        initial={{ y: -10, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.35 }}
+        variants={scrollBlurVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
         className="p-6 sm:p-8 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
       >
         <div>
@@ -58,14 +73,18 @@ export default function CompatibilityMatrix() {
 
       {/* Featured Large-Format Molecular Genetics & Cross-Match Bay (4122-177145595_medium.mp4) */}
       <motion.div 
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+        variants={scrollBlurVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
         className="p-5 sm:p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-hidden"
       >
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
           {/* Prominent High-Definition Molecular Video Monitor */}
-          <div className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black min-h-[260px] sm:min-h-[300px] flex items-center justify-center">
+          <div 
+            className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black min-h-[260px] sm:min-h-[300px] flex items-center justify-center"
+            style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
+          >
             <video
               src="/4122-177145595_medium.mp4?v=3"
               poster="/4122-177145595_medium_poster.jpg"
@@ -284,9 +303,10 @@ export default function CompatibilityMatrix() {
 
       {/* Full 8x8 Grid */}
       <motion.div 
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, delay: 0.1 }}
+        variants={scrollBlurVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
         className="p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-x-auto no-scrollbar"
       >
         <div className="mb-4 flex items-center justify-between">
@@ -334,6 +354,6 @@ export default function CompatibilityMatrix() {
           </tbody>
         </table>
       </motion.div>
-    </motion.div>
+    </div>
   );
 }

@@ -160,6 +160,9 @@ export const Dashboard: React.FC = () => {
       {/* Power BI Top Navigation & Slicer Bar */}
       <motion.div 
         variants={blurSectionVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
         className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-sm relative overflow-hidden"
       >
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 z-10 min-w-0">
@@ -218,6 +221,9 @@ export const Dashboard: React.FC = () => {
       {/* 4 Primary Power BI KPI Cards with Staggered Blur-In Entrance */}
       <motion.div 
         variants={blurSectionVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5"
       >
         {/* KPI 1: Cryo Volume */}
@@ -355,11 +361,17 @@ export const Dashboard: React.FC = () => {
       {/* Featured Large-Format Clinical Telemetry Theater with Blur-In Transition */}
       <motion.div
         variants={blurSectionVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
         className="p-5 sm:p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-hidden"
       >
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
           {/* Prominent High-Definition Clinical Video Monitor */}
-          <div className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black min-h-[260px] sm:min-h-[320px] flex items-center justify-center">
+          <div 
+            className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black min-h-[260px] sm:min-h-[320px] flex items-center justify-center"
+            style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
+          >
             <video
               src="/385816_medium.mp4?v=3"
               poster="/385816_medium_poster.jpg"
@@ -446,6 +458,9 @@ export const Dashboard: React.FC = () => {
       {/* Power BI Visual Row 1: Stock Bar Matrix & Dynamic 7-Day Velocity Curve */}
       <motion.div 
         variants={blurSectionVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
         className="grid grid-cols-1 lg:grid-cols-2 gap-4"
       >
         {/* Power BI Visual 1: Stock Level Bar Matrix */}
@@ -624,6 +639,9 @@ export const Dashboard: React.FC = () => {
       {/* Power BI Visual Row 2: Interactive Cross-Match Simulator & Triage Feed with Blur-In Transition */}
       <motion.div 
         variants={blurSectionVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
         className="grid grid-cols-1 lg:grid-cols-3 gap-4"
       >
         {/* Instant Cross-Match Simulator */}

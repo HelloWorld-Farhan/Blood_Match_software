@@ -1,31 +1,63 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, Variants } from 'framer-motion';
 import { BloodInventoryUnit, BloodType } from '../types';
 import { 
-  Package, 
   Plus, 
   Minus, 
   Droplet, 
   BarChart3, 
-  TrendingUp, 
-  AlertTriangle, 
   ShieldCheck, 
   ShieldAlert, 
-  Sparkles, 
   RefreshCw, 
   Filter, 
-  Activity, 
   Layers,
-  ArrowUpRight,
   Database
 } from 'lucide-react';
-import { getInventory, updateInventoryUnits, saveInventory } from '../services/storage';
+import { getInventory, updateInventoryUnits, resetAllDataToZero } from '../services/storage';
+
+// Modern scroll-triggered blur-in entrance variants
+const scrollBlurVariants: Variants = {
+  hidden: { 
+    opacity: 0, 
+    y: 24, 
+    filter: 'blur(12px)',
+    scale: 0.985,
+  },
+  visible: { 
+    opacity: 1, 
+    y: 0, 
+    filter: 'blur(0px)',
+    scale: 1,
+    transition: { 
+      duration: 0.55, 
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
+
+const tileCardVariants: Variants = {
+  hidden: { 
+    opacity: 0, 
+    y: 18, 
+    filter: 'blur(10px)',
+    scale: 0.97,
+  },
+  visible: { 
+    opacity: 1, 
+    y: 0, 
+    filter: 'blur(0px)',
+    scale: 1,
+    transition: { 
+      duration: 0.5, 
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
 
 export default function InventoryManager() {
   const [inventory, setInventory] = useState<BloodInventoryUnit[]>(getInventory());
   const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'CRITICAL' | 'RH_NEG' | 'RH_POS' | 'UNIVERSAL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSimulating, setIsSimulating] = useState(false);
 
   const loadData = () => {
     setInventory(getInventory());
@@ -42,43 +74,10 @@ export default function InventoryManager() {
     setInventory(updated);
   };
 
-  // Quick 1-click clinical sample simulation
-  const handleSimulateData = () => {
-    setIsSimulating(true);
-    const clinicalSample: Record<BloodType, number> = {
-      'O-': 12,
-      'O+': 24,
-      'A-': 8,
-      'A+': 22,
-      'B-': 6,
-      'B+': 18,
-      'AB-': 4,
-      'AB+': 16,
-    };
-
-    const simulatedList: BloodInventoryUnit[] = inventory.map(item => {
-      const targetUnits = clinicalSample[item.bloodType] || 10;
-      return {
-        ...item,
-        unitsAvailable: targetUnits,
-        status: targetUnits >= 15 ? 'optimal' : targetUnits >= 5 ? 'low' : 'critical'
-      };
-    });
-
-    saveInventory(simulatedList);
-    setInventory(simulatedList);
-    setTimeout(() => setIsSimulating(false), 400);
-  };
-
-  // Reset all to zero
+  // Reset all to clean 0
   const handleResetToZero = () => {
-    const zeroList: BloodInventoryUnit[] = inventory.map(item => ({
-      ...item,
-      unitsAvailable: 0,
-      status: 'critical'
-    }));
-    saveInventory(zeroList);
-    setInventory(zeroList);
+    resetAllDataToZero();
+    loadData();
   };
 
   // KPI Calculations
@@ -123,8 +122,14 @@ export default function InventoryManager() {
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-16 relative z-10">
-      {/* Power BI Executive Header */}
-      <div className="p-6 sm:p-8 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+      {/* Power BI Executive Header with Scroll Blur-In */}
+      <motion.div 
+        variants={scrollBlurVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+        className="p-6 sm:p-8 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6"
+      >
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/30 mb-2">
             <BarChart3 className="w-3.5 h-3.5 text-[#D72638]" />
@@ -138,33 +143,34 @@ export default function InventoryManager() {
           </p>
         </div>
 
-        {/* Quick Batch Actions */}
+        {/* Quick Batch Actions - Zero Data Action */}
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button
-            onClick={handleSimulateData}
-            disabled={isSimulating}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#D72638] to-[#7A0C17] hover:from-[#b51d2c] hover:to-[#600811] text-white text-xs font-bold shadow-md shadow-[#D72638]/20 active:scale-95 transition-all cursor-pointer"
-            title="Populate clinical demo values across all 8 alleles"
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>{isSimulating ? 'Calibrating...' : 'Simulate Clinical Batch'}</span>
-          </button>
-
-          <button
             onClick={handleResetToZero}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#F5F1EF] hover:bg-slate-200 border border-[#D9C7C2] text-[#4A5568] hover:text-[#1A1D20] text-xs font-semibold active:scale-95 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white hover:bg-red-50 border border-[#D9C7C2] text-[#7A0C17] text-xs font-bold active:scale-95 transition-all cursor-pointer shadow-xs"
             title="Reset all reserves to 0"
           >
-            <RefreshCw className="w-3.5 h-3.5" />
-            <span>Zero Vault</span>
+            <RefreshCw className="w-4 h-4 text-[#D72638]" />
+            <span>Zero Vault Data</span>
           </button>
         </div>
-      </div>
+      </motion.div>
 
-      {/* 4 Power BI Executive KPI Tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* 4 Power BI Executive KPI Tiles with Scroll Blur-In */}
+      <motion.div 
+        variants={scrollBlurVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+      >
         {/* Tile 1: Total Bank Reserves */}
-        <div className="p-5 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-xs flex flex-col justify-between">
+        <motion.div 
+          variants={tileCardVariants}
+          whileHover={{ y: -3, scale: 1.01 }}
+          transition={{ duration: 0.2 }}
+          className="p-5 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-xs flex flex-col justify-between"
+        >
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[11px] font-black uppercase tracking-wider text-[#5A626A]">Total Bank Volume</span>
@@ -189,10 +195,15 @@ export default function InventoryManager() {
               />
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Tile 2: Vault Deficit Monitor */}
-        <div className="p-5 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-xs flex flex-col justify-between">
+        <motion.div 
+          variants={tileCardVariants}
+          whileHover={{ y: -3, scale: 1.01 }}
+          transition={{ duration: 0.2 }}
+          className="p-5 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-xs flex flex-col justify-between"
+        >
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[11px] font-black uppercase tracking-wider text-[#5A626A]">Critical Shortages</span>
@@ -216,10 +227,15 @@ export default function InventoryManager() {
             <span className="text-[#5A626A]">Healthy Groups (≥15 Pts):</span>
             <span className="font-bold text-emerald-700 font-mono">{healthyGroupsCount} Groups</span>
           </div>
-        </div>
+        </motion.div>
 
         {/* Tile 3: Universal O- Emergency Buffer */}
-        <div className="p-5 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-xs flex flex-col justify-between">
+        <motion.div 
+          variants={tileCardVariants}
+          whileHover={{ y: -3, scale: 1.01 }}
+          transition={{ duration: 0.2 }}
+          className="p-5 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-xs flex flex-col justify-between"
+        >
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[11px] font-black uppercase tracking-wider text-[#5A626A]">Universal O- Buffer</span>
@@ -242,10 +258,15 @@ export default function InventoryManager() {
               {universalUnits >= 15 ? 'OPTIMAL' : universalUnits >= 5 ? 'ADEQUATE' : 'CRITICAL SHORTAGE'}
             </span>
           </div>
-        </div>
+        </motion.div>
 
         {/* Tile 4: Rh-Factor Distribution Ratio */}
-        <div className="p-5 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-xs flex flex-col justify-between">
+        <motion.div 
+          variants={tileCardVariants}
+          whileHover={{ y: -3, scale: 1.01 }}
+          transition={{ duration: 0.2 }}
+          className="p-5 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-xs flex flex-col justify-between"
+        >
           <div className="flex items-start justify-between">
             <div>
               <span className="text-[11px] font-black uppercase tracking-wider text-[#5A626A]">Rh Antigen Distribution</span>
@@ -281,14 +302,23 @@ export default function InventoryManager() {
               />
             </div>
           </div>
-        </div>
-      </div>
+        </motion.div>
+      </motion.div>
 
-      {/* Featured Large-Format Cryo-Vault Atmospheric Surveillance Bay (16531-273379399_medium.mp4) */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-hidden">
+      {/* Featured Large-Format Cryo-Vault Atmospheric Surveillance Bay with Blur-In Transition */}
+      <motion.div 
+        variants={scrollBlurVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+        className="p-5 sm:p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-hidden"
+      >
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
           {/* Prominent High-Definition Cryo-Chamber Video Monitor */}
-          <div className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black min-h-[260px] sm:min-h-[300px] flex items-center justify-center">
+          <div 
+            className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black min-h-[260px] sm:min-h-[300px] flex items-center justify-center"
+            style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
+          >
             <video
               src="/16531-273379399_medium.mp4?v=3"
               poster="/16531-273379399_medium_poster.jpg"
@@ -372,10 +402,16 @@ export default function InventoryManager() {
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Graphical Stock Level Comparison Matrix (Power BI Bar Chart) */}
-      <div className="p-6 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-xs space-y-4">
+      {/* Graphical Stock Level Comparison Matrix with Scroll Blur-In */}
+      <motion.div 
+        variants={scrollBlurVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+        className="p-6 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-xs space-y-4"
+      >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D9C7C2]/60">
           <div>
             <div className="flex items-center gap-2">
@@ -408,7 +444,7 @@ export default function InventoryManager() {
             {/* Target 20-Pint Threshold Line */}
             <div 
               className="absolute left-0 right-0 border-t-2 border-dashed border-[#D72638]/50 z-10 pointer-events-none flex items-center justify-end pr-2"
-              style={{ bottom: '75%' }} // 20 out of 25 scale
+              style={{ bottom: '75%' }}
             >
               <span className="bg-white/90 px-1.5 py-0.5 rounded text-[10px] font-bold text-[#D72638] font-mono border border-[#D72638]/30 shadow-2xs">
                 Target: 20 Pts
@@ -436,7 +472,7 @@ export default function InventoryManager() {
                         isLw ? 'bg-gradient-to-t from-amber-600 to-amber-400' :
                         'bg-gradient-to-t from-emerald-700 to-emerald-400'
                       }`}
-                      style={{ height: `${Math.max(4, heightPct)}%` }}
+                      style={{ height: `${Math.max(item.unitsAvailable > 0 ? 4 : 0, heightPct)}%` }}
                     />
                   </div>
 
@@ -449,10 +485,16 @@ export default function InventoryManager() {
             })}
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Slicers & Filters Ribbon */}
-      <div className="p-4 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Slicers & Filters Ribbon with Scroll Blur-In */}
+      <motion.div 
+        variants={scrollBlurVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+        className="p-4 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
+      >
         {/* Slicer Pills */}
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-bold text-[#5A626A] mr-2 flex items-center gap-1">
@@ -490,11 +532,17 @@ export default function InventoryManager() {
             className="w-full px-3 py-1.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-xs text-[#1A1D20] placeholder-slate-400 outline-hidden focus:border-[#D72638] transition-colors"
           />
         </div>
-      </div>
+      </motion.div>
 
-      {/* Grid of 8 Graphical Cryo-Pod Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {filteredInventory.map((item, index) => {
+      {/* Grid of 8 Graphical Cryo-Pod Cards with Scroll Blur-In */}
+      <motion.div 
+        variants={scrollBlurVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.1 }}
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+      >
+        {filteredInventory.map((item) => {
           const isCritical = item.unitsAvailable < 5;
           const isLow = item.unitsAvailable >= 5 && item.unitsAvailable < 15;
           const pct = Math.min(100, Math.round((item.unitsAvailable / 20) * 100));
@@ -536,7 +584,7 @@ export default function InventoryManager() {
                         isLow ? 'bg-gradient-to-t from-amber-600 to-amber-400' :
                         'bg-gradient-to-t from-emerald-700 to-emerald-400'
                       }`}
-                      style={{ height: `${Math.max(6, pct)}%` }}
+                      style={{ height: `${Math.max(item.unitsAvailable > 0 ? 6 : 0, pct)}%` }}
                     />
                   </div>
 
@@ -599,7 +647,7 @@ export default function InventoryManager() {
             </div>
           );
         })}
-      </div>
+      </motion.div>
     </div>
   );
 }

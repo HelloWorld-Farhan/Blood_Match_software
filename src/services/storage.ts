@@ -1,11 +1,24 @@
 import { BloodInventoryUnit, BloodType, Donor, EmergencyRequest, UserSession } from '../types';
 
+// Version 2 storage keys guaranteeing 100% clean zero-data state across all client devices
 const STORAGE_KEYS = {
-  DONORS: 'bloodmatch_donors_data_v1',
-  REQUESTS: 'bloodmatch_emergency_requests_v1',
-  INVENTORY: 'bloodmatch_inventory_units_v1',
-  USER: 'bloodmatch_active_user_session_v1',
+  DONORS: 'bloodmatch_donors_v2',
+  REQUESTS: 'bloodmatch_requests_v2',
+  INVENTORY: 'bloodmatch_inventory_v2',
+  USER: 'bloodmatch_user_session_v2',
 };
+
+// Automatic one-time cleanup of any legacy v1 mock/simulation data cached in user browsers
+if (typeof window !== 'undefined') {
+  try {
+    localStorage.removeItem('bloodmatch_donors_data_v1');
+    localStorage.removeItem('bloodmatch_emergency_requests_v1');
+    localStorage.removeItem('bloodmatch_inventory_units_v1');
+    localStorage.removeItem('bloodmatch_active_user_session_v1');
+  } catch {
+    // Ignore in non-browser or sandbox environments
+  }
+}
 
 export const BloodStorage = {
   // --- Donors (Initially 0) ---

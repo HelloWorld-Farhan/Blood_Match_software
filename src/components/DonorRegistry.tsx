@@ -1,8 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, Variants } from 'framer-motion';
 import { BloodType, Donor } from '../types';
 import { Users, Plus, Search, Phone, MapPin, Heart, X, Mail, Activity, ShieldCheck, HeartPulse } from 'lucide-react';
 import { getDonors, saveDonors } from '../services/storage';
+
+const scrollBlurVariants: Variants = {
+  hidden: { 
+    opacity: 0, 
+    y: 24, 
+    filter: 'blur(12px)',
+    scale: 0.985,
+  },
+  visible: { 
+    opacity: 1, 
+    y: 0, 
+    filter: 'blur(0px)',
+    scale: 1,
+    transition: { 
+      duration: 0.55, 
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
 
 export default function DonorRegistry() {
   const [donors, setDonors] = useState<Donor[]>([]);
@@ -89,9 +108,10 @@ export default function DonorRegistry() {
     >
       {/* Header */}
       <motion.div 
-        initial={{ y: -10, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.35 }}
+        variants={scrollBlurVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
         className="p-6 sm:p-8 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
       >
         <div>
@@ -118,14 +138,18 @@ export default function DonorRegistry() {
 
       {/* Featured Large-Format Apheresis Mobilization Live Monitor (6973-197914400_medium.mp4) */}
       <motion.div 
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
+        variants={scrollBlurVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
         className="p-5 sm:p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-hidden"
       >
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
           {/* Prominent High-Definition Cellular Apheresis Video Monitor */}
-          <div className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black min-h-[260px] sm:min-h-[300px] flex items-center justify-center">
+          <div 
+            className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black min-h-[260px] sm:min-h-[300px] flex items-center justify-center"
+            style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
+          >
             <video
               src="/6973-197914400_medium.mp4?v=3"
               poster="/6973-197914400_medium_poster.jpg"
@@ -211,8 +235,14 @@ export default function DonorRegistry() {
         </div>
       </motion.div>
 
-      {/* Controls & Blood Group Filters */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+      {/* Controls & Blood Group Filters with Scroll Blur-In */}
+      <motion.div 
+        variants={scrollBlurVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        className="flex flex-col md:flex-row gap-4 items-center justify-between"
+      >
         {/* Search Input */}
         <div className="relative w-full md:w-96">
           <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
@@ -241,21 +271,27 @@ export default function DonorRegistry() {
             </button>
           ))}
         </div>
-      </div>
+      </motion.div>
 
-      {/* Donors Grid */}
-      {filteredDonors.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-white/80 border border-dashed border-[#D9C7C2]">
-          <Heart className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-[#1A1D20]">No registered donors found</h3>
-          <p className="text-xs text-[#5A626A] mt-1 max-w-md mx-auto">
-            {search || selectedFilter !== 'ALL'
-              ? 'No donors match your search or filter criteria. Try resetting your filters.'
-              : 'The voluntary donor registry currently has zero donors. Register your first donor using the button above.'}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {/* Donors Grid with Scroll Blur-In */}
+      <motion.div
+        variants={scrollBlurVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.1 }}
+      >
+        {filteredDonors.length === 0 ? (
+          <div className="p-12 text-center rounded-2xl bg-white/80 border border-dashed border-[#D9C7C2]">
+            <Heart className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-[#1A1D20]">No registered donors found</h3>
+            <p className="text-xs text-[#5A626A] mt-1 max-w-md mx-auto">
+              {search || selectedFilter !== 'ALL'
+                ? 'No donors match your search or filter criteria. Try resetting your filters.'
+                : 'The voluntary donor registry currently has zero donors. Register your first donor using the button above.'}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredDonors.map((donor, index) => (
             <motion.div
               key={donor.id}
@@ -321,6 +357,7 @@ export default function DonorRegistry() {
           ))}
         </div>
       )}
+      </motion.div>
 
       {/* Register Donor Modal */}
       {isOpenModal && (

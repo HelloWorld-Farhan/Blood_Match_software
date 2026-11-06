@@ -1,9 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, Variants } from 'framer-motion';
 import { BloodType, EmergencyRequest, UrgencyLevel, Donor } from '../types';
 import { BLOOD_COMPATIBILITY_TABLE } from '../utils/bloodCompatibility';
 import { AlertTriangle, Plus, CheckCircle, Hospital, Heart, ShieldAlert, Sparkles, X, Phone } from 'lucide-react';
 import { getEmergencyRequests, saveEmergencyRequests, getDonors } from '../services/storage';
+
+const scrollBlurVariants: Variants = {
+  hidden: { 
+    opacity: 0, 
+    y: 24, 
+    filter: 'blur(12px)',
+    scale: 0.985,
+  },
+  visible: { 
+    opacity: 1, 
+    y: 0, 
+    filter: 'blur(0px)',
+    scale: 1,
+    transition: { 
+      duration: 0.55, 
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
 
 export default function EmergencyRequests() {
   const [requests, setRequests] = useState<EmergencyRequest[]>([]);
@@ -105,11 +124,12 @@ export default function EmergencyRequests() {
       transition={{ duration: 0.35 }}
       className="space-y-6 sm:space-y-8 pb-12 relative z-10"
     >
-      {/* Header */}
+      {/* Header with Scroll Blur-In */}
       <motion.div 
-        initial={{ y: -10, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.35 }}
+        variants={scrollBlurVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
         className="p-6 sm:p-8 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
       >
         <div>
@@ -134,8 +154,14 @@ export default function EmergencyRequests() {
         </button>
       </motion.div>
 
-      {/* Filter Tabs */}
-      <div className="flex flex-wrap gap-2">
+      {/* Filter Tabs with Scroll Blur-In */}
+      <motion.div 
+        variants={scrollBlurVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.2 }}
+        className="flex flex-wrap gap-2"
+      >
         {['ALL', 'urgent', 'critical', 'fulfilled'].map(status => (
           <button
             key={status}
@@ -149,20 +175,26 @@ export default function EmergencyRequests() {
             {status.toUpperCase()} ({status === 'ALL' ? requests.length : requests.filter(r => r.status === status).length})
           </button>
         ))}
-      </div>
+      </motion.div>
 
-      {/* Request Cards Grid */}
-      {filteredRequests.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-white/80 border border-dashed border-[#D9C7C2]">
-          <ShieldAlert className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-          <h3 className="text-lg font-bold text-[#1A1D20]">No active requests found</h3>
-          <p className="text-xs text-[#5A626A] mt-1 max-w-md mx-auto">
-            {filterStatus === 'ALL' 
-              ? 'No emergency transfusion requests have been broadcast yet. Click "Broadcast Emergency Request" above to initiate a real-time call.'
-              : `There are currently no requests with "${filterStatus}" status.`}
-          </p>
-        </div>
-      ) : (
+      {/* Request Cards Grid with Scroll Blur-In */}
+      <motion.div
+        variants={scrollBlurVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.1 }}
+      >
+        {filteredRequests.length === 0 ? (
+          <div className="p-12 text-center rounded-2xl bg-white/80 border border-dashed border-[#D9C7C2]">
+            <ShieldAlert className="w-12 h-12 text-slate-400 mx-auto mb-3" />
+            <h3 className="text-lg font-bold text-[#1A1D20]">No active requests found</h3>
+            <p className="text-xs text-[#5A626A] mt-1 max-w-md mx-auto">
+              {filterStatus === 'ALL' 
+                ? 'No emergency transfusion requests have been broadcast yet. Click "Broadcast Emergency Request" above to initiate a real-time call.'
+                : `There are currently no requests with "${filterStatus}" status.`}
+            </p>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredRequests.map((req, index) => {
             const compatibleTypes = BLOOD_COMPATIBILITY_TABLE[req.bloodType].canReceiveFrom;
@@ -265,6 +297,7 @@ export default function EmergencyRequests() {
           })}
         </div>
       )}
+      </motion.div>
 
       {/* Broadcast Request Modal */}
       {isOpenModal && (
