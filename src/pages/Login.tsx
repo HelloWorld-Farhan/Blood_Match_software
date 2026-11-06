@@ -16,6 +16,7 @@ import {
 import { BloodDropsCanvas } from '../components/BloodDropsCanvas';
 import { AmbientBackgroundVideo } from '../components/AmbientBackgroundVideo';
 import { validateEmail } from '../utils/countryCodes';
+import { ForgotPasswordModal } from '../components/ForgotPasswordModal';
 
 export const OFFICIAL_CLINICIAN_CREDENTIALS = {
   email: 'clinician@bloodmatch.org',
@@ -35,6 +36,7 @@ export default function Login() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
 
   // Seamless instant auto-play video reference with glitch-free loop and zero black frames
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -320,9 +322,13 @@ export default function Login() {
                       <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
                         Security Password
                       </label>
-                      <span className="text-[11px] text-[#D72638] hover:underline cursor-pointer">
+                      <button
+                        type="button"
+                        onClick={() => setIsForgotModalOpen(true)}
+                        className="text-[11px] text-[#D72638] hover:underline cursor-pointer font-semibold"
+                      >
                         Forgot Access?
-                      </span>
+                      </button>
                     </div>
                     <div className="relative group">
                       <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
@@ -436,6 +442,13 @@ export default function Login() {
       <footer className="relative z-10 w-full py-4 text-center text-xs text-[#5A626A] border-t border-[#D9C7C2] bg-white/80 backdrop-blur-md">
         <p>© 2026 BloodMatch Transfusion Network. Emergency Hotline: +1 (800) 555-BLOOD</p>
       </footer>
+
+      {/* Horizontal Forgot Password Recovery Modal with 299518.mp4 & Animated Blood Droplet */}
+      <ForgotPasswordModal
+        isOpen={isForgotModalOpen}
+        onClose={() => setIsForgotModalOpen(false)}
+        defaultEmail={email}
+      />
     </div>
   );
 }
