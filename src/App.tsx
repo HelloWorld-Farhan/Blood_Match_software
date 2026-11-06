@@ -9,6 +9,7 @@ import CompatibilityMatrix from './components/CompatibilityMatrix';
 import EmergencyRequests from './components/EmergencyRequests';
 import DonorRegistry from './components/DonorRegistry';
 import InventoryManager from './components/InventoryManager';
+import Settings from './components/Settings';
 
 function AnimatedRoutes() {
   const location = useLocation();
@@ -28,6 +29,7 @@ function AnimatedRoutes() {
           <Route path="emergency" element={<EmergencyRequests />} />
           <Route path="donors" element={<DonorRegistry />} />
           <Route path="inventory" element={<InventoryManager />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
 
         {/* Fallback */}

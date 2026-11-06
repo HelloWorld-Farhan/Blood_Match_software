@@ -18,7 +18,8 @@ import {
   ChevronDown,
   PhoneCall,
   Activity,
-  Layers
+  Layers,
+  Settings as SettingsIcon
 } from 'lucide-react';
 import { BloodDropsCanvas } from './BloodDropsCanvas';
 import { AmbientBackgroundVideo } from './AmbientBackgroundVideo';
@@ -52,6 +53,19 @@ export default function Layout() {
   const [activeRequestsCount, setActiveRequestsCount] = useState(0);
   const [donorsCount, setDonorsCount] = useState(0);
   const [totalUnits, setTotalUnits] = useState(0);
+
+  // Clinician Avatar
+  const [avatar, setAvatar] = useState<string | null>(
+    () => localStorage.getItem('bloodmatch_user_avatar') || null
+  );
+
+  useEffect(() => {
+    const handleProfileUpdate = () => {
+      setAvatar(localStorage.getItem('bloodmatch_user_avatar') || null);
+    };
+    window.addEventListener('bloodmatch_profile_updated', handleProfileUpdate);
+    return () => window.removeEventListener('bloodmatch_profile_updated', handleProfileUpdate);
+  }, []);
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
@@ -118,6 +132,11 @@ export default function Layout() {
       icon: Database,
       badge: `${totalUnits} Pts`,
       isInventory: true,
+    },
+    { 
+      name: 'Security & Settings', 
+      path: '/dashboard/settings', 
+      icon: SettingsIcon,
     },
   ];
 
@@ -287,8 +306,12 @@ export default function Layout() {
         {/* Dedicated Clinician Profile Card */}
         <div className="p-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] space-y-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-xs font-bold shadow-2xs shrink-0">
-              FK
+            <div className="w-8 h-8 rounded-lg overflow-hidden bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-xs font-bold shadow-2xs shrink-0">
+              {avatar ? (
+                <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span>{userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'FK'}</span>
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-xs font-bold text-[#1A1D20] truncate leading-tight">
@@ -461,8 +484,12 @@ export default function Layout() {
               className="flex items-center gap-1.5 p-1 sm:p-1.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] hover:border-[#D72638] active:scale-95 transition-colors cursor-pointer shrink-0"
               aria-label="Clinician Profile"
             >
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-xs font-bold shadow-2xs">
-                FK
+              <div className="w-7 h-7 rounded-lg overflow-hidden bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-xs font-bold shadow-2xs">
+                {avatar ? (
+                  <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <span>{userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'FK'}</span>
+                )}
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
             </button>
@@ -479,9 +506,18 @@ export default function Layout() {
                 </div>
 
                 <div className="pt-2 space-y-1">
+                  <Link
+                    to="/dashboard/settings"
+                    onClick={() => setProfileOpen(false)}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[#1A1D20] hover:bg-[#F5F1EF] transition-colors cursor-pointer"
+                  >
+                    <SettingsIcon className="w-4 h-4 text-[#D72638]" />
+                    <span>Account Settings & Security</span>
+                  </Link>
+
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[#D72638] hover:bg-[#F5F1EF] transition-colors cursor-pointer"
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[#D72638] hover:bg-red-50 transition-colors cursor-pointer"
                   >
                     <LogOut className="w-4 h-4" />
                     <span>Lock Session & Sign Out</span>

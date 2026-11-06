@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Droplet, 
@@ -15,7 +15,9 @@ import {
   Check,
   Eye,
   EyeOff,
-  CheckCircle2
+  CheckCircle2,
+  RefreshCw,
+  KeyRound
 } from 'lucide-react';
 import { BloodDropsCanvas } from '../components/BloodDropsCanvas';
 import { AmbientBackgroundVideo } from '../components/AmbientBackgroundVideo';
@@ -23,6 +25,7 @@ import { COUNTRY_CODES, validatePhoneNumber, validateEmail, checkPasswordCriteri
 
 export default function Signup() {
   const navigate = useNavigate();
+  const [step, setStep] = useState<'FORM' | 'OTP_VERIFY'>('FORM');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [countryDialCode, setCountryDialCode] = useState('+91');
@@ -34,6 +37,13 @@ export default function Signup() {
   const [consentChecked, setConsentChecked] = useState(false); // Unchecked by default
   const [isLoading, setIsLoading] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // OTP Verification States
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [resendTimer, setResendTimer] = useState(30);
+  const [canResend, setCanResend] = useState(false);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Real-time password criteria evaluation
   const passwordCriteria = useMemo(() => checkPasswordCriteria(password), [password]);
@@ -70,7 +80,20 @@ export default function Signup() {
     return () => {
       video.removeEventListener('ended', handleEnded);
     };
-  }, []);
+  }, [step]);
+
+  // Resend timer countdown for OTP step
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (step === 'OTP_VERIFY' && resendTimer > 0) {
+      interval = setInterval(() => {
+        setResendTimer(prev => prev - 1);
+      }, 1000);
+    } else if (resendTimer === 0) {
+      setCanResend(true);
+    }
+    return () => clearInterval(interval);
+  }, [step, resendTimer]);
 
   const handleSignup = (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,6 +134,54 @@ export default function Signup() {
     }
 
     setFormErrors({});
+    setIsLoading(true);
+
+    // Transition to Email OTP Verification
+    setTimeout(() => {
+      setIsLoading(false);
+      setStep('OTP_VERIFY');
+      setResendTimer(30);
+      setCanResend(false);
+      setTimeout(() => otpInputRefs.current[0]?.focus(), 150);
+    }, 450);
+  };
+
+  // OTP Handlers
+  const handleOtpChange = (index: number, value: string) => {
+    if (otpError) setOtpError(null);
+    const cleanVal = value.replace(/\D/g, '').slice(-1);
+    const updated = [...otp];
+    updated[index] = cleanVal;
+    setOtp(updated);
+
+    if (cleanVal && index < 5) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleResendOtp = () => {
+    if (!canResend) return;
+    setOtp(['', '', '', '', '', '']);
+    setResendTimer(30);
+    setCanResend(false);
+    setOtpError(null);
+    otpInputRefs.current[0]?.focus();
+  };
+
+  const handleVerifyOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    const fullCode = otp.join('');
+    if (fullCode.length < 6) {
+      setOtpError('Please enter the complete 6-digit verification token sent to your email');
+      return;
+    }
+
     setIsLoading(true);
 
     setTimeout(() => {
@@ -173,7 +244,7 @@ export default function Signup() {
         <div className="w-full max-w-6xl mx-auto py-2 sm:py-4">
           <div className="relative w-full rounded-2xl overflow-hidden bg-white shadow-2xl border border-[#D9C7C2] flex flex-col lg:flex-row min-h-0 lg:min-h-[640px]">
             
-            {/* LEFT PANEL: Arterial Luminous Flow Video Presentation with NO pause/mute icons */}
+            {/* LEFT PANEL: Arterial Luminous Flow Video Presentation or OTP 287987.mp4 */}
             <motion.div 
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -183,8 +254,8 @@ export default function Signup() {
               <div className="absolute inset-0 w-full h-full">
                 <video
                   ref={videoRef}
-                  src="/3995-176277710.mp4?v=3"
-                  poster="/3995-176277710_poster.jpg"
+                  key={step === 'OTP_VERIFY' ? 'otp-video-287987' : 'signup-flow-video'}
+                  src={step === 'OTP_VERIFY' ? '/287987.mp4' : '/3995-176277710.mp4?v=3'}
                   autoPlay
                   loop
                   muted
@@ -200,8 +271,17 @@ export default function Signup() {
               {/* Clean Video Header */}
               <div className="relative z-10 flex items-center justify-between">
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-xs font-semibold text-white">
-                  <Heart className="w-3.5 h-3.5 text-[#D72638] animate-pulse" />
-                  <span>Join Verified Transfusion Registry</span>
+                  {step === 'OTP_VERIFY' ? (
+                    <>
+                      <KeyRound className="w-3.5 h-3.5 text-[#D72638] animate-pulse" />
+                      <span>Encrypted Token Verification</span>
+                    </>
+                  ) : (
+                    <>
+                      <Heart className="w-3.5 h-3.5 text-[#D72638] animate-pulse" />
+                      <span>Join Verified Transfusion Registry</span>
+                    </>
+                  )}
                 </div>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#7A0C17]/60 border border-[#D72638]/40 text-[11px] font-semibold text-white">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
@@ -213,26 +293,39 @@ export default function Signup() {
               <div className="relative z-10 pt-8 sm:pt-16 lg:pt-48">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#D72638]/40 border border-[#D72638]/50 text-white text-xs font-bold mb-2">
                   <Sparkles className="w-3.5 h-3.5" />
-                  Life-Saving Rapid Response
+                  {step === 'OTP_VERIFY' ? 'Cryptographic Token Security' : 'Life-Saving Rapid Response'}
                 </div>
                 <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white leading-tight mb-2">
-                  Empower Immediate <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-red-100 to-white">
-                    Emergency Matchmaking
-                  </span>
+                  {step === 'OTP_VERIFY' ? (
+                    <>
+                      Validate Clinician <br />
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-red-100 to-white">
+                        Authorization Token
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      Empower Immediate <br />
+                      <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-red-100 to-white">
+                        Emergency Matchmaking
+                      </span>
+                    </>
+                  )}
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-200 leading-relaxed max-w-md font-light mb-3">
-                  Every certified donor and registered clinician bridges the gap in critical trauma cases, open-heart surgeries, and blood bank shortfalls.
+                  {step === 'OTP_VERIFY' 
+                    ? 'Two-factor cryptographic token authentication strictly protects emergency transfusion dispatch orders and voluntary donor health records.'
+                    : 'Every certified donor and registered clinician bridges the gap in critical trauma cases, open-heart surgeries, and blood bank shortfalls.'}
                 </p>
 
                 <div className="p-2.5 sm:p-3 rounded-xl bg-black/60 backdrop-blur-md border border-white/20 text-xs text-white flex items-center justify-between">
-                  <span>⚡ 1 Unit saves up to 3 lives</span>
-                  <span className="text-red-200 font-bold">100% Volunteer Network</span>
+                  <span>⚡ 100% Cryptographic Security</span>
+                  <span className="text-red-200 font-bold">AABB Verified Protocol</span>
                 </div>
               </div>
             </motion.div>
 
-            {/* RIGHT PANEL: Registration Form */}
+            {/* RIGHT PANEL: Registration Form OR Email OTP Verification */}
             <motion.div 
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -240,14 +333,146 @@ export default function Signup() {
               className="w-full lg:w-1/2 flex flex-col justify-between p-5 sm:p-8 lg:p-12 xl:p-14 bg-white text-[#1A1D20]"
             >
               <div>
+                {/* Dynamic Header */}
                 <div className="mb-6">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-[11px] font-bold border border-[#D72638]/20 mb-2">
+                    {step === 'OTP_VERIFY' ? <KeyRound className="w-3 h-3 text-[#D72638]" /> : <User className="w-3 h-3 text-[#D72638]" />}
+                    <span>{step === 'OTP_VERIFY' ? 'Email Token Validation' : 'Portal Enrollment'}</span>
+                  </div>
                   <h1 className="text-2xl sm:text-3xl font-black text-[#1A1D20] tracking-tight">
-                    Create Portal Profile
+                    {step === 'OTP_VERIFY' ? 'Verify Email Token' : 'Create Portal Profile'}
                   </h1>
                   <p className="text-xs sm:text-sm text-[#5A626A] mt-1">
-                    Register as a voluntary donor or clinical emergency officer
+                    {step === 'OTP_VERIFY' 
+                      ? `Enter the 6-digit cryptographic verification code sent to ${email}`
+                      : 'Register as a voluntary donor or clinical emergency officer'}
                   </p>
                 </div>
+
+                {step === 'OTP_VERIFY' ? (
+                  /* =================================================================
+                      STEP 2: EMAIL OTP VERIFICATION WITH ANIMATED BLOOD DROPLET
+                      ================================================================= */
+                  <form onSubmit={handleVerifyOtp} className="space-y-5">
+                    {/* Pulsing Liquid Blood Droplet Animation */}
+                    <div className="flex flex-col items-center justify-center py-2">
+                      <div className="relative flex items-center justify-center mb-3">
+                        <motion.span
+                          animate={{ scale: [1, 1.8, 2.2], opacity: [0.6, 0.25, 0] }}
+                          transition={{ repeat: Infinity, duration: 2, ease: 'easeOut' }}
+                          className="absolute w-16 h-16 rounded-full border-2 border-[#D72638] pointer-events-none"
+                        />
+                        <motion.span
+                          animate={{ scale: [1, 1.4, 1.8], opacity: [0.8, 0.4, 0] }}
+                          transition={{ repeat: Infinity, duration: 2, delay: 0.4, ease: 'easeOut' }}
+                          className="absolute w-16 h-16 rounded-full bg-[#D72638]/20 pointer-events-none"
+                        />
+                        <motion.div
+                          animate={{ 
+                            scale: [1, 1.08, 1],
+                            y: [0, -4, 0]
+                          }}
+                          transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
+                          className="relative z-10 w-16 h-16 rounded-2xl bg-gradient-to-br from-[#D72638] via-[#B81D2D] to-[#7A0C17] flex items-center justify-center text-white shadow-xl shadow-[#D72638]/40 border border-white/30"
+                        >
+                          <Droplet className="w-9 h-9 fill-current animate-pulse-subtle" />
+                        </motion.div>
+                      </div>
+
+                      <p className="text-xs text-[#5A626A] text-center">
+                        Dispatched authorization code to: <br />
+                        <span className="font-bold text-[#1A1D20]">{email}</span>
+                      </p>
+                    </div>
+
+                    {/* 6-Digit OTP Inputs */}
+                    <div>
+                      <div className="flex justify-center gap-2 sm:gap-3">
+                        {otp.map((digit, idx) => (
+                          <input
+                            key={idx}
+                            ref={(el) => { otpInputRefs.current[idx] = el; }}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={digit}
+                            onChange={(e) => handleOtpChange(idx, e.target.value)}
+                            onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                            className={`w-11 h-13 sm:w-12 sm:h-14 rounded-xl text-center text-xl font-mono font-black border transition-all duration-200 outline-hidden ${
+                              otpError 
+                                ? 'border-red-400 bg-red-50/40 text-[#D72638]' 
+                                : digit 
+                                ? 'border-[#D72638] bg-white text-[#1A1D20] shadow-sm' 
+                                : 'border-[#D9C7C2] bg-[#F5F1EF] focus:border-[#D72638] focus:bg-white focus:ring-2 focus:ring-[#D72638]/20'
+                            }`}
+                          />
+                        ))}
+                      </div>
+
+                      {/* Inline Error Below OTP */}
+                      {otpError && (
+                        <motion.p
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="text-xs text-[#D72638] mt-2 text-center flex items-center justify-center gap-1.5 font-semibold"
+                        >
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{otpError}</span>
+                        </motion.p>
+                      )}
+                    </div>
+
+                    {/* Resend Token Timer */}
+                    <div className="flex items-center justify-between text-xs pt-1 border-t border-[#D9C7C2]/60">
+                      <span className="text-[#5A626A]">Didn't receive code?</span>
+                      {canResend ? (
+                        <button
+                          type="button"
+                          onClick={handleResendOtp}
+                          className="font-bold text-[#D72638] hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <RefreshCw className="w-3 h-3" />
+                          <span>Resend Token</span>
+                        </button>
+                      ) : (
+                        <span className="text-slate-400 font-mono">
+                          Resend in {resendTimer}s
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setStep('FORM')}
+                        className="px-4 py-3 rounded-xl bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] border border-[#D9C7C2] font-semibold text-xs transition-colors cursor-pointer"
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="flex-1 py-3 px-4 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-sm shadow-md shadow-[#D72638]/30 hover:shadow-[#D72638]/50 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
+                      >
+                        {isLoading ? (
+                          <>
+                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <span>Activating Clinical Account...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Verify OTP & Launch Portal</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  /* =================================================================
+                      STEP 1: REGISTRATION FORM
+                      ================================================================= */
 
                 <form onSubmit={handleSignup} className="space-y-3.5">
                   {/* Full Legal Name */}
@@ -598,6 +823,7 @@ export default function Signup() {
                     )}
                   </button>
                 </form>
+                )}
 
                 {/* Back to Login */}
                 <div className="text-center pt-5">
