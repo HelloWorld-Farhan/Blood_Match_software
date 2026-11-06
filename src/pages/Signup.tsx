@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
@@ -6,25 +6,38 @@ import {
   Lock, 
   Mail, 
   User, 
-  MapPin, 
+  Phone, 
   ArrowRight, 
   ShieldCheck, 
   Heart,
-  Sparkles
+  Sparkles,
+  AlertCircle,
+  Check,
+  Eye,
+  EyeOff,
+  CheckCircle2
 } from 'lucide-react';
 import { BloodDropsCanvas } from '../components/BloodDropsCanvas';
 import { AmbientBackgroundVideo } from '../components/AmbientBackgroundVideo';
-import { BloodType } from '../types';
+import { COUNTRY_CODES, validatePhoneNumber, validateEmail, checkPasswordCriteria } from '../utils/countryCodes';
 
 export default function Signup() {
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [bloodType, setBloodType] = useState<BloodType>('O+');
-  const [city, setCity] = useState('');
+  const [countryDialCode, setCountryDialCode] = useState('+91');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [isDonor, setIsDonor] = useState(true);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [consentChecked, setConsentChecked] = useState(false); // Unchecked by default
   const [isLoading, setIsLoading] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Real-time password criteria evaluation
+  const passwordCriteria = useMemo(() => checkPasswordCriteria(password), [password]);
+  const passwordsMatch = password.length > 0 && password === confirmPassword;
 
   // Seamless auto-play video reference with glitch-free loop
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -61,17 +74,55 @@ export default function Signup() {
 
   const handleSignup = (e: React.FormEvent) => {
     e.preventDefault();
+
+    const errors: Record<string, string> = {};
+
+    if (!name.trim() || name.trim().length < 2) {
+      errors.name = 'Full legal name is required (at least 2 characters)';
+    }
+
+    const emailRes = validateEmail(email);
+    if (!emailRes.isValid) {
+      errors.email = emailRes.message || 'Please enter a valid email address';
+    }
+
+    const phoneRes = validatePhoneNumber(countryDialCode, phone);
+    if (!phoneRes.isValid) {
+      errors.phone = phoneRes.message || 'Please enter a valid mobile number';
+    }
+
+    if (!passwordCriteria.allValid) {
+      errors.password = 'Password must satisfy all security requirements (8+ chars, 1 uppercase, 2 numbers, 1 symbol)';
+    }
+
+    if (!confirmPassword) {
+      errors.confirmPassword = 'Please confirm your password';
+    } else if (password !== confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match';
+    }
+
+    if (!consentChecked) {
+      errors.consent = 'Please check the authorization box above to register your profile';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setFormErrors({});
     setIsLoading(true);
 
     setTimeout(() => {
-      const registeredName = name.trim() || 'Dr. Alex Mercer';
-      const registeredEmail = email.trim() || 'alex.mercer@hospital.org';
+      const registeredName = name.trim();
+      const registeredEmail = email.trim();
+      const registeredPhone = `${countryDialCode} ${phone.trim()}`;
 
       sessionStorage.setItem('bloodmatch_auth', 'true');
       sessionStorage.setItem('bloodmatch_user_email', registeredEmail);
       sessionStorage.setItem('bloodmatch_user_name', registeredName);
-      sessionStorage.setItem('bloodmatch_user_blood', bloodType);
-      sessionStorage.setItem('bloodmatch_user_facility', city.trim() || 'Regional Emergency Center');
+      sessionStorage.setItem('bloodmatch_user_phone', registeredPhone);
+      sessionStorage.setItem('bloodmatch_user_facility', 'Verified Transfusion Member');
 
       navigate('/dashboard');
     }, 400);
@@ -199,119 +250,340 @@ export default function Signup() {
                 </div>
 
                 <form onSubmit={handleSignup} className="space-y-3.5">
-                  {/* Full Name */}
+                  {/* Full Legal Name */}
                   <div>
                     <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1">
                       Full Legal Name
                     </label>
-                    <div className="relative">
-                      <User className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                    <div className="relative group">
+                      <User className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                        formErrors.name ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                      }`} />
                       <input
                         type="text"
-                        required
                         value={name}
-                        onChange={(e) => setName(e.target.value)}
+                        onChange={(e) => {
+                          setName(e.target.value);
+                          if (formErrors.name) setFormErrors(prev => ({ ...prev, name: '' }));
+                        }}
                         placeholder="Dr. Alex Mercer"
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus:border-[#D72638] focus:ring-1 focus:ring-[#D72638] text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all"
+                        className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                          formErrors.name 
+                            ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                            : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
+                        }`}
                       />
                     </div>
+                    {formErrors.name && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-xs text-[#D72638] mt-1.5 flex items-center gap-1.5 font-semibold"
+                      >
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{formErrors.name}</span>
+                      </motion.p>
+                    )}
                   </div>
 
-                  {/* Email */}
+                  {/* Email Address */}
                   <div>
                     <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1">
                       Email Address
                     </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                    <div className="relative group">
+                      <Mail className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                        formErrors.email ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                      }`} />
                       <input
                         type="email"
-                        required
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
+                        }}
                         placeholder="alex.mercer@hospital.org"
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus:border-[#D72638] focus:ring-1 focus:ring-[#D72638] text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all"
+                        className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                          formErrors.email 
+                            ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                            : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
+                        }`}
                       />
                     </div>
+                    {formErrors.email && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-xs text-[#D72638] mt-1.5 flex items-center gap-1.5 font-semibold"
+                      >
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{formErrors.email}</span>
+                      </motion.p>
+                    )}
                   </div>
 
-                  {/* Blood Group & Location Row */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1">
-                        Blood Type (ABO/Rh)
-                      </label>
-                      <select
-                        value={bloodType}
-                        onChange={(e) => setBloodType(e.target.value as BloodType)}
-                        className="w-full px-3 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus:border-[#D72638] focus:ring-1 focus:ring-[#D72638] text-sm text-[#1A1D20] font-bold outline-hidden transition-all"
-                      >
-                        <option value="O-">O- (Universal Donor)</option>
-                        <option value="O+">O+</option>
-                        <option value="A-">A-</option>
-                        <option value="A+">A+</option>
-                        <option value="B-">B-</option>
-                        <option value="B+">B+</option>
-                        <option value="AB-">AB-</option>
-                        <option value="AB+">AB+ (Universal Recipient)</option>
-                      </select>
-                    </div>
+                  {/* Verified Mobile Number with Country Flags & Codes */}
+                  <div>
+                    <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1">
+                      Verified Contact Number
+                    </label>
+                    <div className="flex gap-2">
+                      {/* Country Dial Code Selector (Default India 🇮🇳 +91) */}
+                      <div className="relative w-36 shrink-0">
+                        <select
+                          value={countryDialCode}
+                          onChange={(e) => {
+                            setCountryDialCode(e.target.value);
+                            if (formErrors.phone) setFormErrors(prev => ({ ...prev, phone: '' }));
+                          }}
+                          className="w-full px-2.5 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 text-xs font-bold text-[#1A1D20] outline-hidden transition-all cursor-pointer"
+                        >
+                          {COUNTRY_CODES.map((c) => (
+                            <option key={`${c.code}-${c.dialCode}`} value={c.dialCode}>
+                              {c.flag} {c.dialCode} ({c.code})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1">
-                        Hospital / City
-                      </label>
-                      <div className="relative">
-                        <MapPin className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                      {/* Phone Number Input */}
+                      <div className="relative flex-1 group">
+                        <Phone className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                          formErrors.phone ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                        }`} />
                         <input
-                          type="text"
-                          value={city}
-                          onChange={(e) => setCity(e.target.value)}
-                          placeholder="Metro Central"
-                          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus:border-[#D72638] focus:ring-1 focus:ring-[#D72638] text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all"
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => {
+                            setPhone(e.target.value);
+                            if (formErrors.phone) setFormErrors(prev => ({ ...prev, phone: '' }));
+                          }}
+                          placeholder={countryDialCode === '+91' ? '98765 43210' : 'Mobile number'}
+                          className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                            formErrors.phone 
+                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                              : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
+                          }`}
                         />
                       </div>
                     </div>
+                    {formErrors.phone && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-xs text-[#D72638] mt-1.5 flex items-center gap-1.5 font-semibold"
+                      >
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{formErrors.phone}</span>
+                      </motion.p>
+                    )}
                   </div>
 
-                  {/* Password */}
+                  {/* Account Security Password with Blood Fill Strength Animation */}
                   <div>
-                    <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1">
-                      Account Password
-                    </label>
-                    <div className="relative">
-                      <Lock className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
+                        Security Password
+                      </label>
+                      <span className="text-[11px] font-mono font-bold text-[#D72638] flex items-center gap-1">
+                        <Droplet className="w-3 h-3 fill-current animate-pulse" />
+                        <span>{passwordCriteria.strengthPercent}% Validated</span>
+                      </span>
+                    </div>
+                    <div className="relative group">
+                      <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                        formErrors.password ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                      }`} />
                       <input
-                        type="password"
-                        required
+                        type={showPassword ? 'text' : 'password'}
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••••••"
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus:border-[#D72638] focus:ring-1 focus:ring-[#D72638] text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all"
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          if (formErrors.password) setFormErrors(prev => ({ ...prev, password: '' }));
+                        }}
+                        placeholder="Min. 8 chars, 1 uppercase, 2 numbers, 1 symbol"
+                        className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                          formErrors.password 
+                            ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                            : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-3 text-slate-400 hover:text-[#1A1D20] transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+
+                    {/* Animated Liquid Blood Bar */}
+                    <div className="w-full bg-[#F5F1EF] border border-[#D9C7C2]/70 h-2 rounded-full overflow-hidden mt-1.5 relative">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${passwordCriteria.strengthPercent}%` }}
+                        transition={{ duration: 0.35, ease: 'easeOut' }}
+                        className={`h-full rounded-full transition-all duration-300 ${
+                          passwordCriteria.strengthPercent === 100
+                            ? 'bg-gradient-to-r from-[#D72638] to-emerald-500 shadow-[0_0_8px_rgba(215,38,56,0.5)]'
+                            : passwordCriteria.strengthPercent >= 50
+                            ? 'bg-gradient-to-r from-amber-500 to-[#D72638]'
+                            : 'bg-[#D72638]'
+                        }`}
                       />
                     </div>
+
+                    {/* Real-Time Password Criteria Badges */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-2">
+                      <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
+                        passwordCriteria.hasMinLength 
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                          : 'bg-[#F5F1EF] text-[#5A626A] border-[#D9C7C2]'
+                      }`}>
+                        {passwordCriteria.hasMinLength ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
+                        <span>8+ Chars</span>
+                      </span>
+
+                      <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
+                        passwordCriteria.hasUppercase 
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                          : 'bg-[#F5F1EF] text-[#5A626A] border-[#D9C7C2]'
+                      }`}>
+                        {passwordCriteria.hasUppercase ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
+                        <span>1 Big (A-Z)</span>
+                      </span>
+
+                      <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
+                        passwordCriteria.hasTwoNumbers 
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                          : 'bg-[#F5F1EF] text-[#5A626A] border-[#D9C7C2]'
+                      }`}>
+                        {passwordCriteria.hasTwoNumbers ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
+                        <span>2 Numbers</span>
+                      </span>
+
+                      <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
+                        passwordCriteria.hasSpecialChar 
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                          : 'bg-[#F5F1EF] text-[#5A626A] border-[#D9C7C2]'
+                      }`}>
+                        {passwordCriteria.hasSpecialChar ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
+                        <span>1 Symbol (!@#)</span>
+                      </span>
+                    </div>
+
+                    {formErrors.password && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-xs text-[#D72638] mt-1.5 flex items-center gap-1.5 font-semibold"
+                      >
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{formErrors.password}</span>
+                      </motion.p>
+                    )}
                   </div>
 
-                  {/* Donor Mobilization opt-in */}
-                  <div className="pt-1">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                  {/* Confirm Password */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
+                        Confirm Security Password
+                      </label>
+                      {confirmPassword && (
+                        <span className={`text-[11px] font-semibold flex items-center gap-1 ${
+                          passwordsMatch ? 'text-emerald-700' : 'text-[#D72638]'
+                        }`}>
+                          {passwordsMatch ? (
+                            <>
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>Passwords Match</span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="w-3 h-3 text-[#D72638]" />
+                              <span>Does Not Match</span>
+                            </>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative group">
+                      <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                        formErrors.confirmPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                      }`} />
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={(e) => {
+                          setConfirmPassword(e.target.value);
+                          if (formErrors.confirmPassword) setFormErrors(prev => ({ ...prev, confirmPassword: '' }));
+                        }}
+                        placeholder="Re-enter password to verify"
+                        className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                          formErrors.confirmPassword 
+                            ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                            : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3.5 top-3 text-slate-400 hover:text-[#1A1D20] transition-colors"
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {formErrors.confirmPassword && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-xs text-[#D72638] mt-1.5 flex items-center gap-1.5 font-semibold"
+                      >
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{formErrors.confirmPassword}</span>
+                      </motion.p>
+                    )}
+                  </div>
+
+                  {/* Easy-Language 2-Line Consent Checkbox (Unselected by default) */}
+                  <div className="pt-2">
+                    <label className="flex items-start gap-2.5 cursor-pointer select-none group">
                       <input
                         type="checkbox"
-                        checked={isDonor}
-                        onChange={(e) => setIsDonor(e.target.checked)}
-                        className="w-4 h-4 rounded-sm border-[#D9C7C2] bg-[#F5F1EF] text-[#D72638] focus:ring-[#D72638] accent-[#D72638] cursor-pointer"
+                        checked={consentChecked}
+                        onChange={(e) => {
+                          setConsentChecked(e.target.checked);
+                          if (formErrors.consent) setFormErrors(prev => ({ ...prev, consent: '' }));
+                        }}
+                        className="w-4 h-4 mt-0.5 rounded-sm border-[#D9C7C2] bg-[#F5F1EF] text-[#D72638] focus:ring-[#D72638] accent-[#D72638] cursor-pointer shrink-0"
                       />
-                      <span className="text-xs text-[#5A626A]">
-                        Authorize emergency alerts for immediate blood matching
-                      </span>
+                      <div className="text-xs text-[#5A626A] leading-relaxed group-hover:text-[#1A1D20] transition-colors">
+                        <p className="font-semibold text-[#1A1D20]">
+                          I agree to receive urgent blood match notifications & transfusion alerts.
+                        </p>
+                        <p className="text-[11px] text-[#5A626A] mt-0.5">
+                          I certify that my contact number and medical credentials are authentic and verified.
+                        </p>
+                      </div>
                     </label>
+                    {formErrors.consent && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-xs text-[#D72638] mt-1.5 flex items-center gap-1.5 font-semibold"
+                      >
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{formErrors.consent}</span>
+                      </motion.p>
+                    )}
                   </div>
 
                   {/* Submit Button */}
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-3 px-4 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-sm shadow-md shadow-[#D72638]/30 hover:shadow-[#D72638]/50 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 mt-2"
+                    className="w-full py-3 px-4 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-sm shadow-md shadow-[#D72638]/30 hover:shadow-[#D72638]/50 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 mt-2"
                   >
                     {isLoading ? (
                       <>

@@ -10,10 +10,12 @@ import {
   ArrowRight, 
   ShieldCheck, 
   Activity, 
-  Sparkles
+  Sparkles,
+  AlertCircle
 } from 'lucide-react';
 import { BloodDropsCanvas } from '../components/BloodDropsCanvas';
 import { AmbientBackgroundVideo } from '../components/AmbientBackgroundVideo';
+import { validateEmail } from '../utils/countryCodes';
 
 export const OFFICIAL_CLINICIAN_CREDENTIALS = {
   email: 'clinician@bloodmatch.org',
@@ -31,6 +33,8 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   // Seamless instant auto-play video reference with glitch-free loop and zero black frames
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -79,6 +83,29 @@ export default function Login() {
   const handleLogin = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setLoginError(null);
+    setEmailError(null);
+    setPasswordError(null);
+
+    let hasError = false;
+
+    // Strict Email validation
+    const emailResult = validateEmail(email);
+    if (!emailResult.isValid) {
+      setEmailError(emailResult.message || 'Please enter a valid clinician email address');
+      hasError = true;
+    }
+
+    // Strict Password validation
+    if (!password.trim()) {
+      setPasswordError('Security password is required');
+      hasError = true;
+    } else if (password.length < 6) {
+      setPasswordError('Password must be at least 6 characters');
+      hasError = true;
+    }
+
+    if (hasError) return;
+
     setIsLoading(true);
 
     setTimeout(() => {
@@ -255,16 +282,36 @@ export default function Login() {
                     <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
                       Clinician Work Email
                     </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                    <div className="relative group">
+                      <Mail className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                        emailError ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                      }`} />
                       <input
                         type="email"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          if (emailError) setEmailError(null);
+                        }}
                         placeholder="doctor@bloodmatch.org"
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus:border-[#D72638] focus:ring-1 focus:ring-[#D72638] text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all"
+                        className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                          emailError 
+                            ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                            : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
+                        }`}
                       />
                     </div>
+                    {/* Error Below Field (Work 1) */}
+                    {emailError && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-xs text-[#D72638] mt-1.5 flex items-center gap-1.5 font-semibold"
+                      >
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{emailError}</span>
+                      </motion.p>
+                    )}
                   </div>
 
                   {/* Password */}
@@ -277,14 +324,23 @@ export default function Login() {
                         Forgot Access?
                       </span>
                     </div>
-                    <div className="relative">
-                      <Lock className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                    <div className="relative group">
+                      <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                        passwordError ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                      }`} />
                       <input
                         type={showPassword ? 'text' : 'password'}
                         value={password}
-                        onChange={(e) => setPassword(e.target.value)}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          if (passwordError) setPasswordError(null);
+                        }}
                         placeholder="••••••••••••"
-                        className="w-full pl-10 pr-11 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus:border-[#D72638] focus:ring-1 focus:ring-[#D72638] text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all"
+                        className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                          passwordError 
+                            ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                            : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
+                        }`}
                       />
                       <button
                         type="button"
@@ -294,6 +350,17 @@ export default function Login() {
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
+                    {/* Error Below Field (Work 1) */}
+                    {passwordError && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="text-xs text-[#D72638] mt-1.5 flex items-center gap-1.5 font-semibold"
+                      >
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                        <span>{passwordError}</span>
+                      </motion.p>
+                    )}
                   </div>
 
                   {/* Remember Me */}
@@ -314,7 +381,7 @@ export default function Login() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="w-full py-3 px-4 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-sm shadow-md shadow-[#D72638]/30 hover:shadow-[#D72638]/50 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 mt-2"
+                    className="w-full py-3 px-4 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-sm shadow-md shadow-[#D72638]/30 hover:shadow-[#D72638]/50 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 mt-2"
                   >
                     {isLoading ? (
                       <>
@@ -327,17 +394,6 @@ export default function Login() {
                         <ArrowRight className="w-4 h-4" />
                       </>
                     )}
-                  </button>
-
-                  {/* Quick Demo Access Button */}
-                  <button
-                    type="button"
-                    onClick={handleDemoLogin}
-                    disabled={isLoading}
-                    className="w-full py-2.5 px-4 rounded-xl bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] border border-[#D9C7C2] font-semibold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-[#D72638]" />
-                    <span>Quick Demo Login (1-Click Instant Access)</span>
                   </button>
                 </form>
 

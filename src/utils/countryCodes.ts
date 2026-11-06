@@ -52,3 +52,38 @@ export const validateEmail = (email: string): { isValid: boolean; message?: stri
   }
   return { isValid: true };
 };
+
+export interface PasswordCriteria {
+  hasMinLength: boolean;
+  hasUppercase: boolean;
+  hasTwoNumbers: boolean;
+  hasSpecialChar: boolean;
+  allValid: boolean;
+  strengthPercent: number;
+}
+
+export const checkPasswordCriteria = (password: string): PasswordCriteria => {
+  const hasMinLength = password.length >= 8;
+  const hasUppercase = /[A-Z]/.test(password);
+  const numberMatches = password.match(/\d/g);
+  const hasTwoNumbers = (numberMatches ? numberMatches.length : 0) >= 2;
+  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>_\-+=[\]~`\\/]/.test(password);
+
+  let passedCount = 0;
+  if (hasMinLength) passedCount++;
+  if (hasUppercase) passedCount++;
+  if (hasTwoNumbers) passedCount++;
+  if (hasSpecialChar) passedCount++;
+
+  const strengthPercent = Math.round((passedCount / 4) * 100);
+  const allValid = passedCount === 4;
+
+  return {
+    hasMinLength,
+    hasUppercase,
+    hasTwoNumbers,
+    hasSpecialChar,
+    allValid,
+    strengthPercent,
+  };
+};
