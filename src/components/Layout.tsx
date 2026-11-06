@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Outlet, Link } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Droplet, 
   LayoutDashboard, 
@@ -103,21 +104,20 @@ export default function Layout() {
       path: '/dashboard/emergency', 
       icon: AlertTriangle,
       badge: activeRequestsCount > 0 ? `${activeRequestsCount}` : undefined,
-      badgeColor: 'bg-[#D00000] text-white animate-pulse'
+      isEmergency: true,
     },
     { 
       name: 'Donor Registry', 
       path: '/dashboard/donors', 
       icon: Users,
       badge: donorsCount > 0 ? `${donorsCount}` : undefined,
-      badgeColor: 'bg-[#2A2A2F] text-slate-200'
     },
     { 
       name: 'Cryo-Vault Inventory', 
       path: '/dashboard/inventory', 
       icon: Database,
-      badge: `${totalUnits} Pints`,
-      badgeColor: 'bg-[#6A040F]/80 text-red-200 border border-[#D00000]/40'
+      badge: `${totalUnits} Pts`,
+      isInventory: true,
     },
   ];
 
@@ -165,8 +165,8 @@ export default function Layout() {
           </div>
         )}
 
-        {/* Navigation Items */}
-        <div className="space-y-1.5">
+        {/* Navigation Items with Framer Motion Sliding Active Pill */}
+        <div className="space-y-1.5 relative">
           {navItems.map((item) => {
             const active = isActive(item.path, item.exact);
             const Icon = item.icon;
@@ -176,26 +176,84 @@ export default function Layout() {
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
                 className={`
-                  w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold
-                  transition-all duration-200 group cursor-pointer
-                  ${active
-                    ? 'bg-gradient-to-r from-[#D72638] to-[#7A0C17] text-white shadow-md shadow-[#D72638]/25 font-bold scale-[1.01]'
-                    : 'text-[#4A5568] hover:bg-[#F5F1EF] hover:text-[#1A1D20]'
-                  }
+                  relative w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold
+                  transition-colors duration-200 group cursor-pointer
+                  ${active ? 'text-white font-bold' : 'text-[#4A5568] hover:text-[#1A1D20]'}
                 `}
               >
-                <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 transition-transform group-hover:scale-110 ${active ? 'text-white' : 'text-[#7A0C17] group-hover:text-[#D72638]'}`} />
-                  <span>{item.name}</span>
+                {/* Modern Sliding Active Pill Morph */}
+                {active && (
+                  <motion.div
+                    layoutId={isMobileDrawer ? 'activeNavPillDrawer' : 'activeNavPillDesktop'}
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                    className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#D72638] via-[#B81D2D] to-[#7A0C17] shadow-md shadow-[#D72638]/25 z-0"
+                  />
+                )}
+
+                {/* Subtle Hover Pill when Inactive */}
+                {!active && (
+                  <div className="absolute inset-0 rounded-xl bg-transparent group-hover:bg-[#F5F1EF] transition-colors duration-150 z-0" />
+                )}
+
+                {/* Luminous Active Left Accent Indicator Bar */}
+                {active && (
+                  <motion.div
+                    layoutId={isMobileDrawer ? 'activeNavPipDrawer' : 'activeNavPipDesktop'}
+                    transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                    className="absolute left-1 top-2.5 bottom-2.5 w-1 rounded-full bg-white/90 shadow-[0_0_8px_rgba(255,255,255,0.8)] z-10"
+                  />
+                )}
+
+                <div className="relative z-10 flex items-center gap-3">
+                  <motion.div
+                    animate={active ? { scale: [1, 1.15, 1] } : { scale: 1 }}
+                    transition={{ duration: 0.25 }}
+                  >
+                    <Icon className={`w-4 h-4 transition-transform group-hover:scale-110 ${active ? 'text-white' : 'text-[#7A0C17] group-hover:text-[#D72638]'}`} />
+                  </motion.div>
+                  <span className="tracking-tight">{item.name}</span>
                 </div>
-                {item.badge && (
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    active 
-                      ? 'bg-white/20 text-white' 
-                      : (item.badgeColor || 'bg-[#F5F1EF] text-[#7A0C17] border border-[#D9C7C2]')
-                  }`}>
-                    {item.badge}
-                  </span>
+
+                {/* Redesigned Modern Sleek Badge (Work 1) */}
+                {item.badge !== undefined && (
+                  <div className="relative z-10 shrink-0">
+                    {item.isInventory ? (
+                      <span
+                        className={`inline-flex items-center gap-1.5 text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap transition-all duration-200 shadow-2xs ${
+                          active
+                            ? 'bg-white/20 text-white border border-white/30 backdrop-blur-xs'
+                            : 'bg-[#D72638]/10 text-[#D72638] border border-[#D72638]/25 group-hover:bg-[#D72638]/15 group-hover:border-[#D72638]/40'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                            active ? 'bg-emerald-300 animate-pulse' : 'bg-[#D72638] animate-pulse'
+                          }`}
+                        />
+                        <span>{item.badge}</span>
+                      </span>
+                    ) : item.isEmergency ? (
+                      <span
+                        className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap transition-all duration-200 shadow-xs ${
+                          active
+                            ? 'bg-white/25 text-white border border-white/30 animate-pulse'
+                            : 'bg-[#D72638] text-white animate-pulse'
+                        }`}
+                      >
+                        <span>{item.badge}</span>
+                      </span>
+                    ) : (
+                      <span
+                        className={`inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap transition-all duration-200 ${
+                          active
+                            ? 'bg-white/20 text-white border border-white/25'
+                            : 'bg-[#1A1D20]/5 text-[#5A626A] border border-[#D9C7C2]'
+                        }`}
+                      >
+                        <span>{item.badge}</span>
+                      </span>
+                    )}
+                  </div>
                 )}
               </Link>
             );
@@ -446,7 +504,18 @@ export default function Layout() {
 
         {/* Center Content Router Outlet: Scrollable with ambient video visible in background */}
         <main className="flex-1 h-full min-w-0 overflow-y-auto no-scrollbar px-3 sm:px-6 lg:px-8 py-4 lg:py-6 pb-20 relative z-10">
-          <Outlet />
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 12, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, y: -12, filter: 'blur(6px)' }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              className="w-full"
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
     </div>

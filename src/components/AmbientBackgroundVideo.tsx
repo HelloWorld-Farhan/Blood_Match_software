@@ -1,6 +1,18 @@
 import React, { useRef, useEffect } from 'react';
 
-export const AmbientBackgroundVideo: React.FC = () => {
+interface AmbientBackgroundVideoProps {
+  videoSrc?: string;
+  posterSrc?: string;
+  overlayClassName?: string;
+  opacity?: number;
+}
+
+export const AmbientBackgroundVideo: React.FC<AmbientBackgroundVideoProps> = ({
+  videoSrc = "/3995-176277710.mp4?v=3",
+  posterSrc = "/3995-176277710_poster.jpg",
+  overlayClassName = "bg-[#F5F1EF]/60",
+  opacity = 1
+}) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -36,7 +48,7 @@ export const AmbientBackgroundVideo: React.FC = () => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [videoSrc]);
 
   return (
     <div 
@@ -44,14 +56,15 @@ export const AmbientBackgroundVideo: React.FC = () => {
       style={{
         transform: 'translate3d(0, 0, 0)',
         backfaceVisibility: 'hidden',
-        willChange: 'transform'
+        willChange: 'transform',
+        opacity
       }}
     >
-      {/* 3995-176277710.mp4 Luminous Arterial Erythrocyte Flow (Bright White & Red Palette) */}
       <video
         ref={videoRef}
-        src="/3995-176277710.mp4?v=3"
-        poster="/3995-176277710_poster.jpg"
+        key={videoSrc}
+        src={videoSrc}
+        poster={posterSrc}
         autoPlay
         loop
         muted
@@ -64,9 +77,9 @@ export const AmbientBackgroundVideo: React.FC = () => {
         }}
       />
 
-      {/* Pure GPU-Composited Translucent Alabaster Veil (Bright, Pristine White & Red Clinical Palette) */}
+      {/* Customizable Clinical Palette Overlay */}
       <div 
-        className="absolute inset-0 bg-[#F5F1EF]/60 pointer-events-none"
+        className={`absolute inset-0 pointer-events-none ${overlayClassName}`}
       />
       
       {/* Subtle Arterial Crimson Depth Gradient */}

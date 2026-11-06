@@ -79,8 +79,12 @@ export default function Signup() {
 
   return (
     <div className="relative min-h-screen bg-[#F5F1EF] font-sans text-[#1A1D20] flex flex-col justify-between overflow-x-hidden selection:bg-[#D72638] selection:text-white">
-      {/* 4K UHD Ambient Background Video Layer */}
-      <AmbientBackgroundVideo />
+      {/* 4K UHD Ambient Background Video Layer — Using signup.mp4 as cinematic background */}
+      <AmbientBackgroundVideo 
+        videoSrc="/signup.mp4"
+        posterSrc="/signup_poster.jpg"
+        overlayClassName="bg-black/55 backdrop-blur-[1px]"
+      />
 
       {/* Floating Blood Drops Canvas */}
       <BloodDropsCanvas />
@@ -118,7 +122,7 @@ export default function Signup() {
         <div className="w-full max-w-6xl mx-auto py-2 sm:py-4">
           <div className="relative w-full rounded-2xl overflow-hidden bg-white shadow-2xl border border-[#D9C7C2] flex flex-col lg:flex-row min-h-0 lg:min-h-[640px]">
             
-            {/* LEFT PANEL: signup.mp4 Video Presentation with NO pause/mute icons */}
+            {/* LEFT PANEL: Arterial Luminous Flow Video Presentation with NO pause/mute icons */}
             <motion.div 
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -128,8 +132,8 @@ export default function Signup() {
               <div className="absolute inset-0 w-full h-full">
                 <video
                   ref={videoRef}
-                  src="/signup.mp4"
-                  poster="/signup_poster.jpg"
+                  src="/3995-176277710.mp4?v=3"
+                  poster="/3995-176277710_poster.jpg"
                   autoPlay
                   loop
                   muted
@@ -138,7 +142,7 @@ export default function Signup() {
                   className="w-full h-full object-cover object-center pointer-events-none"
                   style={{ transform: 'translateZ(0)' }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-[#7A0C17]/35 pointer-events-none"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-[#7A0C17]/40 pointer-events-none"></div>
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_rgba(215,38,56,0.35)_0%,_transparent_60%)] pointer-events-none"></div>
               </div>
 
