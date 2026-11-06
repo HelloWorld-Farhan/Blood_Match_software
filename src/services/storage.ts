@@ -159,6 +159,30 @@ export const BloodStorage = {
       console.warn('Failed to set user', e);
     }
   },
+
+  resetAllDataToZero(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const bloodTypes: BloodType[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+      const zeroInventory: BloodInventoryUnit[] = bloodTypes.map(type => ({
+        id: `INV-${type}`,
+        bloodType: type,
+        unitsAvailable: 0,
+        storageFacility: 'Central Cryo-Vault 01',
+        lastTestedDate: new Date().toISOString().split('T')[0],
+        status: 'critical',
+      }));
+      localStorage.setItem(STORAGE_KEYS.DONORS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(zeroInventory));
+      window.dispatchEvent(new CustomEvent('bloodmatch_donors_updated'));
+      window.dispatchEvent(new CustomEvent('bloodmatch_requests_updated'));
+      window.dispatchEvent(new CustomEvent('bloodmatch_inventory_updated'));
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {
+      console.warn('Failed to reset all data to zero', e);
+    }
+  },
 };
 
 export const getDonors = () => BloodStorage.getDonors();
@@ -167,6 +191,7 @@ export const getEmergencyRequests = () => BloodStorage.getEmergencyRequests();
 export const saveEmergencyRequests = (requests: EmergencyRequest[]) => BloodStorage.saveEmergencyRequests(requests);
 export const getInventory = () => BloodStorage.getInventory();
 export const saveInventory = (units: BloodInventoryUnit[]) => BloodStorage.saveInventory(units);
+export const resetAllDataToZero = () => BloodStorage.resetAllDataToZero();
 export const updateInventoryUnits = (type: BloodType, delta: number) => {
   BloodStorage.updateUnits(type, delta);
   return BloodStorage.getInventory();

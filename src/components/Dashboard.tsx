@@ -11,20 +11,66 @@ import {
   CheckCircle2, 
   XCircle, 
   ShieldAlert, 
-  ShieldCheck,
-  Plus, 
-  Sparkles,
+  ShieldCheck, 
   RefreshCw,
-  PieChart,
   BarChart3,
-  Layers,
   HeartPulse,
-  Award
+  Plus
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, Variants } from 'framer-motion';
 import { BloodType, EmergencyRequest, Donor } from '../types';
-import { getDonors, getEmergencyRequests, getInventory } from '../services/storage';
+import { getDonors, getEmergencyRequests, getInventory, resetAllDataToZero } from '../services/storage';
 import { checkCompatibility } from '../utils/bloodCompatibility';
+
+// Cinematic Framer Motion entrance variants with modern blur-in
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.09,
+      delayChildren: 0.04,
+    },
+  },
+};
+
+const blurSectionVariants: Variants = {
+  hidden: { 
+    opacity: 0, 
+    y: 22, 
+    filter: 'blur(12px)',
+    scale: 0.985,
+  },
+  visible: { 
+    opacity: 1, 
+    y: 0, 
+    filter: 'blur(0px)',
+    scale: 1,
+    transition: { 
+      duration: 0.55, 
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
+
+const kpiCardVariants: Variants = {
+  hidden: { 
+    opacity: 0, 
+    y: 18, 
+    filter: 'blur(10px)',
+    scale: 0.97,
+  },
+  visible: { 
+    opacity: 1, 
+    y: 0, 
+    filter: 'blur(0px)',
+    scale: 1,
+    transition: { 
+      duration: 0.5, 
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
 
 export const Dashboard: React.FC = () => {
   const [requests, setRequests] = useState<EmergencyRequest[]>([]);
@@ -51,24 +97,39 @@ export const Dashboard: React.FC = () => {
     setInventory(getInventory());
   };
 
+  const handleResetToZero = () => {
+    resetAllDataToZero();
+    loadData();
+  };
+
   const totalUnits = inventory.reduce((acc, curr) => acc + curr.unitsAvailable, 0);
   const urgentCount = requests.filter(r => r.status === 'urgent' || r.status === 'critical').length;
   const criticalUnitsCount = inventory.filter(i => i.status === 'critical').length;
   const targetReserve = 160; // 20 pints per 8 groups = 160 pints ideal vault capacity
   const capacityPercent = Math.min(100, Math.round((totalUnits / targetReserve) * 100));
 
-  // 7-day trend data for multi-series SVG chart
-  const trendData = [
-    { day: 'Mon', requests: 4, mobilized: 6, stock: 45 },
-    { day: 'Tue', requests: 7, mobilized: 8, stock: 42 },
-    { day: 'Wed', requests: 3, mobilized: 7, stock: 48 },
-    { day: 'Thu', requests: 9, mobilized: 11, stock: 52 },
-    { day: 'Fri', requests: 6, mobilized: 8, stock: 50 },
-    { day: 'Sat', requests: 12, mobilized: 14, stock: 58 },
-    { day: 'Sun', requests: 5, mobilized: 9, stock: 56 },
-  ];
+  // Dynamic 7-day trend data derived directly from real events (0 when storage is empty)
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const trendData = days.map(day => ({
+    day,
+    requests: requests.filter(r => {
+      try {
+        return new Date(r.createdAt).toLocaleDateString('en-US', { weekday: 'short' }) === day;
+      } catch {
+        return false;
+      }
+    }).length,
+    mobilized: donors.filter(d => {
+      try {
+        return new Date(d.registeredAt).toLocaleDateString('en-US', { weekday: 'short' }) === day;
+      } catch {
+        return false;
+      }
+    }).length,
+    stock: totalUnits,
+  }));
 
-  const maxVal = 16;
+  const maxVal = Math.max(10, ...trendData.map(d => Math.max(d.requests, d.mobilized)));
   const chartWidth = 520;
   const chartHeight = 140;
 
@@ -91,16 +152,14 @@ export const Dashboard: React.FC = () => {
 
   return (
     <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.4 }}
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
       className="space-y-4 pb-12"
     >
       {/* Power BI Top Navigation & Slicer Bar */}
       <motion.div 
-        initial={{ y: -10, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.35 }}
+        variants={blurSectionVariants}
         className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-sm relative overflow-hidden"
       >
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 z-10 min-w-0">
@@ -118,7 +177,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Power BI Interactive Slicers */}
+        {/* Power BI Interactive Slicers & Zero Actions */}
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full lg:w-auto z-10 shrink-0">
           <div className="flex items-center gap-1 bg-[#F5F1EF] p-1 rounded-xl border border-[#D9C7C2] overflow-x-auto no-scrollbar max-w-full">
             {['ALL', 'O-', 'O+', 'A+', 'B+', 'AB+'].map(type => (
@@ -139,17 +198,31 @@ export const Dashboard: React.FC = () => {
           <button
             onClick={loadData}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95"
+            title="Reload from local storage"
           >
             <RefreshCw className="w-3.5 h-3.5 text-[#D72638]" />
             <span>Sync Hub</span>
           </button>
+
+          <button
+            onClick={handleResetToZero}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-red-50 text-[#7A0C17] border border-[#D9C7C2] text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
+            title="Reset all donors, requests, and inventory to zero"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-[#D72638]" />
+            <span>Zero Data</span>
+          </button>
         </div>
       </motion.div>
 
-      {/* 4 Primary Power BI KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      {/* 4 Primary Power BI KPI Cards with Staggered Blur-In Entrance */}
+      <motion.div 
+        variants={blurSectionVariants}
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5"
+      >
         {/* KPI 1: Cryo Volume */}
         <motion.div 
+          variants={kpiCardVariants}
           whileHover={{ y: -3, scale: 1.01 }}
           transition={{ duration: 0.2 }}
           className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col justify-between"
@@ -169,12 +242,14 @@ export const Dashboard: React.FC = () => {
             <div className="w-full bg-[#F5F1EF] border border-[#D9C7C2]/60 h-2 rounded-full overflow-hidden mt-2">
               <div
                 className="bg-gradient-to-r from-[#7A0C17] to-[#D72638] h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.max(4, capacityPercent)}%` }}
+                style={{ width: `${Math.max(0, capacityPercent)}%` }}
               ></div>
             </div>
           </div>
           <div className="mt-3 flex items-center justify-between text-[11px] text-[#5A626A] border-t border-[#D9C7C2]/60 pt-2">
-            <span className="text-amber-600 font-semibold">{criticalUnitsCount} shortage alleles</span>
+            <span className={criticalUnitsCount > 0 ? "text-amber-600 font-semibold" : "text-emerald-600 font-semibold"}>
+              {criticalUnitsCount} shortage alleles
+            </span>
             <Link to="/dashboard/inventory" className="text-[#D72638] font-bold hover:underline flex items-center gap-0.5">
               <span>Inspect</span>
               <ArrowUpRight className="w-3 h-3" />
@@ -184,6 +259,7 @@ export const Dashboard: React.FC = () => {
 
         {/* KPI 2: Certified Donors */}
         <motion.div 
+          variants={kpiCardVariants}
           whileHover={{ y: -3, scale: 1.01 }}
           transition={{ duration: 0.2 }}
           className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col justify-between"
@@ -201,11 +277,11 @@ export const Dashboard: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 mt-2 text-[11px] text-emerald-600 font-semibold">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>100% On-Standby Readiness</span>
+              <span>{donors.length > 0 ? 'Standby Readiness Active' : 'Registry Zero Standby'}</span>
             </div>
           </div>
           <div className="mt-3 flex items-center justify-between text-[11px] text-[#5A626A] border-t border-[#D9C7C2]/60 pt-2">
-            <span>Mobilization: 24m avg</span>
+            <span>{donors.length > 0 ? 'Mobilization: 24m avg' : 'Standby Pool: 0 Donors'}</span>
             <Link to="/dashboard/donors" className="text-[#D72638] font-bold hover:underline flex items-center gap-0.5">
               <span>Registry</span>
               <ArrowUpRight className="w-3 h-3" />
@@ -215,6 +291,7 @@ export const Dashboard: React.FC = () => {
 
         {/* KPI 3: Emergency Requests */}
         <motion.div 
+          variants={kpiCardVariants}
           whileHover={{ y: -3, scale: 1.01 }}
           transition={{ duration: 0.2 }}
           className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col justify-between"
@@ -222,7 +299,7 @@ export const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-[#7A0C17] uppercase tracking-wider">Active Trauma Calls</span>
             <div className="w-8 h-8 rounded-xl bg-[#D72638]/15 text-[#D72638] flex items-center justify-center border border-[#D72638]/30">
-              <AlertTriangle className="w-4 h-4 animate-pulse" />
+              <AlertTriangle className={`w-4 h-4 ${urgentCount > 0 ? 'animate-pulse' : ''}`} />
             </div>
           </div>
           <div>
@@ -231,11 +308,11 @@ export const Dashboard: React.FC = () => {
               <span className="text-xs text-[#D72638] font-bold">critical calls</span>
             </div>
             <div className="text-[11px] text-[#5A626A] mt-2">
-              {requests.length - urgentCount} stabilized or fulfilled
+              {requests.length === 0 ? '0 active patient calls' : `${requests.length - urgentCount} stabilized or fulfilled`}
             </div>
           </div>
           <div className="mt-3 flex items-center justify-between text-[11px] text-[#5A626A] border-t border-[#D9C7C2]/60 pt-2">
-            <span className="text-[#D72638] font-semibold">Priority Triage Live</span>
+            <span className="text-[#D72638] font-semibold">{urgentCount > 0 ? 'Priority Triage Live' : 'Queue Clear'}</span>
             <Link to="/dashboard/emergency" className="text-[#D72638] font-bold hover:underline flex items-center gap-0.5">
               <span>Dispatch Board</span>
               <ArrowUpRight className="w-3 h-3" />
@@ -245,6 +322,7 @@ export const Dashboard: React.FC = () => {
 
         {/* KPI 4: Hemolytic Safety Score */}
         <motion.div 
+          variants={kpiCardVariants}
           whileHover={{ y: -3, scale: 1.01 }}
           transition={{ duration: 0.2 }}
           className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col justify-between"
@@ -272,13 +350,11 @@ export const Dashboard: React.FC = () => {
             </Link>
           </div>
         </motion.div>
-      </div>
+      </motion.div>
 
-      {/* Featured Large-Format Clinical Telemetry Theater (385816_medium.mp4) */}
+      {/* Featured Large-Format Clinical Telemetry Theater with Blur-In Transition */}
       <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
+        variants={blurSectionVariants}
         className="p-5 sm:p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-hidden"
       >
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
@@ -367,15 +443,13 @@ export const Dashboard: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* Power BI Visual Row 1: Stock Bar Matrix & 7-Day Area Analytics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Power BI Visual Row 1: Stock Bar Matrix & Dynamic 7-Day Velocity Curve */}
+      <motion.div 
+        variants={blurSectionVariants}
+        className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+      >
         {/* Power BI Visual 1: Stock Level Bar Matrix */}
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.1 }}
-          className="p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col justify-between"
-        >
+        <div className="p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
@@ -427,7 +501,7 @@ export const Dashboard: React.FC = () => {
                       <div className="absolute top-0 bottom-0 left-[50%] w-[1.5px] bg-[#7A0C17]/50 z-10" title="Safe Reserve (10 Pints)"></div>
                       <motion.div
                         initial={{ width: 0 }}
-                        animate={{ width: `${Math.max(4, percentage)}%` }}
+                        animate={{ width: `${Math.max(item.unitsAvailable > 0 ? 4 : 0, percentage)}%` }}
                         transition={{ duration: 0.6, ease: 'easeOut' }}
                         className={`h-full rounded-full ${
                           isCritical ? 'bg-gradient-to-r from-[#7A0C17] to-[#D72638]' :
@@ -448,15 +522,10 @@ export const Dashboard: React.FC = () => {
               Adjust Cryo Vault Units →
             </Link>
           </div>
-        </motion.div>
+        </div>
 
         {/* Power BI Visual 2: 7-Day Influx vs Response Multi-Series Curve */}
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.15 }}
-          className="p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col justify-between"
-        >
+        <div className="p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
@@ -475,7 +544,7 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
             <p className="text-xs text-[#5A626A] mb-4">
-              Comparative trend analysis tracking emergency intake spikes against donor dispatch.
+              Real-time trend analysis tracking emergency intake spikes against voluntary donor mobilization.
             </p>
 
             {/* SVG Wave Chart */}
@@ -513,8 +582,8 @@ export const Dashboard: React.FC = () => {
                   const yMob = chartHeight - (d.mobilized / maxVal) * (chartHeight - 30) - 15;
                   return (
                     <g key={i}>
-                      <circle cx={x} cy={yReq} r="4.5" fill="#D72638" stroke="#FFFFFF" strokeWidth="2" />
-                      <circle cx={x} cy={yMob} r="4.5" fill="#059669" stroke="#FFFFFF" strokeWidth="2" />
+                      <circle cx={x} cy={yReq} r="4" fill="#D72638" stroke="#FFFFFF" strokeWidth="2" />
+                      <circle cx={x} cy={yMob} r="4" fill="#059669" stroke="#FFFFFF" strokeWidth="2" />
                       <text x={x} y={chartHeight + 14} fill="#5A626A" fontSize="10" textAnchor="middle" fontWeight="bold">
                         {d.day}
                       </text>
@@ -524,37 +593,41 @@ export const Dashboard: React.FC = () => {
               </svg>
             </div>
 
-            {/* Power BI Trend Indicators */}
+            {/* Dynamic Trend Indicators without hardcoded mock numbers */}
             <div className="grid grid-cols-2 gap-3 mt-4">
               <div className="p-3 rounded-xl bg-white border border-[#D9C7C2]">
-                <span className="text-[11px] text-[#5A626A] block">Weekly Critical Volume</span>
-                <span className="text-base font-bold text-[#D72638]">46 Critical Pints</span>
-                <span className="text-[10px] text-emerald-600 font-semibold block mt-0.5">↑ 14% rapid response rate</span>
+                <span className="text-[11px] text-[#5A626A] block">Active Critical Intake</span>
+                <span className="text-base font-bold text-[#D72638]">{urgentCount} Urgent Calls</span>
+                <span className="text-[10px] text-emerald-600 font-semibold block mt-0.5">
+                  {urgentCount > 0 ? 'Triage dispatch running' : 'Zero unassigned calls'}
+                </span>
               </div>
               <div className="p-3 rounded-xl bg-white border border-[#D9C7C2]">
-                <span className="text-[11px] text-[#5A626A] block">Volunteer Outreach</span>
-                <span className="text-base font-bold text-emerald-700">60 Ready Donors</span>
-                <span className="text-[10px] text-[#5A626A] block mt-0.5">Zero adverse reaction rate</span>
+                <span className="text-[11px] text-[#5A626A] block">Volunteer Standby</span>
+                <span className="text-base font-bold text-emerald-700">
+                  {donors.filter(d => d.isAvailable).length} Ready Donors
+                </span>
+                <span className="text-[10px] text-[#5A626A] block mt-0.5">
+                  {donors.length > 0 ? `${donors.length} in registry` : 'Zero registered donors'}
+                </span>
               </div>
             </div>
           </div>
 
           <div className="mt-4 pt-3 border-t border-[#D9C7C2]/60 flex items-center justify-between text-[11px] text-[#5A626A]">
             <span>AABB Protocol Validated</span>
-            <span className="text-emerald-600 font-semibold">System Health: 99.8%</span>
+            <span className="text-emerald-600 font-semibold">System Health: 100%</span>
           </div>
-        </motion.div>
-      </div>
+        </div>
+      </motion.div>
 
-      {/* Power BI Visual Row 2: Interactive Cross-Match Simulator & Triage Feed */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* Power BI Visual Row 2: Interactive Cross-Match Simulator & Triage Feed with Blur-In Transition */}
+      <motion.div 
+        variants={blurSectionVariants}
+        className="grid grid-cols-1 lg:grid-cols-3 gap-4"
+      >
         {/* Instant Cross-Match Simulator */}
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
-          className="p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm lg:col-span-1 flex flex-col justify-between"
-        >
+        <div className="p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm lg:col-span-1 flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2 mb-2">
               <Droplet className="w-4 h-4 text-[#D72638]" />
@@ -645,15 +718,10 @@ export const Dashboard: React.FC = () => {
               <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
           </div>
-        </motion.div>
+        </div>
 
         {/* Live Emergency Triage Stream */}
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.25 }}
-          className="p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm lg:col-span-2 flex flex-col justify-between"
-        >
+        <div className="p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm lg:col-span-2 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
@@ -739,8 +807,8 @@ export const Dashboard: React.FC = () => {
             <span>Automated Donor Alert Engine</span>
             <span className="text-emerald-700 font-semibold">GPS Radius: 25 km</span>
           </div>
-        </motion.div>
-      </div>
+        </div>
+      </motion.div>
     </motion.div>
   );
 };
