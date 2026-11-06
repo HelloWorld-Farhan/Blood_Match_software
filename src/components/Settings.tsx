@@ -317,6 +317,7 @@ export default function Settings() {
           >
             <video
               src="/299518.mp4"
+              poster="/299518_poster.jpg"
               autoPlay
               loop
               muted

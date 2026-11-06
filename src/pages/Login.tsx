@@ -443,6 +443,17 @@ export default function Login() {
         <p>© 2026 BloodMatch Transfusion Network. Emergency Hotline: +1 (800) 555-BLOOD</p>
       </footer>
 
+      {/* Hidden browser preloader for 299518.mp4 to ensure 0-latency instant modal opening */}
+      <video
+        src="/299518.mp4"
+        poster="/299518_poster.jpg"
+        preload="auto"
+        muted
+        playsInline
+        className="hidden"
+        aria-hidden="true"
+      />
+
       {/* Horizontal Forgot Password Recovery Modal with 299518.mp4 & Animated Blood Droplet */}
       <ForgotPasswordModal
         isOpen={isForgotModalOpen}

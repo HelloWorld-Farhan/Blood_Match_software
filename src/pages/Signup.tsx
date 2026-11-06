@@ -201,11 +201,18 @@ export default function Signup() {
 
   return (
     <div className="relative min-h-screen bg-[#F5F1EF] font-sans text-[#1A1D20] flex flex-col justify-between overflow-x-hidden selection:bg-[#D72638] selection:text-white">
-      {/* 4K UHD Ambient Background Video Layer — Using signup.mp4 as cinematic background */}
-      <AmbientBackgroundVideo 
-        videoSrc="/signup.mp4"
-        posterSrc="/signup_poster.jpg"
-        overlayClassName="bg-black/55 backdrop-blur-[1px]"
+      {/* 4K UHD Ambient Background Video Layer (Pristine Alabaster Clinical Flow) */}
+      <AmbientBackgroundVideo />
+
+      {/* Hidden browser preloader for OTP video to ensure 0-latency instant playback */}
+      <video
+        src="/287987.mp4"
+        poster="/287987_poster.jpg"
+        preload="auto"
+        muted
+        playsInline
+        className="hidden"
+        aria-hidden="true"
       />
 
       {/* Floating Blood Drops Canvas */}
@@ -244,7 +251,7 @@ export default function Signup() {
         <div className="w-full max-w-6xl mx-auto py-2 sm:py-4">
           <div className="relative w-full rounded-2xl overflow-hidden bg-white shadow-2xl border border-[#D9C7C2] flex flex-col lg:flex-row min-h-0 lg:min-h-[640px]">
             
-            {/* LEFT PANEL: Arterial Luminous Flow Video Presentation or OTP 287987.mp4 */}
+            {/* LEFT PANEL: Voluntary Transfusion Flow (signup.mp4) or OTP Token Verification (287987.mp4) */}
             <motion.div 
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -255,7 +262,8 @@ export default function Signup() {
                 <video
                   ref={videoRef}
                   key={step === 'OTP_VERIFY' ? 'otp-video-287987' : 'signup-flow-video'}
-                  src={step === 'OTP_VERIFY' ? '/287987.mp4' : '/3995-176277710.mp4?v=3'}
+                  src={step === 'OTP_VERIFY' ? '/287987.mp4' : '/signup.mp4'}
+                  poster={step === 'OTP_VERIFY' ? '/287987_poster.jpg' : '/signup_poster.jpg'}
                   autoPlay
                   loop
                   muted

@@ -230,6 +230,7 @@ export default function EmergencyRequests() {
           >
             <video
               src="/21617-319452308.mp4"
+              poster="/21617-319452308_poster.jpg"
               autoPlay
               loop
               muted

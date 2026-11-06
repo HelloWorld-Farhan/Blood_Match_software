@@ -99,6 +99,15 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     return () => clearInterval(interval);
   }, [step, resendTimer]);
 
+  // Auto-play video on modal mount
+  useEffect(() => {
+    if (isOpen && videoRef.current) {
+      videoRef.current.defaultMuted = true;
+      videoRef.current.muted = true;
+      videoRef.current.play().catch(() => {});
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   // Handle Step 1: Send OTP to Email
@@ -228,6 +237,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
             <video
               ref={videoRef}
               src="/299518.mp4"
+              poster="/299518_poster.jpg"
               autoPlay
               loop
               muted
