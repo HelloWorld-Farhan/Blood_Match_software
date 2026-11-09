@@ -37,7 +37,14 @@ function AppRoutes() {
 }
 
 export default function App() {
-  const [showPreloader, setShowPreloader] = useState(true);
+  const [showPreloader, setShowPreloader] = useState(() => {
+    // Work 2: The preloader will not work when user is in the dashboard (disabled on dashboard refresh).
+    // It only shows when first visiting the site (/ or /login) or when refreshing /login and /signup.
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/dashboard')) {
+      return false;
+    }
+    return true;
+  });
   const [isApertureOpening, setIsApertureOpening] = useState(false);
 
   const handleOpeningChange = (opening: boolean) => {
