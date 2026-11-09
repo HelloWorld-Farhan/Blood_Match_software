@@ -235,33 +235,33 @@ export const Dashboard: React.FC = () => {
 
           <button
             onClick={handleManualSync}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95 group"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 w-[152px] shrink-0 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95 group"
             title="Auto-syncs every 5s or click to sync immediately"
           >
             <RefreshCw 
-              className={`w-3.5 h-3.5 text-[#D72638] transition-transform duration-500 ease-out ${isSyncing ? 'animate-spin' : ''}`}
+              className={`w-3.5 h-3.5 text-[#D72638] shrink-0 transition-transform duration-500 ease-out ${isSyncing ? 'animate-spin' : ''}`}
               style={{ transform: isSyncing ? undefined : `rotate(${spinnerAngle}deg)` }}
             />
-            <span>Sync Hub</span>
-            <span className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-emerald-500 animate-ping' : 'bg-emerald-500'}`} />
-            <span className="text-[11px] font-mono font-bold text-[#7A0C17]">
-              {isSyncing ? '5s Syncing' : `${syncSeconds}s`}
+            <span className="shrink-0">Sync Hub</span>
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSyncing ? 'bg-emerald-500 animate-ping' : 'bg-emerald-500'}`} />
+            <span className="text-[11px] font-mono tabular-nums font-bold text-[#7A0C17] shrink-0">
+              {syncSeconds}s Syncing
             </span>
           </button>
 
           <button
             onClick={handleResetToZero}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-red-50 text-[#7A0C17] border border-[#D9C7C2] text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95 group"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 w-[152px] shrink-0 rounded-xl bg-white hover:bg-red-50 text-[#7A0C17] border border-[#D9C7C2] text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95 group"
             title="Data Hub: Reset real storage to zero (Auto-syncs every 5s)"
           >
             <RefreshCw 
-              className={`w-3.5 h-3.5 text-[#D72638] transition-transform duration-500 ease-out ${isSyncing ? 'animate-spin' : ''}`}
+              className={`w-3.5 h-3.5 text-[#D72638] shrink-0 transition-transform duration-500 ease-out ${isSyncing ? 'animate-spin' : ''}`}
               style={{ transform: isSyncing ? undefined : `rotate(${spinnerAngle}deg)` }}
             />
-            <span>Data Hub</span>
-            <span className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-emerald-500 animate-ping' : 'bg-emerald-400'}`} />
-            <span className="text-[11px] font-mono font-bold text-[#7A0C17]">
-              {isSyncing ? '5s Syncing' : `${syncSeconds}s`}
+            <span className="shrink-0">Data Hub</span>
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isSyncing ? 'bg-emerald-500 animate-ping' : 'bg-emerald-400'}`} />
+            <span className="text-[11px] font-mono tabular-nums font-bold text-[#7A0C17] shrink-0">
+              {syncSeconds}s Syncing
             </span>
           </button>
         </div>
