@@ -55,6 +55,14 @@ export default function App() {
   const [showPreloader, setShowPreloader] = useState(true);
   const [isApertureOpening, setIsApertureOpening] = useState(false);
 
+  const handleOpeningChange = (opening: boolean) => {
+    setIsApertureOpening(opening);
+    if (opening) {
+      document.documentElement.classList.remove('is-loading');
+      document.body.classList.remove('is-loading');
+    }
+  };
+
   const handlePreloaderComplete = () => {
     setShowPreloader(false);
     document.documentElement.classList.remove('is-loading');
@@ -65,7 +73,7 @@ export default function App() {
     <Router>
       {showPreloader && (
         <BloodPreloader 
-          onOpeningChange={(opening) => setIsApertureOpening(opening)}
+          onOpeningChange={handleOpeningChange}
           onComplete={handlePreloaderComplete} 
         />
       )}

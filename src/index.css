@@ -32,6 +32,8 @@ html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
   overflow-x: hidden !important;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
   max-width: 100% !important;
   width: 100% !important;
 }
@@ -71,23 +73,22 @@ body {
   width: 100% !important;
 }
 
-/* Main Site Root Blur & Aperture Opening Transition (Fixed 100% Scale with ZERO Resizing Shifts) */
+/* Main Site Root Hardware-Accelerated Opening (Butter-Smooth 60 FPS with ZERO Shake or Jolt) */
 #site-root {
   min-height: 100vh;
   width: 100% !important;
   max-width: 100% !important;
   overflow-x: hidden !important;
   opacity: 0;
-  transform: none !important;
-  filter: blur(8px);
-  transition: opacity 1.2s ease, filter 1.2s ease;
-  will-change: opacity, filter;
+  transform: translateZ(0) !important;
+  backface-visibility: hidden;
+  transition: opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  will-change: opacity;
 }
 
 #site-root.ready {
   opacity: 1 !important;
-  transform: none !important;
-  filter: blur(0px) !important;
+  transform: translateZ(0) !important;
 }
 
 /* GPU Hardware-Compositing optimization for smooth 60fps video & animations */

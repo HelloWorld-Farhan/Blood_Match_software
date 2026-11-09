@@ -38,7 +38,7 @@ export default function Login() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
 
-  // Seamless instant auto-play video reference with glitch-free loop and zero black frames
+  // Seamless instant auto-play video reference with hardware acceleration and zero decode stutter
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -50,35 +50,20 @@ export default function Login() {
     video.playsInline = true;
     video.loop = true;
 
-    // Faststart seek to 0.52s to immediately bypass initial black frames (0.0s - 0.5s)
-    const handleLoadedMetadata = () => {
-      if (video.currentTime < 0.52) {
-        video.currentTime = 0.52;
-      }
-      video.play().catch(() => {});
-    };
-
-    video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('canplay', () => video.play().catch(() => {}));
-
-    if (video.readyState >= 1) {
-      if (video.currentTime < 0.52) video.currentTime = 0.52;
-      video.play().catch(() => {});
-    }
-
-    // Seamless loop returning to 0.52s to eliminate the black frame flash on repeat
-    const handleTimeUpdate = () => {
-      if (video.duration && video.currentTime >= video.duration - 0.1) {
-        video.currentTime = 0.52;
-        video.play().catch(() => {});
+    const playVideo = () => {
+      const playPromise = video.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {});
       }
     };
 
-    video.addEventListener('timeupdate', handleTimeUpdate);
+    video.addEventListener('canplay', playVideo);
+    video.addEventListener('loadeddata', playVideo);
+    playVideo();
 
     return () => {
-      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('timeupdate', handleTimeUpdate);
+      video.removeEventListener('canplay', playVideo);
+      video.removeEventListener('loadeddata', playVideo);
     };
   }, []);
 
