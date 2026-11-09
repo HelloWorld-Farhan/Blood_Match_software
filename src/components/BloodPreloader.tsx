@@ -10,7 +10,6 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
   const [isGone, setIsGone] = useState(false);
   const [showTag, setShowTag] = useState(false);
   const [tagOut, setTagOut] = useState(false);
-  const [tagPulse, setTagPulse] = useState(1);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const camRef = useRef<HTMLDivElement | null>(null);
@@ -238,19 +237,9 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
         }
 
         setShowTag(true);
-        let pulsing = true;
 
-        const pulseLoop = () => {
-          if (!pulsing || isFinishedRef.current) return;
-          setTagPulse(1.08);
-          setTimeout(() => setTagPulse(1), 350);
-          setTimeout(pulseLoop, 1050);
-        };
-        pulseLoop();
-
-        // Hold message for 2.4s, then smoothly open radial aperture
+        // Hold message steadily for 2.2s, then smoothly open radial aperture
         setTimeout(() => {
-          pulsing = false;
           setTagOut(true);
           onOpeningChange?.(true);
 
@@ -419,7 +408,7 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
       ref={containerRef}
       role="status"
       aria-label="Loading"
-      className="fixed inset-0 z-[99999] bg-white overflow-hidden select-none pointer-events-auto"
+      className="fixed inset-0 z-[99999] bg-white overflow-hidden select-none pointer-events-auto w-full max-w-full"
     >
       {/* SVG Definitions for Blood Gradient */}
       <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
@@ -486,17 +475,15 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
         <div className="flex-1 min-h-screen bg-gradient-to-b from-[#c1121f] via-[#a50f1c] to-[#7d0a14]" />
       </div>
 
-      {/* Tagline on Red Screen: Every drop saves a life */}
+      {/* Tagline on Red Screen: Steady, elegant and zero-lag */}
       <motion.div
         animate={{
-          scale: tagPulse,
           opacity: showTag && !tagOut ? 1 : 0,
-          letterSpacing: showTag && !tagOut ? '0.38em' : '0.7em',
+          letterSpacing: showTag && !tagOut ? '0.38em' : '0.65em',
         }}
         transition={{
-          opacity: { duration: tagOut ? 0.5 : 1 },
-          letterSpacing: { duration: 1.6, ease: [0.2, 0.7, 0.2, 1] },
-          scale: { duration: 0.35, ease: 'easeOut' },
+          opacity: { duration: tagOut ? 0.45 : 0.8, ease: 'easeOut' },
+          letterSpacing: { duration: 1.4, ease: [0.2, 0.7, 0.2, 1] },
         }}
         className="absolute left-0 right-0 top-1/2 z-[4] text-center text-white uppercase text-[clamp(14px,2.5vw,18px)] -translate-y-1/2 pointer-events-none font-semibold px-4 select-none drop-shadow-sm tracking-[0.38em]"
       >
