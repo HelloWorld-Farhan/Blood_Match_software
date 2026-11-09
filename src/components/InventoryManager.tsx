@@ -58,16 +58,50 @@ export default function InventoryManager() {
   const [inventory, setInventory] = useState<BloodInventoryUnit[]>(getInventory());
   const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'CRITICAL' | 'RH_NEG' | 'RH_POS' | 'UNIVERSAL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [syncSeconds, setSyncSeconds] = useState(1);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const loadData = () => {
     setInventory(getInventory());
   };
 
+  const handleManualSync = () => {
+    setIsSyncing(true);
+    setSyncSeconds(5);
+    loadData();
+    setTimeout(() => {
+      setIsSyncing(false);
+      setSyncSeconds(1);
+    }, 850);
+  };
+
   useEffect(() => {
     loadData();
-    window.addEventListener('storage', loadData);
-    return () => window.removeEventListener('storage', loadData);
+
+    // 5-Second Real-Time Auto-Sync Engine with 1s, 2s, 3s, 4s, 5s ticking progression
+    const syncInterval = setInterval(() => {
+      setSyncSeconds((prev) => {
+        if (prev >= 5) {
+          setIsSyncing(true);
+          loadData();
+          setTimeout(() => {
+            setIsSyncing(false);
+          }, 850);
+          return 1;
+        }
+        return prev + 1;
+      });
+    }, 1000);
+
+    const handleStorage = () => loadData();
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      clearInterval(syncInterval);
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
+
+  const spinnerAngle = isSyncing ? 360 : (syncSeconds - 1) * 72;
 
   const handleUpdateUnits = (type: BloodType, delta: number) => {
     const updated = updateInventoryUnits(type, delta);
@@ -143,15 +177,38 @@ export default function InventoryManager() {
           </p>
         </div>
 
-        {/* Quick Batch Actions - Zero Data Action */}
+        {/* Quick Batch Actions - Zero Data & 5s Synchronized Telemetry */}
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button
-            onClick={handleResetToZero}
-            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white hover:bg-red-50 border border-[#D9C7C2] text-[#7A0C17] text-xs font-bold active:scale-95 transition-all cursor-pointer shadow-xs"
-            title="Reset all reserves to 0"
+            onClick={handleManualSync}
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95 group"
+            title="Auto-syncs vault reserves every 5s or click to sync immediately"
           >
-            <RefreshCw className="w-4 h-4 text-[#D72638]" />
+            <RefreshCw 
+              className={`w-3.5 h-3.5 text-[#D72638] transition-transform duration-500 ease-out ${isSyncing ? 'animate-spin' : ''}`}
+              style={{ transform: isSyncing ? undefined : `rotate(${spinnerAngle}deg)` }}
+            />
+            <span>Sync Vault</span>
+            <span className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-emerald-500 animate-ping' : 'bg-emerald-500'}`} />
+            <span className="text-[11px] font-mono font-bold text-[#7A0C17]">
+              {isSyncing ? '5s Syncing' : `${syncSeconds}s`}
+            </span>
+          </button>
+
+          <button
+            onClick={handleResetToZero}
+            className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-white hover:bg-red-50 border border-[#D9C7C2] text-[#7A0C17] text-xs font-bold active:scale-95 transition-all cursor-pointer shadow-xs group"
+            title="Zero Vault Data: Reset all reserves to 0 (Auto-syncs every 5s)"
+          >
+            <RefreshCw 
+              className={`w-3.5 h-3.5 text-[#D72638] transition-transform duration-500 ease-out ${isSyncing ? 'animate-spin' : ''}`}
+              style={{ transform: isSyncing ? undefined : `rotate(${spinnerAngle}deg)` }}
+            />
             <span>Zero Vault Data</span>
+            <span className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-emerald-500 animate-ping' : 'bg-emerald-400'}`} />
+            <span className="text-[11px] font-mono font-bold text-[#7A0C17]">
+              {isSyncing ? '5s Syncing' : `${syncSeconds}s`}
+            </span>
           </button>
         </div>
       </motion.div>

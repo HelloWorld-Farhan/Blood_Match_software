@@ -78,6 +78,7 @@ export const Dashboard: React.FC = () => {
   const [donors, setDonors] = useState<Donor[]>([]);
   const [inventory, setInventory] = useState(getInventory());
   const [selectedBloodFilter, setSelectedBloodFilter] = useState<string>('ALL');
+  const [syncSeconds, setSyncSeconds] = useState(1);
   const [isSyncing, setIsSyncing] = useState(false);
   const [hoveredAllele, setHoveredAllele] = useState<string | null>(null);
 
@@ -95,19 +96,31 @@ export const Dashboard: React.FC = () => {
 
   const handleManualSync = () => {
     setIsSyncing(true);
+    setSyncSeconds(5);
     loadData();
-    setTimeout(() => setIsSyncing(false), 800);
+    setTimeout(() => {
+      setIsSyncing(false);
+      setSyncSeconds(1);
+    }, 850);
   };
 
   useEffect(() => {
     loadData();
 
-    // Work 1: 5-Second Real-Time Auto-Sync Engine with smooth rotation animation
+    // 5-Second Real-Time Auto-Sync Engine with 1s, 2s, 3s, 4s, 5s ticking progression
     const syncInterval = setInterval(() => {
-      setIsSyncing(true);
-      loadData();
-      setTimeout(() => setIsSyncing(false), 900);
-    }, 5000);
+      setSyncSeconds((prev) => {
+        if (prev >= 5) {
+          setIsSyncing(true);
+          loadData();
+          setTimeout(() => {
+            setIsSyncing(false);
+          }, 850);
+          return 1;
+        }
+        return prev + 1;
+      });
+    }, 1000);
 
     const handleStorage = () => loadData();
     window.addEventListener('storage', handleStorage);
@@ -121,6 +134,8 @@ export const Dashboard: React.FC = () => {
     resetAllDataToZero();
     loadData();
   };
+
+  const spinnerAngle = isSyncing ? 360 : (syncSeconds - 1) * 72;
 
   const totalUnits = inventory.reduce((acc, curr) => acc + curr.unitsAvailable, 0);
   const urgentCount = requests.filter(r => r.status === 'urgent' || r.status === 'critical').length;
@@ -223,19 +238,31 @@ export const Dashboard: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95 group"
             title="Auto-syncs every 5s or click to sync immediately"
           >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#D72638] transition-transform duration-700 ${isSyncing ? 'animate-spin' : 'group-hover:rotate-180'}`} />
+            <RefreshCw 
+              className={`w-3.5 h-3.5 text-[#D72638] transition-transform duration-500 ease-out ${isSyncing ? 'animate-spin' : ''}`}
+              style={{ transform: isSyncing ? undefined : `rotate(${spinnerAngle}deg)` }}
+            />
             <span>Sync Hub</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[10px] text-[#7A0C17] font-bold">5s</span>
+            <span className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-emerald-500 animate-ping' : 'bg-emerald-500'}`} />
+            <span className="text-[11px] font-mono font-bold text-[#7A0C17]">
+              {isSyncing ? '5s Syncing' : `${syncSeconds}s`}
+            </span>
           </button>
 
           <button
             onClick={handleResetToZero}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-red-50 text-[#7A0C17] border border-[#D9C7C2] text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
-            title="Reset all donors, requests, and inventory to zero"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-red-50 text-[#7A0C17] border border-[#D9C7C2] text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95 group"
+            title="Data Hub: Reset real storage to zero (Auto-syncs every 5s)"
           >
-            <RefreshCw className="w-3.5 h-3.5 text-[#D72638]" />
-            <span>Zero Data</span>
+            <RefreshCw 
+              className={`w-3.5 h-3.5 text-[#D72638] transition-transform duration-500 ease-out ${isSyncing ? 'animate-spin' : ''}`}
+              style={{ transform: isSyncing ? undefined : `rotate(${spinnerAngle}deg)` }}
+            />
+            <span>Data Hub</span>
+            <span className={`w-1.5 h-1.5 rounded-full ${isSyncing ? 'bg-emerald-500 animate-ping' : 'bg-emerald-400'}`} />
+            <span className="text-[11px] font-mono font-bold text-[#7A0C17]">
+              {isSyncing ? '5s Syncing' : `${syncSeconds}s`}
+            </span>
           </button>
         </div>
       </motion.div>
