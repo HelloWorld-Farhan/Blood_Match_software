@@ -1,6 +1,7 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { BloodPreloader } from './components/BloodPreloader';
 
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
@@ -51,8 +52,13 @@ function AnimatedRoutes() {
 }
 
 export default function App() {
+  const [showPreloader, setShowPreloader] = useState(true);
+
   return (
     <Router>
+      {showPreloader && (
+        <BloodPreloader onComplete={() => setShowPreloader(false)} />
+      )}
       <AnimatedRoutes />
     </Router>
   );
