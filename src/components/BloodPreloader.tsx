@@ -7,8 +7,6 @@ interface BloodPreloaderProps {
 }
 
 export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOpeningChange }) => {
-  const [radialR, setRadialR] = useState(0);
-  const [isOpening, setIsOpening] = useState(false);
   const [isGone, setIsGone] = useState(false);
   const [showTag, setShowTag] = useState(false);
   const [tagOut, setTagOut] = useState(false);
@@ -422,12 +420,16 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
       const riseAnim = pool.animate(
         [
           { transform: 'translateY(0)' },
-          { transform: `translateY(${-(H + 150)}px)` },
+          { transform: `translateY(${-(H + 180)}px)` },
         ],
         { duration: RISE, easing: 'cubic-bezier(.45, 0, .2, 1)', fill: 'forwards' }
       );
 
-      riseAnim.finished.then(() => {
+      let riseCompleted = false;
+      const onRiseDone = () => {
+        if (riseCompleted || isFinishedRef.current) return;
+        riseCompleted = true;
+
         setShowTag(true);
         let beating = true;
 
@@ -443,8 +445,11 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
         setTimeout(() => {
           beating = false;
           setTagOut(true);
-          setIsOpening(true);
           onOpeningChange?.(true);
+
+          if (containerRef.current) {
+            containerRef.current.classList.add('opening');
+          }
 
           const maxR = Math.hypot(W / 2, H) + 30;
           const dur = 1900;
@@ -453,7 +458,10 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
           const stepAperture = (now: number) => {
             if (isFinishedRef.current) return;
             const t = Math.min((now - t0) / dur, 1);
-            setRadialR(maxR * easeInOut(t));
+            const rVal = (maxR * easeInOut(t)).toFixed(1) + 'px';
+            if (containerRef.current) {
+              containerRef.current.style.setProperty('--r', rVal);
+            }
             if (t < 1) {
               requestAnimationFrame(stepAperture);
             } else {
@@ -462,7 +470,12 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
           };
           requestAnimationFrame(stepAperture);
         }, 2700);
-      });
+      };
+
+      if (riseAnim && riseAnim.finished) {
+        riseAnim.finished.then(onRiseDone).catch(onRiseDone);
+      }
+      setTimeout(onRiseDone, RISE + 100);
     };
 
     // Frame Physics Loop
@@ -605,18 +618,11 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
 
   return (
     <div
+      id="preloader"
       ref={containerRef}
       role="status"
       aria-label="Loading"
       className="fixed inset-0 z-[99999] bg-white overflow-hidden select-none pointer-events-auto"
-      style={
-        isOpening
-          ? {
-              WebkitMaskImage: `radial-gradient(circle at 50% 100%, rgba(0,0,0,0) ${radialR}px, #000 ${radialR + 2}px)`,
-              maskImage: `radial-gradient(circle at 50% 100%, rgba(0,0,0,0) ${radialR}px, #000 ${radialR + 2}px)`,
-            }
-          : undefined
-      }
     >
       {/* SVG Definitions for Blood Gradient */}
       <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">

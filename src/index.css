@@ -67,6 +67,25 @@ video {
   }
 }
 
+/* Blood Preloader Radial Aperture Mask Reveal */
+#preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #fff;
+  overflow: hidden;
+  --r: 0px;
+}
+
+#preloader.opening {
+  -webkit-mask-image: radial-gradient(circle at 50% 100%, rgba(0, 0, 0, 0) var(--r), #000 calc(var(--r) + 2px));
+  mask-image: radial-gradient(circle at 50% 100%, rgba(0, 0, 0, 0) var(--r), #000 calc(var(--r) + 2px));
+}
+
+#preloader.gone {
+  display: none !important;
+}
+
 /* Custom Scrollbar for desktop */
 ::-webkit-scrollbar {
   width: 6px;
