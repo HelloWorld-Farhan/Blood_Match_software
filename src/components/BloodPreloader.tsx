@@ -15,6 +15,7 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
   const containerRef = useRef<HTMLDivElement | null>(null);
   const camRef = useRef<HTMLDivElement | null>(null);
   const puddleRef = useRef<HTMLDivElement | null>(null);
+  const shadowRef = useRef<HTMLDivElement | null>(null);
   const poolRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<SVGPathElement | null>(null);
   const glossRef = useRef<SVGPathElement | null>(null);
@@ -76,6 +77,7 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
     if (isFinishedRef.current) return;
     isFinishedRef.current = true;
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    document.documentElement.classList.remove('is-loading');
     document.body.classList.remove('is-loading');
     setIsGone(true);
     onOpeningChange?.(true);
@@ -343,6 +345,19 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
 
         setShape(freePath(rx3, ry3, cy3, tail), glossPath(cy3, rx3, ry3), remD, 1);
 
+        // Animate soft ground contact shadow beneath falling drop
+        if (shadowRef.current) {
+          const dist = H - (cy3 + ry3);
+          if (dist < 320) {
+            const sp = clamp01(1 - dist / 320);
+            shadowRef.current.style.width = `${(rx3 * 2.2 * sp).toFixed(1)}px`;
+            shadowRef.current.style.height = `${(ry3 * 0.45 * sp).toFixed(1)}px`;
+            shadowRef.current.style.opacity = `${(0.42 * sp).toFixed(2)}`;
+          } else {
+            shadowRef.current.style.opacity = '0';
+          }
+        }
+
         if (cy3 + ry3 >= H) {
           stage = 'squash';
           tTouch = now;
@@ -350,6 +365,7 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
           syc = ry3;
           cyc = cy3;
           tailc = tail;
+          if (shadowRef.current) shadowRef.current.style.opacity = '0';
           triggerImpact();
           setTimeout(() => {
             riseAndOpen();
@@ -360,6 +376,7 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
       }
 
       if (stage === 'squash') {
+        if (shadowRef.current) shadowRef.current.style.opacity = '0';
         const ti = clamp01((now - tTouch) / 240);
         const ry4 = lerp(syc, 0.1 * R, easeOut(ti));
         const rx4 = lerp(sxc, 2.6 * R, easeOut(ti));
@@ -389,6 +406,7 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      document.documentElement.classList.remove('is-loading');
       document.body.classList.remove('is-loading');
     };
   }, [finish, onOpeningChange, triggerImpact]);
@@ -422,6 +440,13 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
           <path ref={glossRef} fill="none" stroke="#fff" strokeLinecap="round" opacity="0.55" />
         </svg>
 
+        {/* Soft realistic ground contact shadow beneath falling drop */}
+        <div
+          ref={shadowRef}
+          className="absolute left-1/2 bottom-0 -translate-x-1/2 rounded-[50%] bg-[#50000a]/30 blur-[2px] pointer-events-none will-change-transform"
+          style={{ width: '0px', height: '0px', opacity: 0 }}
+        />
+
         {/* Bottom Puddle */}
         <div
           ref={puddleRef}
@@ -434,25 +459,28 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
         ref={poolRef}
         className="absolute left-0 right-0 top-full h-[calc(100%+450px)] z-[3] overflow-hidden flex flex-col will-change-transform"
       >
-        {/* Layer 2 Waves */}
-        <svg
-          className="shrink-0 block w-[200%] h-[140px] -mb-[1px] opacity-45 animate-[waveMove_6s_linear_infinite_reverse]"
-          viewBox="0 0 2880 140"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
-          <path d="M0 70Q180 0 360 70T720 70T1080 70T1440 70T1800 70T2160 70T2520 70T2880 70V140H0Z" fill="#ff4d5e" />
-        </svg>
+        {/* Relative container for waves overlay */}
+        <div className="relative w-full h-[140px] shrink-0 overflow-hidden -mb-[1px]">
+          {/* Layer 2 Waves (Lighter) positioned absolute top-[-10px] over Layer 1 */}
+          <svg
+            className="absolute top-[-10px] left-0 block w-[200%] h-[140px] opacity-45 animate-[waveMove_6s_linear_infinite_reverse]"
+            viewBox="0 0 2880 140"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <path d="M0 70Q180 0 360 70T720 70T1080 70T1440 70T1800 70T2160 70T2520 70T2880 70V140H0Z" fill="#ff4d5e" />
+          </svg>
 
-        {/* Layer 1 Waves */}
-        <svg
-          className="shrink-0 block w-[200%] h-[140px] -mb-[1px] animate-[waveMove_4s_linear_infinite]"
-          viewBox="0 0 2880 140"
-          preserveAspectRatio="none"
-          aria-hidden="true"
-        >
-          <path d="M0 80Q180 10 360 80T720 80T1080 80T1440 80T1800 80T2160 80T2520 80T2880 80V140H0Z" fill="#c1121f" />
-        </svg>
+          {/* Layer 1 Waves (Primary Crimson) */}
+          <svg
+            className="block w-[200%] h-[140px] animate-[waveMove_4s_linear_infinite]"
+            viewBox="0 0 2880 140"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <path d="M0 80Q180 10 360 80T720 80T1080 80T1440 80T1800 80T2160 80T2520 80T2880 80V140H0Z" fill="#c1121f" />
+          </svg>
+        </div>
 
         {/* Deep Solid Crimson Fluid Body Filling 100% of Space */}
         <div className="flex-1 min-h-screen bg-gradient-to-b from-[#c1121f] via-[#a50f1c] to-[#7d0a14]" />
@@ -474,15 +502,6 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
       >
         Every drop saves a life
       </motion.div>
-
-      {/* Discreet Minimalist Skip Intro Button */}
-      <button
-        onClick={finish}
-        aria-label="Skip Intro"
-        className="absolute top-4 right-4 z-50 px-3.5 py-1.5 rounded-full bg-black/25 hover:bg-black/50 text-white/80 hover:text-white text-[11px] tracking-wider uppercase font-semibold backdrop-blur-sm border border-white/15 transition-all cursor-pointer select-none"
-      >
-        Skip
-      </button>
     </div>
   );
 };

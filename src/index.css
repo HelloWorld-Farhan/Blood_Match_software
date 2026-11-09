@@ -33,6 +33,15 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+html.is-loading,
+body.is-loading {
+  overflow: hidden !important;
+  height: 100vh !important;
+  width: 100vw !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
 * {
   -webkit-tap-highlight-color: transparent;
 }
@@ -47,6 +56,22 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Main Site Root Blur & Aperture Opening Transition */
+#site-root {
+  min-height: 100vh;
+  opacity: 0;
+  transform: scale(1.1);
+  filter: blur(8px);
+  transition: opacity 1.5s ease, transform 2s cubic-bezier(0.2, 0.7, 0.2, 1), filter 1.5s ease;
+  will-change: opacity, transform, filter;
+}
+
+#site-root.ready {
+  opacity: 1 !important;
+  transform: scale(1) !important;
+  filter: blur(0px) !important;
 }
 
 /* GPU Hardware-Compositing optimization for smooth 60fps video & animations */

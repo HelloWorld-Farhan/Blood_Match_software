@@ -55,29 +55,26 @@ export default function App() {
   const [showPreloader, setShowPreloader] = useState(true);
   const [isApertureOpening, setIsApertureOpening] = useState(false);
 
+  const handlePreloaderComplete = () => {
+    setShowPreloader(false);
+    document.documentElement.classList.remove('is-loading');
+    document.body.classList.remove('is-loading');
+  };
+
   return (
     <Router>
       {showPreloader && (
         <BloodPreloader 
           onOpeningChange={(opening) => setIsApertureOpening(opening)}
-          onComplete={() => setShowPreloader(false)} 
+          onComplete={handlePreloaderComplete} 
         />
       )}
-      <motion.div
-        animate={
-          showPreloader && !isApertureOpening
-            ? { opacity: 0, scale: 1.08, filter: 'blur(8px)' }
-            : { opacity: 1, scale: 1, filter: 'blur(0px)' }
-        }
-        transition={{
-          opacity: { duration: 1.2, ease: 'easeOut' },
-          scale: { duration: 1.8, ease: [0.2, 0.7, 0.2, 1] },
-          filter: { duration: 1.2, ease: 'easeOut' },
-        }}
-        className="w-full min-h-screen"
+      <div
+        id="site-root"
+        className={`w-full min-h-screen ${!showPreloader || isApertureOpening ? 'ready' : ''}`}
       >
         <AnimatedRoutes />
-      </motion.div>
+      </div>
     </Router>
   );
 }
