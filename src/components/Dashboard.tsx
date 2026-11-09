@@ -96,7 +96,7 @@ export const Dashboard: React.FC = () => {
 
   const handleManualSync = () => {
     setIsSyncing(true);
-    setSyncSeconds(5);
+    setSyncSeconds(10);
     loadData();
     setTimeout(() => {
       setIsSyncing(false);
@@ -107,19 +107,19 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     loadData();
 
-    // 5-Second Real-Time Auto-Sync Engine:
-    // Seconds 1-4: show seconds counter, spinner is static.
-    // Second 5: triggers isSyncing, text becomes "Syncing...", spinner spins, seconds hidden.
+    // 10-Second Real-Time Auto-Sync Engine:
+    // Seconds 1-9: show seconds counter, spinner is static.
+    // Second 10: triggers isSyncing, text becomes "Syncing...", spinner spins, seconds hidden.
     const syncInterval = setInterval(() => {
       setSyncSeconds((prev) => {
-        if (prev >= 4) {
+        if (prev >= 9) {
           setIsSyncing(true);
           loadData();
           setTimeout(() => {
             setIsSyncing(false);
             setSyncSeconds(1);
           }, 900);
-          return 5;
+          return 10;
         }
         return prev + 1;
       });
@@ -237,7 +237,7 @@ export const Dashboard: React.FC = () => {
           <button
             onClick={handleManualSync}
             className="flex items-center justify-center gap-1.5 px-3 py-2 w-[132px] shrink-0 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95 group"
-            title="Auto-syncs every 5s or click to sync immediately"
+            title="Auto-syncs every 10s or click to sync immediately"
           >
             <RefreshCw 
               className={`w-3.5 h-3.5 text-[#D72638] shrink-0 ${isSyncing ? 'animate-spin' : ''}`}
@@ -261,7 +261,7 @@ export const Dashboard: React.FC = () => {
           <button
             onClick={handleResetToZero}
             className="flex items-center justify-center gap-1.5 px-3 py-2 w-[132px] shrink-0 rounded-xl bg-white hover:bg-red-50 text-[#7A0C17] border border-[#D9C7C2] text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95 group"
-            title="Data Hub: Reset real storage to zero (Auto-syncs every 5s)"
+            title="Data Hub: Reset real storage to zero (Auto-syncs every 10s)"
           >
             <RefreshCw 
               className={`w-3.5 h-3.5 text-[#D72638] shrink-0 ${isSyncing ? 'animate-spin' : ''}`}

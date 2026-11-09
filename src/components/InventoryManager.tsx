@@ -67,7 +67,7 @@ export default function InventoryManager() {
 
   const handleManualSync = () => {
     setIsSyncing(true);
-    setSyncSeconds(5);
+    setSyncSeconds(10);
     loadData();
     setTimeout(() => {
       setIsSyncing(false);
@@ -78,19 +78,19 @@ export default function InventoryManager() {
   useEffect(() => {
     loadData();
 
-    // 5-Second Real-Time Auto-Sync Engine:
-    // Seconds 1-4: show seconds counter, spinner is static.
-    // Second 5: triggers isSyncing, text becomes "Syncing...", spinner spins, seconds hidden.
+    // 10-Second Real-Time Auto-Sync Engine:
+    // Seconds 1-9: show seconds counter, spinner is static.
+    // Second 10: triggers isSyncing, text becomes "Syncing...", spinner spins, seconds hidden.
     const syncInterval = setInterval(() => {
       setSyncSeconds((prev) => {
-        if (prev >= 4) {
+        if (prev >= 9) {
           setIsSyncing(true);
           loadData();
           setTimeout(() => {
             setIsSyncing(false);
             setSyncSeconds(1);
           }, 900);
-          return 5;
+          return 10;
         }
         return prev + 1;
       });
@@ -178,12 +178,12 @@ export default function InventoryManager() {
           </p>
         </div>
 
-        {/* Quick Batch Actions - Zero Data & 5s Synchronized Telemetry */}
+        {/* Quick Batch Actions - Zero Data & 10s Synchronized Telemetry */}
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button
             onClick={handleManualSync}
             className="flex items-center justify-center gap-1.5 px-3 py-2.5 w-[136px] shrink-0 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95 group"
-            title="Auto-syncs vault reserves every 5s or click to sync immediately"
+            title="Auto-syncs vault reserves every 10s or click to sync immediately"
           >
             <RefreshCw 
               className={`w-3.5 h-3.5 text-[#D72638] shrink-0 ${isSyncing ? 'animate-spin' : ''}`}
@@ -207,7 +207,7 @@ export default function InventoryManager() {
           <button
             onClick={handleResetToZero}
             className="flex items-center justify-center gap-1.5 px-3 py-2.5 w-[150px] shrink-0 rounded-xl bg-white hover:bg-red-50 border border-[#D9C7C2] text-[#7A0C17] text-xs font-bold active:scale-95 transition-all cursor-pointer shadow-xs group"
-            title="Zero Vault Data: Reset all reserves to 0 (Auto-syncs every 5s)"
+            title="Zero Vault Data: Reset all reserves to 0 (Auto-syncs every 10s)"
           >
             <RefreshCw 
               className={`w-3.5 h-3.5 text-[#D72638] shrink-0 ${isSyncing ? 'animate-spin' : ''}`}
