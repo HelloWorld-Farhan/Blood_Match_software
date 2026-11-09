@@ -571,3 +571,4 @@ export function generatePasswordChangedEmailHtml(options: PasswordChangedEmailOp
 </body>
 </html>`;
 }
+

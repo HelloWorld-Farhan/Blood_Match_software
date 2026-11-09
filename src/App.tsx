@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { BloodPreloader } from './components/BloodPreloader';
 
 const Login = lazy(() => import('./pages/Login'));
@@ -53,13 +53,31 @@ function AnimatedRoutes() {
 
 export default function App() {
   const [showPreloader, setShowPreloader] = useState(true);
+  const [isApertureOpening, setIsApertureOpening] = useState(false);
 
   return (
     <Router>
       {showPreloader && (
-        <BloodPreloader onComplete={() => setShowPreloader(false)} />
+        <BloodPreloader 
+          onOpeningChange={(opening) => setIsApertureOpening(opening)}
+          onComplete={() => setShowPreloader(false)} 
+        />
       )}
-      <AnimatedRoutes />
+      <motion.div
+        animate={
+          showPreloader && !isApertureOpening
+            ? { opacity: 0, scale: 1.08, filter: 'blur(8px)' }
+            : { opacity: 1, scale: 1, filter: 'blur(0px)' }
+        }
+        transition={{
+          opacity: { duration: 1.2, ease: 'easeOut' },
+          scale: { duration: 1.8, ease: [0.2, 0.7, 0.2, 1] },
+          filter: { duration: 1.2, ease: 'easeOut' },
+        }}
+        className="w-full min-h-screen"
+      >
+        <AnimatedRoutes />
+      </motion.div>
     </Router>
   );
 }
