@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, Variants } from 'framer-motion';
 import { BloodType, EmergencyRequest, UrgencyLevel, Donor } from '../types';
 import { BLOOD_COMPATIBILITY_TABLE } from '../utils/bloodCompatibility';
-import { AlertTriangle, Plus, CheckCircle, Hospital, ShieldAlert, X, Phone } from 'lucide-react';
+import { AlertTriangle, Plus, CheckCircle, Hospital, ShieldAlert, X, Phone, BarChart3 } from 'lucide-react';
 import { getEmergencyRequests, saveEmergencyRequests, getDonors } from '../services/storage';
 import { COUNTRY_CODES, validatePhoneNumber } from '../utils/countryCodes';
 
@@ -191,8 +191,8 @@ export default function EmergencyRequests() {
       >
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/30 mb-2">
-            <AlertTriangle className="w-3.5 h-3.5 text-[#D72638]" />
-            <span>Emergency Dispatch Queue</span>
+            <BarChart3 className="w-3.5 h-3.5 text-[#D72638]" />
+            <span>Power BI Triage Stream</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-[#1A1D20] tracking-tight">
             Transfusion Blood Requests

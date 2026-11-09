@@ -133,11 +133,6 @@ export default function Layout() {
       badge: `${totalUnits} Pts`,
       isInventory: true,
     },
-    { 
-      name: 'Security & Settings', 
-      path: '/dashboard/settings', 
-      icon: SettingsIcon,
-    },
   ];
 
   const isActive = (itemPath: string, exact?: boolean) => {
@@ -282,26 +277,55 @@ export default function Layout() {
 
       {/* Bottom Section: Telemetry & Full Clinician Profile Card */}
       <div className="pt-3 border-t border-[#D9C7C2] space-y-3 shrink-0">
-        {/* Quick Telemetry & Support */}
-        <div className="p-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-xs">
+        {/* Work 2: Power BI Cryo-Vault Capacity Visual */}
+        <Link
+          to="/dashboard/inventory"
+          className="group block p-2.5 rounded-xl bg-gradient-to-br from-white to-[#F5F1EF] hover:to-red-50/50 border border-[#D9C7C2] hover:border-[#D72638]/50 text-xs transition-all shadow-2xs hover:shadow-xs cursor-pointer"
+          title="Inspect Cryo-Vault Inventory & Stored Units"
+        >
           <div className="flex items-center justify-between text-[#4A5568] mb-1">
-            <span className="flex items-center gap-1.5 font-semibold">
-              <Activity className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Cryo-Vault State</span>
+            <span className="flex items-center gap-1.5 font-bold text-[#1A1D20] text-[11px] group-hover:text-[#D72638] transition-colors">
+              <Database className="w-3.5 h-3.5 text-[#D72638]" />
+              <span>Cryo-Vault Reserve</span>
             </span>
-            <span className="text-emerald-700 font-bold">4.0°C</span>
+            <span className="text-emerald-700 font-bold text-[11px]">4.0°C Optimal</span>
           </div>
-          <div className="w-full bg-[#D9C7C2]/50 h-1.5 rounded-full overflow-hidden">
-            <div className="bg-gradient-to-r from-[#D72638] via-[#7A0C17] to-emerald-500 h-full w-full"></div>
+
+          <div className="flex items-baseline justify-between mb-1.5">
+            <span className="text-base font-black text-[#1A1D20]">
+              {totalUnits} <span className="text-[10px] font-medium text-[#5A626A]">/ 160 Pts</span>
+            </span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#D72638]/10 text-[#D72638] border border-[#D72638]/20">
+              {Math.min(100, Math.round((totalUnits / 160) * 100))}% Cap
+            </span>
           </div>
+
+          {/* Power BI Segmented Micro Battery Capacity Visual */}
+          <div className="grid grid-cols-8 gap-0.5 w-full h-1.5 rounded-full overflow-hidden bg-[#D9C7C2]/40 p-[1px]">
+            {[...Array(8)].map((_, idx) => {
+              const active = idx < Math.ceil((totalUnits / 160) * 8);
+              return (
+                <div
+                  key={idx}
+                  className={`h-full rounded-2xs transition-all duration-300 ${
+                    active ? 'bg-gradient-to-r from-[#D72638] to-[#7A0C17]' : 'bg-transparent'
+                  }`}
+                />
+              );
+            })}
+          </div>
+
           <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#D9C7C2]/40 text-[10px] text-[#4A5568]">
-            <span className="flex items-center gap-1 font-medium">
+            <span className="flex items-center gap-1 font-medium text-[#7A0C17]">
               <PhoneCall className="w-3 h-3 text-[#D72638]" />
-              <span>Trauma Hotline</span>
+              <span>Trauma Ext 911</span>
             </span>
-            <span className="text-[#D72638] font-mono font-bold">Ext 911</span>
+            <span className="text-[9px] font-bold text-[#D72638] group-hover:underline flex items-center gap-0.5">
+              <span>Inspect</span>
+              <span className="text-xs">&rarr;</span>
+            </span>
           </div>
-        </div>
+        </Link>
 
         {/* Dedicated Clinician Profile Card */}
         <div className="p-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] space-y-2">
@@ -543,10 +567,10 @@ export default function Layout() {
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
-              initial={{ opacity: 0, y: 12, filter: 'blur(6px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -12, filter: 'blur(6px)' }}
-              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
               className="w-full"
             >
               <Outlet />

@@ -1,17 +1,17 @@
 import React, { Suspense, lazy, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { BloodPreloader } from './components/BloodPreloader';
+
+import Layout from './components/Layout';
+import { Dashboard } from './components/Dashboard';
+import CompatibilityMatrix from './components/CompatibilityMatrix';
+import EmergencyRequests from './components/EmergencyRequests';
+import DonorRegistry from './components/DonorRegistry';
+import InventoryManager from './components/InventoryManager';
+import Settings from './components/Settings';
 
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
-const Layout = lazy(() => import('./components/Layout'));
-const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
-const CompatibilityMatrix = lazy(() => import('./components/CompatibilityMatrix'));
-const EmergencyRequests = lazy(() => import('./components/EmergencyRequests'));
-const DonorRegistry = lazy(() => import('./components/DonorRegistry'));
-const InventoryManager = lazy(() => import('./components/InventoryManager'));
-const Settings = lazy(() => import('./components/Settings'));
 
 function RouteLoadingFallback() {
   return (
@@ -21,32 +21,28 @@ function RouteLoadingFallback() {
   );
 }
 
-function AnimatedRoutes() {
-  const location = useLocation();
-
+function AppRoutes() {
   return (
     <Suspense fallback={<RouteLoadingFallback />}>
-      <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
-          {/* Authentication Routes (Starting entrypoints) */}
-          <Route path="/" element={<Login />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+      <Routes>
+        {/* Authentication Routes */}
+        <Route path="/" element={<Login />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
 
-          {/* Clinical Suite Protected/Dashboard Routes */}
-          <Route path="/dashboard" element={<Layout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="matrix" element={<CompatibilityMatrix />} />
-            <Route path="emergency" element={<EmergencyRequests />} />
-            <Route path="donors" element={<DonorRegistry />} />
-            <Route path="inventory" element={<InventoryManager />} />
-            <Route path="settings" element={<Settings />} />
-          </Route>
+        {/* Clinical Suite Protected/Dashboard Routes (Layout stays permanently mounted) */}
+        <Route path="/dashboard" element={<Layout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="matrix" element={<CompatibilityMatrix />} />
+          <Route path="emergency" element={<EmergencyRequests />} />
+          <Route path="donors" element={<DonorRegistry />} />
+          <Route path="inventory" element={<InventoryManager />} />
+          <Route path="settings" element={<Settings />} />
+        </Route>
 
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AnimatePresence>
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Suspense>
   );
 }
@@ -81,7 +77,7 @@ export default function App() {
         id="site-root"
         className={`w-full min-h-screen ${!showPreloader || isApertureOpening ? 'ready' : ''}`}
       >
-        <AnimatedRoutes />
+        <AppRoutes />
       </div>
     </Router>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Droplet, 
   Users, 
@@ -73,10 +73,13 @@ const kpiCardVariants: Variants = {
 };
 
 export const Dashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [requests, setRequests] = useState<EmergencyRequest[]>([]);
   const [donors, setDonors] = useState<Donor[]>([]);
   const [inventory, setInventory] = useState(getInventory());
   const [selectedBloodFilter, setSelectedBloodFilter] = useState<string>('ALL');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [hoveredAllele, setHoveredAllele] = useState<string | null>(null);
 
   // Interactive Quick Cross-Match State
   const [recipientType, setRecipientType] = useState<BloodType>('O+');
@@ -84,18 +87,35 @@ export const Dashboard: React.FC = () => {
 
   const matchResult = checkCompatibility(donorType, recipientType);
 
-  useEffect(() => {
-    loadData();
-    const handleStorage = () => loadData();
-    window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
-  }, []);
-
   const loadData = () => {
     setRequests(getEmergencyRequests());
     setDonors(getDonors());
     setInventory(getInventory());
   };
+
+  const handleManualSync = () => {
+    setIsSyncing(true);
+    loadData();
+    setTimeout(() => setIsSyncing(false), 800);
+  };
+
+  useEffect(() => {
+    loadData();
+
+    // Work 1: 5-Second Real-Time Auto-Sync Engine with smooth rotation animation
+    const syncInterval = setInterval(() => {
+      setIsSyncing(true);
+      loadData();
+      setTimeout(() => setIsSyncing(false), 900);
+    }, 5000);
+
+    const handleStorage = () => loadData();
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      clearInterval(syncInterval);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
 
   const handleResetToZero = () => {
     resetAllDataToZero();
@@ -199,12 +219,14 @@ export const Dashboard: React.FC = () => {
           </div>
 
           <button
-            onClick={loadData}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95"
-            title="Reload from local storage"
+            onClick={handleManualSync}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95 group"
+            title="Auto-syncs every 5s or click to sync immediately"
           >
-            <RefreshCw className="w-3.5 h-3.5 text-[#D72638]" />
+            <RefreshCw className={`w-3.5 h-3.5 text-[#D72638] transition-transform duration-700 ${isSyncing ? 'animate-spin' : 'group-hover:rotate-180'}`} />
             <span>Sync Hub</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] text-[#7A0C17] font-bold">5s</span>
           </button>
 
           <button
@@ -218,7 +240,7 @@ export const Dashboard: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* 4 Primary Power BI KPI Cards with Staggered Blur-In Entrance */}
+      {/* 4 Primary Power BI KPI Cards with Interactive Visualizations (Work 5) */}
       <motion.div 
         variants={blurSectionVariants}
         initial="hidden"
@@ -226,134 +248,259 @@ export const Dashboard: React.FC = () => {
         viewport={{ once: true, amount: 0.15 }}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5"
       >
-        {/* KPI 1: Cryo Volume */}
+        {/* KPI 1: Cryo Volume with Power BI ABO Allele Micro Bar Chart */}
         <motion.div 
           variants={kpiCardVariants}
-          whileHover={{ y: -3, scale: 1.01 }}
-          transition={{ duration: 0.2 }}
-          className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col justify-between"
+          whileHover={{ y: -4, scale: 1.015 }}
+          onClick={() => navigate('/dashboard/inventory')}
+          className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] hover:border-[#D72638] shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-[#7A0C17] uppercase tracking-wider">Cryo-Vault Reserve</span>
-            <div className="w-8 h-8 rounded-xl bg-[#7A0C17]/10 text-[#D72638] flex items-center justify-center border border-[#D72638]/30">
-              <Database className="w-4 h-4" />
-            </div>
-          </div>
           <div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-[#1A1D20]">{totalUnits}</span>
-              <span className="text-xs text-[#5A626A]">/ {targetReserve} pints benchmark</span>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-[#7A0C17] uppercase tracking-wider flex items-center gap-1">
+                <span>Cryo-Vault Reserve</span>
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-[#7A0C17]/10 text-[#D72638] group-hover:bg-[#D72638] group-hover:text-white transition-colors flex items-center justify-center border border-[#D72638]/30">
+                <Database className="w-4 h-4" />
+              </div>
             </div>
-            {/* Visual Mini Progress Gauge */}
-            <div className="w-full bg-[#F5F1EF] border border-[#D9C7C2]/60 h-2 rounded-full overflow-hidden mt-2">
-              <div
-                className="bg-gradient-to-r from-[#7A0C17] to-[#D72638] h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.max(0, capacityPercent)}%` }}
-              ></div>
+
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-[#1A1D20]">{totalUnits}</span>
+              <span className="text-xs text-[#5A626A]">/ {targetReserve} Pts</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#D72638]/10 text-[#D72638] ml-auto">
+                {capacityPercent}% Cap
+              </span>
+            </div>
+
+            {/* Power BI Micro ABO Alleles Segmented Bar Chart */}
+            <div className="mt-2.5 pt-2 border-t border-[#D9C7C2]/40">
+              <div className="flex items-center justify-between text-[10px] text-[#5A626A] mb-1">
+                <span>Allele Volume Bar</span>
+                <span className="font-bold text-[#7A0C17]">{hoveredAllele ? hoveredAllele : `${inventory.length} Groups`}</span>
+              </div>
+              <div className="grid grid-cols-8 gap-1 h-9 items-end bg-[#F5F1EF] p-1.5 rounded-xl border border-[#D9C7C2]/60">
+                {inventory.map((inv) => {
+                  const barH = Math.max(15, Math.min(100, (inv.unitsAvailable / 20) * 100));
+                  const isHovered = hoveredAllele?.startsWith(inv.bloodType);
+                  return (
+                    <div
+                      key={inv.bloodType}
+                      onMouseEnter={(e) => {
+                        e.stopPropagation();
+                        setHoveredAllele(`${inv.bloodType}: ${inv.unitsAvailable} Pts`);
+                      }}
+                      onMouseLeave={() => setHoveredAllele(null)}
+                      className="h-full flex flex-col justify-end items-center group/bar"
+                    >
+                      <div
+                        style={{ height: `${barH}%` }}
+                        className={`w-full rounded-xs transition-all duration-300 ${
+                          inv.unitsAvailable === 0
+                            ? 'bg-[#D9C7C2]/40'
+                            : isHovered
+                            ? 'bg-[#D72638] shadow-sm shadow-[#D72638]/50 scale-105'
+                            : 'bg-gradient-to-t from-[#7A0C17] to-[#D72638]'
+                        }`}
+                      />
+                      <span className="text-[7.5px] font-bold text-[#4A5568] mt-0.5 leading-none">{inv.bloodType}</span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
+
           <div className="mt-3 flex items-center justify-between text-[11px] text-[#5A626A] border-t border-[#D9C7C2]/60 pt-2">
             <span className={criticalUnitsCount > 0 ? "text-amber-600 font-semibold" : "text-emerald-600 font-semibold"}>
               {criticalUnitsCount} shortage alleles
             </span>
-            <Link to="/dashboard/inventory" className="text-[#D72638] font-bold hover:underline flex items-center gap-0.5">
-              <span>Inspect</span>
-              <ArrowUpRight className="w-3 h-3" />
-            </Link>
+            <span className="text-[#D72638] font-bold group-hover:underline flex items-center gap-0.5">
+              <span>Inspect Vault</span>
+              <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </span>
           </div>
         </motion.div>
 
-        {/* KPI 2: Certified Donors */}
+        {/* KPI 2: Certified Donors with Power BI Radial Micro Gauge */}
         <motion.div 
           variants={kpiCardVariants}
-          whileHover={{ y: -3, scale: 1.01 }}
-          transition={{ duration: 0.2 }}
-          className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col justify-between"
+          whileHover={{ y: -4, scale: 1.015 }}
+          onClick={() => navigate('/dashboard/donors')}
+          className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] hover:border-[#D72638] shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-[#7A0C17] uppercase tracking-wider">Certified Donors</span>
-            <div className="w-8 h-8 rounded-xl bg-[#7A0C17]/10 text-[#D72638] flex items-center justify-center border border-[#D72638]/30">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
           <div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-[#1A1D20]">{donors.length}</span>
-              <span className="text-xs text-[#5A626A]">volunteer pool</span>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-[#7A0C17] uppercase tracking-wider">Certified Donors</span>
+              <div className="w-8 h-8 rounded-xl bg-[#7A0C17]/10 text-[#D72638] group-hover:bg-[#D72638] group-hover:text-white transition-colors flex items-center justify-center border border-[#D72638]/30">
+                <Users className="w-4 h-4" />
+              </div>
             </div>
-            <div className="flex items-center gap-2 mt-2 text-[11px] text-emerald-600 font-semibold">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>{donors.length > 0 ? 'Standby Readiness Active' : 'Registry Zero Standby'}</span>
+
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-[#1A1D20]">{donors.length}</span>
+              <span className="text-xs text-[#5A626A]">Volunteer Pool</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 ml-auto">
+                Ready
+              </span>
+            </div>
+
+            {/* Power BI Radial Readiness Gauge Visual */}
+            <div className="mt-2.5 pt-2 border-t border-[#D9C7C2]/40 flex items-center gap-2.5 bg-[#F5F1EF] p-2 rounded-xl border border-[#D9C7C2]/60">
+              <div className="relative w-8 h-8 shrink-0 flex items-center justify-center">
+                <svg className="w-8 h-8 -rotate-90" viewBox="0 0 36 36">
+                  <path
+                    className="text-[#D9C7C2]/60"
+                    strokeWidth="3.5"
+                    stroke="currentColor"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path
+                    className="text-emerald-500"
+                    strokeDasharray={`${Math.min(100, donors.length > 0 ? 88 : 0)}, 100`}
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    stroke="currentColor"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                </svg>
+                <span className="absolute text-[9px] font-black text-[#1A1D20]">
+                  {donors.length > 0 ? '88%' : '0%'}
+                </span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-bold text-[#1A1D20] truncate">Mobilization Velocity</div>
+                <div className="text-[9px] text-[#5A626A] truncate">
+                  {donors.length > 0 ? '24m Emergency Response' : 'Standby Pool Initializing'}
+                </div>
+              </div>
             </div>
           </div>
+
           <div className="mt-3 flex items-center justify-between text-[11px] text-[#5A626A] border-t border-[#D9C7C2]/60 pt-2">
-            <span>{donors.length > 0 ? 'Mobilization: 24m avg' : 'Standby Pool: 0 Donors'}</span>
-            <Link to="/dashboard/donors" className="text-[#D72638] font-bold hover:underline flex items-center gap-0.5">
+            <span>{donors.length > 0 ? `${donors.length} Verified Clinicians` : 'Registry Zero Standby'}</span>
+            <span className="text-[#D72638] font-bold group-hover:underline flex items-center gap-0.5">
               <span>Registry</span>
-              <ArrowUpRight className="w-3 h-3" />
-            </Link>
+              <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </span>
           </div>
         </motion.div>
 
-        {/* KPI 3: Emergency Requests */}
+        {/* KPI 3: Emergency Requests with Power BI Triage Sparkline Radar */}
         <motion.div 
           variants={kpiCardVariants}
-          whileHover={{ y: -3, scale: 1.01 }}
-          transition={{ duration: 0.2 }}
-          className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col justify-between"
+          whileHover={{ y: -4, scale: 1.015 }}
+          onClick={() => navigate('/dashboard/emergency')}
+          className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] hover:border-[#D72638] shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-[#7A0C17] uppercase tracking-wider">Active Trauma Calls</span>
-            <div className="w-8 h-8 rounded-xl bg-[#D72638]/15 text-[#D72638] flex items-center justify-center border border-[#D72638]/30">
-              <AlertTriangle className={`w-4 h-4 ${urgentCount > 0 ? 'animate-pulse' : ''}`} />
-            </div>
-          </div>
           <div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-[#1A1D20]">{urgentCount}</span>
-              <span className="text-xs text-[#D72638] font-bold">critical calls</span>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-[#7A0C17] uppercase tracking-wider">Active Trauma Calls</span>
+              <div className="w-8 h-8 rounded-xl bg-[#D72638]/15 text-[#D72638] group-hover:bg-[#D72638] group-hover:text-white transition-colors flex items-center justify-center border border-[#D72638]/30">
+                <AlertTriangle className={`w-4 h-4 ${urgentCount > 0 ? 'animate-pulse' : ''}`} />
+              </div>
             </div>
-            <div className="text-[11px] text-[#5A626A] mt-2">
-              {requests.length === 0 ? '0 active patient calls' : `${requests.length - urgentCount} stabilized or fulfilled`}
+
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-[#1A1D20]">{urgentCount}</span>
+              <span className="text-xs text-[#D72638] font-bold">Critical Calls</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-red-50 text-[#D72638] border border-red-200 ml-auto">
+                {requests.length} Total
+              </span>
+            </div>
+
+            {/* Power BI Real-Time Triage Pulse Sparkline Waveform */}
+            <div className="mt-2.5 pt-2 border-t border-[#D9C7C2]/40 bg-[#F5F1EF] p-2 rounded-xl border border-[#D9C7C2]/60">
+              <div className="flex items-center justify-between text-[10px] mb-1">
+                <span className="text-[#5A626A]">Triage Velocity</span>
+                <span className="font-bold text-[#D72638] flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#D72638] animate-ping" />
+                  <span>{urgentCount > 0 ? 'Priority Stream' : 'Calibrated'}</span>
+                </span>
+              </div>
+              <svg className="w-full h-6 overflow-visible" viewBox="0 0 100 24" preserveAspectRatio="none">
+                <path
+                  d="M0,16 L20,16 L28,6 L36,22 L44,12 L52,18 L60,16 L80,16 L88,8 L100,16"
+                  fill="none"
+                  stroke={urgentCount > 0 ? "#D72638" : "#A0AEC0"}
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </div>
           </div>
+
           <div className="mt-3 flex items-center justify-between text-[11px] text-[#5A626A] border-t border-[#D9C7C2]/60 pt-2">
-            <span className="text-[#D72638] font-semibold">{urgentCount > 0 ? 'Priority Triage Live' : 'Queue Clear'}</span>
-            <Link to="/dashboard/emergency" className="text-[#D72638] font-bold hover:underline flex items-center gap-0.5">
+            <span className="text-[#D72638] font-semibold">{urgentCount > 0 ? 'Urgent Queue Active' : 'Queue Cleared'}</span>
+            <span className="text-[#D72638] font-bold group-hover:underline flex items-center gap-0.5">
               <span>Dispatch Board</span>
-              <ArrowUpRight className="w-3 h-3" />
-            </Link>
+              <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </span>
           </div>
         </motion.div>
 
-        {/* KPI 4: Hemolytic Safety Score */}
+        {/* KPI 4: Antigen Safety Index with Power BI Concentric Ring Gauge */}
         <motion.div 
           variants={kpiCardVariants}
-          whileHover={{ y: -3, scale: 1.01 }}
-          transition={{ duration: 0.2 }}
-          className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col justify-between"
+          whileHover={{ y: -4, scale: 1.015 }}
+          onClick={() => navigate('/dashboard/matrix')}
+          className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] hover:border-emerald-500 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-[#7A0C17] uppercase tracking-wider">Antigen Safety Index</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-300">
-              <HeartPulse className="w-4 h-4" />
-            </div>
-          </div>
           <div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-emerald-600">100%</span>
-              <span className="text-xs text-[#5A626A]">Zero Mismatch</span>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-[#7A0C17] uppercase tracking-wider">Antigen Safety Index</span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors flex items-center justify-center border border-emerald-300">
+                <HeartPulse className="w-4 h-4" />
+              </div>
             </div>
-            <div className="text-[11px] text-[#5A626A] mt-2">
-              Cross-match latency: <strong className="text-[#1A1D20]">0.4ms</strong>
+
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-emerald-600">100%</span>
+              <span className="text-xs text-[#5A626A]">Zero Mismatch</span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 ml-auto">
+                Optimal
+              </span>
+            </div>
+
+            {/* Power BI Concentric Compatibility Ring Gauge */}
+            <div className="mt-2.5 pt-2 border-t border-[#D9C7C2]/40 flex items-center gap-2.5 bg-[#F5F1EF] p-2 rounded-xl border border-[#D9C7C2]/60">
+              <div className="relative w-8 h-8 shrink-0 flex items-center justify-center">
+                <svg className="w-8 h-8 -rotate-90" viewBox="0 0 36 36">
+                  <path
+                    className="text-[#D9C7C2]/60"
+                    strokeWidth="3.5"
+                    stroke="currentColor"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path
+                    className="text-emerald-500 animate-[pulse_2s_infinite]"
+                    strokeDasharray="100, 100"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    stroke="currentColor"
+                    fill="none"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                </svg>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-bold text-[#1A1D20] truncate">AABB Cross-Match Latency</div>
+                <div className="text-[9px] text-emerald-700 font-semibold truncate">0.4ms Synchronous Verification</div>
+              </div>
             </div>
           </div>
+
           <div className="mt-3 flex items-center justify-between text-[11px] text-[#5A626A] border-t border-[#D9C7C2]/60 pt-2">
-            <span>AABB Protocol v4.2</span>
-            <Link to="/dashboard/matrix" className="text-[#D72638] font-bold hover:underline flex items-center gap-0.5">
+            <span>8x8 Matrix Synchronized</span>
+            <span className="text-[#D72638] font-bold group-hover:underline flex items-center gap-0.5">
               <span>8x8 Matrix</span>
-              <ArrowUpRight className="w-3 h-3" />
-            </Link>
+              <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+            </span>
           </div>
         </motion.div>
       </motion.div>

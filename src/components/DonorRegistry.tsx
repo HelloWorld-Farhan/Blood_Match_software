@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, Variants } from 'framer-motion';
 import { BloodType, Donor } from '../types';
-import { Users, Plus, Search, Phone, MapPin, Heart, X, Mail, Activity, ShieldCheck } from 'lucide-react';
+import { Users, Plus, Search, Phone, MapPin, Heart, X, Mail, Activity, ShieldCheck, BarChart3 } from 'lucide-react';
 import { getDonors, saveDonors } from '../services/storage';
 import { COUNTRY_CODES, validatePhoneNumber, validateEmail } from '../utils/countryCodes';
 
@@ -167,8 +167,8 @@ export default function DonorRegistry() {
       >
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/30 mb-2">
-            <Users className="w-3.5 h-3.5 text-[#D72638]" />
-            <span>Voluntary Transfusion Network</span>
+            <BarChart3 className="w-3.5 h-3.5 text-[#D72638]" />
+            <span>Power BI Voluntary Network</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-[#1A1D20] tracking-tight">
             Certified Donor Directory

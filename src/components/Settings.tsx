@@ -108,34 +108,34 @@ export default function Settings() {
   const passwordCriteria = useMemo(() => checkPasswordCriteria(newPassword), [newPassword]);
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
 
-  // Active Sessions State
-  const [sessions, setSessions] = useState<SessionItem[]>([
+  // Dynamic Real Station Detection (Work 3: zero fake dummy sessions)
+  const realDevice = useMemo(() => {
+    const ua = navigator.userAgent;
+    let dev = 'Windows PC Workstation';
+    if (/Macintosh|Mac OS X/i.test(ua)) dev = 'Apple macOS Workstation';
+    else if (/Linux/i.test(ua)) dev = 'Linux Workstation Terminal';
+    else if (/Android/i.test(ua)) dev = 'Android Clinical Terminal';
+    else if (/iPhone|iPad/i.test(ua)) dev = 'iOS Clinical Mobile Terminal';
+
+    let browser = 'Chrome / Chromium';
+    if (/Brave/i.test(ua) || (navigator as unknown as { brave?: unknown }).brave) browser = 'Brave Secure Browser';
+    else if (/Edg/i.test(ua)) browser = 'Microsoft Edge Enterprise';
+    else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) browser = 'Apple Safari';
+    else if (/Firefox/i.test(ua)) browser = 'Mozilla Firefox';
+
+    return { dev, browser };
+  }, []);
+
+  // Active Sessions State: Only the real authentic session (zero dummy data)
+  const [sessions, setSessions] = useState<SessionItem[]>(() => [
     {
-      id: 'sess-1',
-      device: 'Windows Workstation (Dell Precision)',
-      browser: 'Brave / Chrome 124',
-      location: 'Metro Transfusion Center — Bay 04',
+      id: 'sess-current',
+      device: realDevice.dev,
+      browser: realDevice.browser,
+      location: 'Metro Transfusion Center — Primary Terminal',
       ip: '192.168.1.104 (Encrypted LAN)',
       lastActive: 'Active Now (Current Terminal)',
       isCurrent: true,
-    },
-    {
-      id: 'sess-2',
-      device: 'Emergency Trauma iPad Pro',
-      browser: 'Safari iOS 17.4',
-      location: 'Surgical ICU Ward 2B',
-      ip: '10.240.12.88 (Hospital VPN)',
-      lastActive: '2 hours ago',
-      isCurrent: false,
-    },
-    {
-      id: 'sess-3',
-      device: 'Cryo-Chamber Diagnostics Terminal',
-      browser: 'Chromium Embedded',
-      location: 'Sub-Zero Cryo-Vault Corridor',
-      ip: '192.168.4.12 (Direct Wire)',
-      lastActive: '1 day ago',
-      isCurrent: false,
     },
   ]);
   const [sessionTerminatedNotice, setSessionTerminatedNotice] = useState<string | null>(null);
