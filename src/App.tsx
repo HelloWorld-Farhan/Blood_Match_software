@@ -1,7 +1,9 @@
-import React, { Suspense, lazy, useState } from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { BloodPreloader } from './components/BloodPreloader';
 
+import Login from './pages/Login';
+import Signup from './pages/Signup';
 import Layout from './components/Layout';
 import { Dashboard } from './components/Dashboard';
 import CompatibilityMatrix from './components/CompatibilityMatrix';
@@ -10,40 +12,27 @@ import DonorRegistry from './components/DonorRegistry';
 import InventoryManager from './components/InventoryManager';
 import Settings from './components/Settings';
 
-const Login = lazy(() => import('./pages/Login'));
-const Signup = lazy(() => import('./pages/Signup'));
-
-function RouteLoadingFallback() {
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#F5F1EF]/70 backdrop-blur-[2px] transition-opacity">
-      <div className="w-9 h-9 rounded-full border-2 border-[#D72638]/20 border-t-[#D72638] animate-spin" />
-    </div>
-  );
-}
-
 function AppRoutes() {
   return (
-    <Suspense fallback={<RouteLoadingFallback />}>
-      <Routes>
-        {/* Authentication Routes */}
-        <Route path="/" element={<Login />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+    <Routes>
+      {/* Authentication Routes */}
+      <Route path="/" element={<Login />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
 
-        {/* Clinical Suite Protected/Dashboard Routes (Layout stays permanently mounted) */}
-        <Route path="/dashboard" element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="matrix" element={<CompatibilityMatrix />} />
-          <Route path="emergency" element={<EmergencyRequests />} />
-          <Route path="donors" element={<DonorRegistry />} />
-          <Route path="inventory" element={<InventoryManager />} />
-          <Route path="settings" element={<Settings />} />
-        </Route>
+      {/* Clinical Suite Protected/Dashboard Routes (Layout stays permanently mounted) */}
+      <Route path="/dashboard" element={<Layout />}>
+        <Route index element={<Dashboard />} />
+        <Route path="matrix" element={<CompatibilityMatrix />} />
+        <Route path="emergency" element={<EmergencyRequests />} />
+        <Route path="donors" element={<DonorRegistry />} />
+        <Route path="inventory" element={<InventoryManager />} />
+        <Route path="settings" element={<Settings />} />
+      </Route>
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Suspense>
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 

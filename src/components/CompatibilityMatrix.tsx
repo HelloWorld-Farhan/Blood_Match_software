@@ -82,7 +82,7 @@ export default function CompatibilityMatrix() {
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
           {/* Prominent High-Definition Molecular Video Monitor */}
           <div 
-            className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black min-h-[260px] sm:min-h-[300px] flex items-center justify-center"
+            className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black h-[220px] xs:h-[260px] sm:h-[300px] flex items-center justify-center"
             style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
           >
             <video
@@ -93,11 +93,11 @@ export default function CompatibilityMatrix() {
               muted
               playsInline
               preload="auto"
-              className="w-full h-full object-cover pointer-events-none"
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none"
               style={{ transform: 'translateZ(0)' }}
             />
             {/* Live Molecular Telemetry Overlays */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 pointer-events-none" />
             
             <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-xs pointer-events-none">
               <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white font-bold">
