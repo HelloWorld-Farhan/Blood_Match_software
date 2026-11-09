@@ -148,16 +148,6 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
       puddleRef.current.style.height = '3vh';
     }
     splash();
-    if (camRef.current) {
-      camRef.current.animate(
-        [
-          { transform: 'scale(1)' },
-          { transform: 'scale(1.02)', offset: 0.3 },
-          { transform: 'scale(1)' },
-        ],
-        { duration: 800, easing: 'ease-in-out' }
-      );
-    }
   }, [splash]);
 
   // Main Droplet Physics & Timeline Orchestrator
@@ -214,7 +204,7 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
         return;
       }
 
-      const RISE = 2200;
+      const RISE = 2000;
       // Over-translate so waves move completely above viewport (by at least 350px)
       const targetTranslate = -(H + 350);
 
@@ -226,6 +216,13 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
         { duration: RISE, easing: 'cubic-bezier(.45, 0, .2, 1)', fill: 'forwards' }
       );
 
+      // Fade in text naturally as the red fluid covers the center of the screen
+      setTimeout(() => {
+        if (!isFinishedRef.current) {
+          setShowTag(true);
+        }
+      }, 1050);
+
       let riseCompleted = false;
       const onRiseDone = () => {
         if (riseCompleted || isFinishedRef.current) return;
@@ -236,9 +233,7 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
           containerRef.current.style.backgroundColor = '#c1121f';
         }
 
-        setShowTag(true);
-
-        // Hold message steadily for 2.2s, then smoothly open radial aperture
+        // Hold message steadily for 1.6s, then smoothly open radial aperture
         setTimeout(() => {
           setTagOut(true);
           onOpeningChange?.(true);
@@ -248,7 +243,7 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
           }
 
           const maxR = Math.hypot(W / 2, H) + 40;
-          const dur = 1800;
+          const dur = 1700;
           const t0 = performance.now();
 
           const stepAperture = (now: number) => {
@@ -265,7 +260,7 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
             }
           };
           requestAnimationFrame(stepAperture);
-        }, 2400);
+        }, 1600);
       };
 
       if (riseAnim && riseAnim.finished) {
@@ -475,17 +470,15 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
         <div className="flex-1 min-h-screen bg-gradient-to-b from-[#c1121f] via-[#a50f1c] to-[#7d0a14]" />
       </div>
 
-      {/* Tagline on Red Screen: Steady, elegant and zero-lag */}
+      {/* Tagline on Red Screen: Steady, elegant and zero-lag with NO size changes */}
       <motion.div
         animate={{
           opacity: showTag && !tagOut ? 1 : 0,
-          letterSpacing: showTag && !tagOut ? '0.38em' : '0.65em',
         }}
         transition={{
-          opacity: { duration: tagOut ? 0.45 : 0.8, ease: 'easeOut' },
-          letterSpacing: { duration: 1.4, ease: [0.2, 0.7, 0.2, 1] },
+          opacity: { duration: tagOut ? 0.35 : 0.6, ease: 'easeOut' },
         }}
-        className="absolute left-0 right-0 top-1/2 z-[4] text-center text-white uppercase text-[clamp(14px,2.5vw,18px)] -translate-y-1/2 pointer-events-none font-semibold px-4 select-none drop-shadow-sm tracking-[0.38em]"
+        className="absolute left-0 right-0 top-1/2 z-[4] text-center text-white uppercase text-[clamp(14px,2.2vw,18px)] -translate-y-1/2 pointer-events-none font-semibold px-4 select-none drop-shadow-sm tracking-[0.38em]"
       >
         Every drop saves a life
       </motion.div>
