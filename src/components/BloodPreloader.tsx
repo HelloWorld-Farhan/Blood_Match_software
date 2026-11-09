@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface BloodPreloaderProps {
   onComplete: () => void;
@@ -10,7 +10,6 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
   const [isGone, setIsGone] = useState(false);
   const [showTag, setShowTag] = useState(false);
   const [tagOut, setTagOut] = useState(false);
-  const [showHint, setShowHint] = useState(false);
   const [tagPulse, setTagPulse] = useState(1);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -21,13 +20,10 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
   const glossRef = useRef<SVGPathElement | null>(null);
   const remnantRef = useRef<SVGPathElement | null>(null);
 
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const masterGainRef = useRef<GainNode | null>(null);
-  const noiseBufRef = useRef<AudioBuffer | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const isFinishedRef = useRef(false);
 
-  // Easing & math helpers matching original physics
+  // Easing & math helpers
   const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
   const clamp01 = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t);
   const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
@@ -75,193 +71,6 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
       -rx * 0.3
     )} ${f(cy - ry * 0.6)}`;
   };
-
-  // Immediate AudioContext Unlock on first mount or gesture
-  useEffect(() => {
-    try {
-      const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (AC) {
-        const ctx = new AC();
-        const master = ctx.createGain();
-        master.gain.value = 0.95;
-        const comp = ctx.createDynamicsCompressor();
-        master.connect(comp);
-        comp.connect(ctx.destination);
-
-        const noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-        const d = noiseBuf.getChannelData(0);
-        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-
-        audioCtxRef.current = ctx;
-        masterGainRef.current = master;
-        noiseBufRef.current = noiseBuf;
-
-        // Proactively probe / resume immediately
-        if (ctx.state !== 'running') {
-          ctx.resume().catch(() => {});
-          try {
-            const b = ctx.createBuffer(1, 1, 22050);
-            const s = ctx.createBufferSource();
-            s.buffer = b;
-            s.connect(ctx.destination);
-            s.start(0);
-          } catch {}
-        }
-      }
-    } catch {}
-
-    const unlock = () => {
-      if (audioCtxRef.current && audioCtxRef.current.state !== 'running') {
-        audioCtxRef.current.resume().catch(() => {});
-      }
-    };
-
-    const events = ['pointerdown', 'mousedown', 'touchstart', 'touchend', 'keydown', 'click'];
-    events.forEach(ev => window.addEventListener(ev, unlock, { passive: true, capture: true }));
-
-    return () => {
-      events.forEach(ev => window.removeEventListener(ev, unlock));
-      if (audioCtxRef.current) {
-        audioCtxRef.current.close().catch(() => {});
-      }
-    };
-  }, []);
-
-  const isAudioRunning = () => !!audioCtxRef.current && audioCtxRef.current.state === 'running';
-
-  // Sound Synthesizers matching blood-preloader.html exactly
-  const playDropSound = useCallback((delay = 0) => {
-    const ctx = audioCtxRef.current;
-    const master = masterGainRef.current;
-    const noiseBuf = noiseBufRef.current;
-    if (!ctx || ctx.state !== 'running' || !master || !noiseBuf) return false;
-
-    try {
-      const lat = ctx.outputLatency || ctx.baseLatency || 0;
-      const t = ctx.currentTime + Math.max(0, delay - lat);
-
-      // Noise Burst
-      const s = ctx.createBufferSource();
-      s.buffer = noiseBuf;
-      s.loop = true;
-      const fFilter = ctx.createBiquadFilter();
-      fFilter.type = 'bandpass';
-      fFilter.Q.value = 0.9;
-      fFilter.frequency.setValueAtTime(3000, t);
-      const gNoise = ctx.createGain();
-      gNoise.gain.setValueAtTime(0.0001, t);
-      gNoise.gain.exponentialRampToValueAtTime(0.16, t + 0.003);
-      gNoise.gain.exponentialRampToValueAtTime(0.0001, t + 0.035);
-      s.connect(fFilter);
-      fFilter.connect(gNoise);
-      gNoise.connect(master);
-      s.start(t, Math.random() * 0.5);
-      s.stop(t + 0.04);
-
-      // Tones (Tone 1: rising plip)
-      const o1 = ctx.createOscillator();
-      o1.type = 'sine';
-      o1.frequency.setValueAtTime(430, t);
-      o1.frequency.exponentialRampToValueAtTime(1050, t + 0.06);
-      const g1 = ctx.createGain();
-      g1.gain.setValueAtTime(0.0001, t);
-      g1.gain.exponentialRampToValueAtTime(0.6, t + 0.005);
-      g1.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
-      o1.connect(g1);
-      g1.connect(master);
-      o1.start(t);
-      o1.stop(t + 0.33);
-
-      // Tone 2: high shimmer
-      const o2 = ctx.createOscillator();
-      o2.type = 'sine';
-      o2.frequency.setValueAtTime(900, t);
-      o2.frequency.exponentialRampToValueAtTime(2100, t + 0.06);
-      const g2 = ctx.createGain();
-      g2.gain.setValueAtTime(0.0001, t);
-      g2.gain.exponentialRampToValueAtTime(0.11, t + 0.005);
-      g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.14);
-      o2.connect(g2);
-      g2.connect(master);
-      o2.start(t);
-      o2.stop(t + 0.19);
-
-      // Tone 3: deep soft liquid body
-      const o3 = ctx.createOscillator();
-      o3.type = 'sine';
-      o3.frequency.setValueAtTime(165, t);
-      o3.frequency.exponentialRampToValueAtTime(90, t + 0.18);
-      const g3 = ctx.createGain();
-      g3.gain.setValueAtTime(0.0001, t);
-      g3.gain.exponentialRampToValueAtTime(0.26, t + 0.005);
-      g3.gain.exponentialRampToValueAtTime(0.0001, t + 0.24);
-      o3.connect(g3);
-      g3.connect(master);
-      o3.start(t);
-      o3.stop(t + 0.29);
-
-      return true;
-    } catch {
-      return false;
-    }
-  }, []);
-
-  const playHeartbeat = useCallback(() => {
-    const ctx = audioCtxRef.current;
-    const master = masterGainRef.current;
-    const noiseBuf = noiseBufRef.current;
-    if (!ctx || ctx.state !== 'running' || !master || !noiseBuf) return;
-
-    try {
-      const t = ctx.currentTime;
-      // Lub tone
-      const o1 = ctx.createOscillator();
-      o1.type = 'sine';
-      o1.frequency.setValueAtTime(78, t);
-      o1.frequency.exponentialRampToValueAtTime(42, t + 0.2);
-      const g1 = ctx.createGain();
-      g1.gain.setValueAtTime(0.0001, t);
-      g1.gain.exponentialRampToValueAtTime(0.75, t + 0.005);
-      g1.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
-      o1.connect(g1);
-      g1.connect(master);
-      o1.start(t);
-      o1.stop(t + 0.25);
-
-      // Lub thump noise
-      const s = ctx.createBufferSource();
-      s.buffer = noiseBuf;
-      s.loop = true;
-      const fl = ctx.createBiquadFilter();
-      fl.type = 'lowpass';
-      fl.frequency.setValueAtTime(260, t);
-      fl.frequency.exponentialRampToValueAtTime(90, t + 0.16);
-      const gn = ctx.createGain();
-      gn.gain.setValueAtTime(0.0001, t);
-      gn.gain.exponentialRampToValueAtTime(0.25, t + 0.003);
-      gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
-      s.connect(fl);
-      fl.connect(gn);
-      gn.connect(master);
-      s.start(t, Math.random() * 0.5);
-      s.stop(t + 0.21);
-
-      // Dub tone (offset 0.22s)
-      const tDub = t + 0.22;
-      const o2 = ctx.createOscillator();
-      o2.type = 'sine';
-      o2.frequency.setValueAtTime(66, tDub);
-      o2.frequency.exponentialRampToValueAtTime(36, tDub + 0.22);
-      const g2 = ctx.createGain();
-      g2.gain.setValueAtTime(0.0001, tDub);
-      g2.gain.exponentialRampToValueAtTime(0.55, tDub + 0.005);
-      g2.gain.exponentialRampToValueAtTime(0.0001, tDub + 0.22);
-      o2.connect(g2);
-      g2.connect(master);
-      o2.start(tDub);
-      o2.stop(tDub + 0.27);
-    } catch {}
-  }, []);
 
   const finish = useCallback(() => {
     if (isFinishedRef.current) return;
@@ -376,28 +185,16 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
 
     const GROW = 1400;
     const PINCH = 240;
-    const MAXHOLD = 2600;
 
-    let stage: 'grow' | 'hold' | 'pinch' | 'fall' | 'squash' | 'done' = 'grow';
+    let stage: 'grow' | 'pinch' | 'fall' | 'squash' | 'done' = 'grow';
     const tGrow = performance.now();
-    let tHold = 0;
     let tPinch = 0;
     let tFall = 0;
     let tTouch = 0;
-    let touchAt = 0;
-    let scheduled = false;
     let sxc = 1;
     let syc = 1;
     let cyc = 0;
     let tailc = 0;
-
-    const scheduleSound = () => {
-      if (scheduled || !touchAt) return;
-      const until = touchAt - performance.now();
-      if (until > 30 && playDropSound(until / 1000)) {
-        scheduled = true;
-      }
-    };
 
     const setShape = (body: string, gl: string, rem: string, op: number) => {
       if (bodyRef.current) {
@@ -408,7 +205,7 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
       if (remnantRef.current) remnantRef.current.setAttribute('d', rem);
     };
 
-    // Pool Rise & Aperture Mask Step
+    // Pool Rise & Aperture Mask Step (Guarantees 100% solid red coverage of viewport)
     const riseAndOpen = () => {
       const pool = poolRef.current;
       if (!pool) {
@@ -416,11 +213,14 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
         return;
       }
 
-      const RISE = 2400;
+      const RISE = 2200;
+      // Over-translate so waves move completely above viewport (by at least 350px)
+      const targetTranslate = -(H + 350);
+
       const riseAnim = pool.animate(
         [
           { transform: 'translateY(0)' },
-          { transform: `translateY(${-(H + 180)}px)` },
+          { transform: `translateY(${targetTranslate}px)` },
         ],
         { duration: RISE, easing: 'cubic-bezier(.45, 0, .2, 1)', fill: 'forwards' }
       );
@@ -430,20 +230,25 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
         if (riseCompleted || isFinishedRef.current) return;
         riseCompleted = true;
 
+        // Ensure 100% full solid red fill across the entire viewport background
+        if (containerRef.current) {
+          containerRef.current.style.backgroundColor = '#c1121f';
+        }
+
         setShowTag(true);
-        let beating = true;
+        let pulsing = true;
 
         const pulseLoop = () => {
-          if (!beating || isFinishedRef.current) return;
-          playHeartbeat();
+          if (!pulsing || isFinishedRef.current) return;
           setTagPulse(1.08);
           setTimeout(() => setTagPulse(1), 350);
           setTimeout(pulseLoop, 1050);
         };
         pulseLoop();
 
+        // Hold message for 2.4s, then smoothly open radial aperture
         setTimeout(() => {
-          beating = false;
+          pulsing = false;
           setTagOut(true);
           onOpeningChange?.(true);
 
@@ -451,8 +256,8 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
             containerRef.current.classList.add('opening');
           }
 
-          const maxR = Math.hypot(W / 2, H) + 30;
-          const dur = 1900;
+          const maxR = Math.hypot(W / 2, H) + 40;
+          const dur = 1800;
           const t0 = performance.now();
 
           const stepAperture = (now: number) => {
@@ -469,7 +274,7 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
             }
           };
           requestAnimationFrame(stepAperture);
-        }, 2700);
+        }, 2400);
       };
 
       if (riseAnim && riseAnim.finished) {
@@ -482,55 +287,29 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
     const frame = (now: number) => {
       if (isFinishedRef.current) return;
 
-      if (stage === 'grow' || stage === 'hold') {
-        let p = 0;
-        let trem = 0;
-        if (stage === 'grow') {
-          p = clamp01((now - tGrow) / GROW);
-          if (p >= 1) {
-            if (isAudioRunning()) {
-              stage = 'pinch';
-              tPinch = now;
-              touchAt = now + PINCH + tc;
-              scheduleSound();
-            } else {
-              stage = 'hold';
-              tHold = now;
-              setShowHint(true);
-            }
-          }
-        }
+      if (stage === 'grow') {
+        const p = clamp01((now - tGrow) / GROW);
+        const r = R * lerp(0.28, 1, easeOut(clamp01(p / 0.8)));
+        const L = L1 * easeInOut(p);
+        const nw = r * lerp(0.9, 0.3, easeIn(p));
+        const fw = nw + R * lerp(0.25, 0.6, p);
+        const q = 1 + 0.02 * Math.sin(now / 75) * p;
+        const ry = r * (1 + 0.18 * easeIn(p)) * q;
+        const rx = (r * (1 - 0.06 * easeIn(p))) / Math.sqrt(q);
 
-        if (stage === 'hold') {
-          p = 1;
-          trem = 1;
-          if (isAudioRunning() || now - tHold > MAXHOLD) {
-            setShowHint(false);
-            stage = 'pinch';
-            tPinch = now;
-            touchAt = now + PINCH + tc;
-            scheduleSound();
-          }
-        }
+        setShape(
+          pendantPath(L, nw, fw, rx, ry),
+          glossPath(L + ry, rx, ry),
+          '',
+          clamp01((now - tGrow) / 250)
+        );
 
-        if (stage === 'grow' || stage === 'hold') {
-          const r = R * lerp(0.28, 1, easeOut(clamp01(p / 0.8)));
-          const L = L1 * easeInOut(p);
-          const nw = r * lerp(0.9, 0.3, easeIn(p));
-          const fw = nw + R * lerp(0.25, 0.6, p);
-          const q = 1 + 0.02 * Math.sin(now / 75) * p + trem * 0.035 * Math.sin(now / 38);
-          const ry = r * (1 + 0.18 * easeIn(p)) * q;
-          const rx = (r * (1 - 0.06 * easeIn(p))) / Math.sqrt(q);
-
-          setShape(
-            pendantPath(L, nw, fw, rx, ry),
-            glossPath(L + ry, rx, ry),
-            '',
-            clamp01((now - tGrow) / 250)
-          );
-          animFrameRef.current = requestAnimationFrame(frame);
-          return;
+        if (p >= 1) {
+          stage = 'pinch';
+          tPinch = now;
         }
+        animFrameRef.current = requestAnimationFrame(frame);
+        return;
       }
 
       if (stage === 'pinch') {
@@ -574,7 +353,7 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
           triggerImpact();
           setTimeout(() => {
             riseAndOpen();
-          }, 600);
+          }, 500);
         }
         animFrameRef.current = requestAnimationFrame(frame);
         return;
@@ -612,7 +391,7 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       document.body.classList.remove('is-loading');
     };
-  }, [finish, isAudioRunning, onOpeningChange, playDropSound, playHeartbeat, triggerImpact]);
+  }, [finish, onOpeningChange, triggerImpact]);
 
   if (isGone) return null;
 
@@ -628,9 +407,9 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
       <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
         <defs>
           <linearGradient id="bloodGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#e63946" />
-            <stop offset="0.55" stopColor="#c1121f" />
-            <stop offset="1" stopColor="#8d0b16" />
+            <stop offset="0%" stopColor="#e63946" />
+            <stop offset="55%" stopColor="#c1121f" />
+            <stop offset="100%" stopColor="#8d0b16" />
           </linearGradient>
         </defs>
       </svg>
@@ -650,30 +429,33 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
         />
       </div>
 
-      {/* Rising Blood Pool with Live Waves */}
+      {/* Rising Blood Pool with Generous Over-Extension to 100% Fill Viewport */}
       <div
         ref={poolRef}
-        className="absolute left-0 right-0 top-full h-[calc(100%+200px)] z-[3] overflow-hidden flex flex-col will-change-transform"
+        className="absolute left-0 right-0 top-full h-[calc(100%+450px)] z-[3] overflow-hidden flex flex-col will-change-transform"
       >
+        {/* Layer 2 Waves */}
         <svg
-          className="shrink-0 block w-[200%] h-[120px] -mb-[1px] opacity-45 animate-[waveMove_6s_linear_infinite_reverse]"
-          viewBox="0 0 2880 120"
+          className="shrink-0 block w-[200%] h-[140px] -mb-[1px] opacity-45 animate-[waveMove_6s_linear_infinite_reverse]"
+          viewBox="0 0 2880 140"
           preserveAspectRatio="none"
           aria-hidden="true"
         >
-          <path d="M0 60Q180 0 360 60T720 60T1080 60T1440 60T1800 60T2160 60T2520 60T2880 60V120H0Z" fill="#ff4d5e" />
+          <path d="M0 70Q180 0 360 70T720 70T1080 70T1440 70T1800 70T2160 70T2520 70T2880 70V140H0Z" fill="#ff4d5e" />
         </svg>
 
+        {/* Layer 1 Waves */}
         <svg
-          className="shrink-0 block w-[200%] h-[120px] -mb-[1px] animate-[waveMove_4s_linear_infinite]"
-          viewBox="0 0 2880 120"
+          className="shrink-0 block w-[200%] h-[140px] -mb-[1px] animate-[waveMove_4s_linear_infinite]"
+          viewBox="0 0 2880 140"
           preserveAspectRatio="none"
           aria-hidden="true"
         >
-          <path d="M0 70Q180 10 360 70T720 70T1080 70T1440 70T1800 70T2160 70T2520 70T2880 70V120H0Z" fill="#c1121f" />
+          <path d="M0 80Q180 10 360 80T720 80T1080 80T1440 80T1800 80T2160 80T2520 80T2880 80V140H0Z" fill="#c1121f" />
         </svg>
 
-        <div className="flex-1 bg-gradient-to-b from-[#c1121f] via-[#a50f1c] to-[#7d0a14]" />
+        {/* Deep Solid Crimson Fluid Body Filling 100% of Space */}
+        <div className="flex-1 min-h-screen bg-gradient-to-b from-[#c1121f] via-[#a50f1c] to-[#7d0a14]" />
       </div>
 
       {/* Tagline on Red Screen: Every drop saves a life */}
@@ -688,25 +470,16 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
           letterSpacing: { duration: 1.6, ease: [0.2, 0.7, 0.2, 1] },
           scale: { duration: 0.35, ease: 'easeOut' },
         }}
-        className="absolute left-0 right-0 top-1/2 z-[4] text-center text-white uppercase text-[clamp(12px,2.4vw,17px)] -translate-y-1/2 pointer-events-none font-medium px-4 select-none"
+        className="absolute left-0 right-0 top-1/2 z-[4] text-center text-white uppercase text-[clamp(14px,2.5vw,18px)] -translate-y-1/2 pointer-events-none font-semibold px-4 select-none drop-shadow-sm tracking-[0.38em]"
       >
         Every drop saves a life
       </motion.div>
 
-      {/* Audio Tap Hint if audio is blocked */}
-      <div
-        className={`absolute left-0 right-0 bottom-[7vh] z-[5] text-center text-[#9a9a9a] text-[11px] tracking-[0.34em] uppercase pointer-events-none transition-opacity duration-600 ${
-          showHint ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
-        Tap anywhere for sound
-      </div>
-
-      {/* Discreet Minimalist Skip Intro Button (Top Right) */}
+      {/* Discreet Minimalist Skip Intro Button */}
       <button
         onClick={finish}
         aria-label="Skip Intro"
-        className="absolute top-4 right-4 z-50 px-3 py-1.5 rounded-full bg-black/20 hover:bg-black/50 text-white/80 hover:text-white text-[11px] tracking-wider uppercase font-semibold backdrop-blur-sm border border-white/10 transition-all cursor-pointer select-none"
+        className="absolute top-4 right-4 z-50 px-3.5 py-1.5 rounded-full bg-black/25 hover:bg-black/50 text-white/80 hover:text-white text-[11px] tracking-wider uppercase font-semibold backdrop-blur-sm border border-white/15 transition-all cursor-pointer select-none"
       >
         Skip
       </button>
