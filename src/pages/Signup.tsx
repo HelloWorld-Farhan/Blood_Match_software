@@ -475,25 +475,19 @@ export default function Signup() {
                     <div className="flex flex-col items-center justify-center py-2">
                       <div className="relative flex items-center justify-center mb-3">
                         <motion.span
-                          animate={{ scale: [1, 1.8, 2.2], opacity: [0.6, 0.25, 0] }}
-                          transition={{ repeat: Infinity, duration: 2, ease: 'easeOut' }}
-                          className="absolute w-16 h-16 rounded-full border-2 border-[#D72638] pointer-events-none"
+                          animate={{ scale: [1, 1.7, 2.3], opacity: [0.65, 0.25, 0] }}
+                          transition={{ repeat: Infinity, duration: 2.4, ease: 'easeOut' }}
+                          className="absolute w-20 h-20 rounded-full border-2 border-[#D72638] pointer-events-none"
                         />
                         <motion.span
-                          animate={{ scale: [1, 1.4, 1.8], opacity: [0.8, 0.4, 0] }}
-                          transition={{ repeat: Infinity, duration: 2, delay: 0.4, ease: 'easeOut' }}
-                          className="absolute w-16 h-16 rounded-full bg-[#D72638]/20 pointer-events-none"
+                          animate={{ scale: [1, 1.35, 1.8], opacity: [0.75, 0.35, 0] }}
+                          transition={{ repeat: Infinity, duration: 2.4, delay: 0.35, ease: 'easeOut' }}
+                          className="absolute w-20 h-20 rounded-full bg-[#D72638]/25 pointer-events-none"
                         />
-                        <motion.div
-                          animate={{ 
-                            scale: [1, 1.08, 1],
-                            y: [0, -4, 0]
-                          }}
-                          transition={{ repeat: Infinity, duration: 1.8, ease: 'easeInOut' }}
-                          className="relative z-10 w-16 h-16 rounded-2xl bg-gradient-to-br from-[#D72638] via-[#B81D2D] to-[#7A0C17] flex items-center justify-center text-white shadow-xl shadow-[#D72638]/40 border border-white/30"
-                        >
-                          <Droplet className="w-9 h-9 fill-current animate-pulse-subtle" />
-                        </motion.div>
+                        <DrippingBloodBadge 
+                          size="xl" 
+                          className="relative z-10 shadow-2xl shadow-[#D72638]/40 border-2 border-[#D72638]/40 bg-[#7A0C17]/15" 
+                        />
                       </div>
 
                       <p className="text-xs text-[#5A626A] text-center">

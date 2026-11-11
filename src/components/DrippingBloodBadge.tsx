@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 
 interface DrippingBloodBadgeProps {
   className?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   showRipple?: boolean;
 }
 
@@ -22,6 +22,7 @@ export const DrippingBloodBadge: React.FC<DrippingBloodBadgeProps> = ({
     sm: 'w-10 h-10 rounded-xl',
     md: 'w-12 h-12 rounded-2xl',
     lg: 'w-14 h-14 rounded-2xl',
+    xl: 'w-20 h-20 rounded-3xl',
   }[size];
 
   // Total animation cycle duration in seconds
