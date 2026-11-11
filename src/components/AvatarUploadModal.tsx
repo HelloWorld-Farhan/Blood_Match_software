@@ -210,7 +210,7 @@ export function AvatarUploadModal({
       setIsUploading(false);
 
       if (!res.ok) {
-        setErrorMessage(res.error || 'Failed to upload avatar to Cloudflare R2.');
+        setErrorMessage(res.error || 'Failed to upload profile picture. Please try again.');
         return;
       }
 
@@ -297,7 +297,7 @@ export function AvatarUploadModal({
                 Profile Avatar & Practitioner Portrait
               </h3>
               <p className="text-[11px] text-[#5A626A]">
-                Synchronized across Cloudflare R2 & Clinical Terminals
+                Synchronized across all clinical stations and account views
               </p>
             </div>
           </div>
@@ -498,7 +498,7 @@ export function AvatarUploadModal({
                 {isUploading ? (
                   <>
                     <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Synchronizing with R2...</span>
+                    <span>Saving Profile Picture...</span>
                   </>
                 ) : (
                   <>

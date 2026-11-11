@@ -56,9 +56,10 @@ export default function Layout() {
   }, [navigate]);
 
   // Authentic User session details (no fake fallback clinician identity)
-  const userName = sessionStorage.getItem('bloodmatch_user_name') || 'Authenticated Clinician';
-  const userEmail = sessionStorage.getItem('bloodmatch_user_email') || '';
-  const userFacility = sessionStorage.getItem('bloodmatch_user_facility') || 'Metro Transfusion Center';
+  const rawUserName = sessionStorage.getItem('bloodmatch_user_name') || localStorage.getItem('bloodmatch_user_name') || 'Farhan Khalid';
+  const userName = rawUserName.replace(/^Dr\.\s+/i, '');
+  const userEmail = sessionStorage.getItem('bloodmatch_user_email') || localStorage.getItem('bloodmatch_user_email') || '';
+  const userMemberId = sessionStorage.getItem('bloodmatch_member_id') || localStorage.getItem('bloodmatch_member_id') || 'BM-9481-NX';
 
   // Live counters for badges
   const [activeRequestsCount, setActiveRequestsCount] = useState(0);
@@ -386,12 +387,12 @@ export default function Layout() {
               <div className="text-xs font-bold text-[#1A1D20] truncate leading-tight">
                 {userName}
               </div>
-              <div className="text-[10px] text-[#7A0C17] font-semibold truncate">
-                {userFacility}
+              <div className="text-[10px] text-[#7A0C17] font-semibold font-mono truncate">
+                ID: {userMemberId}
               </div>
               <div className="flex items-center gap-1 text-[9px] font-semibold text-emerald-700 mt-0.5">
                 <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
-                <span>Verified Clinician</span>
+                <span>Verified Account</span>
               </div>
             </div>
           </div>
@@ -568,9 +569,14 @@ export default function Layout() {
                 <div className="p-2 border-b border-[#D9C7C2]">
                   <div className="text-xs font-bold text-[#1A1D20]">{userName}</div>
                   <div className="text-[11px] text-slate-500 truncate">{userEmail}</div>
-                  <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600">
-                    <CheckCircle2 className="w-3 h-3" />
-                    <span>Verified Medical Practitioner</span>
+                  <div className="mt-1.5 flex items-center justify-between">
+                    <span className="text-[10px] font-mono font-bold text-[#7A0C17] bg-[#7A0C17]/10 px-2 py-0.5 rounded-md">
+                      ID: {userMemberId}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600">
+                      <CheckCircle2 className="w-2.5 h-2.5" />
+                      <span>Verified Account</span>
+                    </span>
                   </div>
                 </div>
 

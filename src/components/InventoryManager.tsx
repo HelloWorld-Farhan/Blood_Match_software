@@ -689,34 +689,15 @@ export default function InventoryManager() {
                 </div>
               </div>
 
-              {/* Adjust Units Stepper & Quick +5 Batch */}
-              <div className="pt-3 border-t border-[#D9C7C2]/60 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <button
-                    onClick={() => handleUpdateUnits(item.bloodType, -1)}
-                    disabled={item.unitsAvailable <= 0}
-                    className="flex-1 py-1.5 rounded-xl bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] border border-[#D9C7C2] flex items-center justify-center gap-1 text-xs font-semibold disabled:opacity-40 cursor-pointer active:scale-95 transition-all"
-                    title="Dispense 1 pint"
-                  >
-                    <Minus className="w-3.5 h-3.5" />
-                    <span>-1 Dispense</span>
-                  </button>
-                  <button
-                    onClick={() => handleUpdateUnits(item.bloodType, 1)}
-                    className="flex-1 py-1.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white border border-[#D72638]/40 flex items-center justify-center gap-1 text-xs font-bold cursor-pointer active:scale-95 transition-all shadow-xs"
-                    title="Restock 1 pint"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>+1 Restock</span>
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => handleUpdateUnits(item.bloodType, 5)}
-                  className="w-full py-1 rounded-lg bg-[#F5F1EF] hover:bg-[#D72638]/10 text-[#7A0C17] hover:text-[#D72638] border border-[#D9C7C2]/70 text-[10px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors"
-                >
-                  <span>+5 Quick Batch Injection</span>
-                </button>
+              {/* Dynamic Cryo-Vault Telemetry Footer (Automated Live Feeds) */}
+              <div className="pt-2.5 border-t border-[#D9C7C2]/60 flex items-center justify-between text-[11px]">
+                <span className="flex items-center gap-1.5 font-mono text-slate-500">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Dynamic Stream</span>
+                </span>
+                <span className="font-mono font-bold text-[#7A0C17]">
+                  4.0°C Monitored
+                </span>
               </div>
             </div>
           );

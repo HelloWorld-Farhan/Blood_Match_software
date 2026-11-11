@@ -190,8 +190,11 @@ export default function Login() {
         sessionStorage.setItem('bloodmatch_auth_token', res.data.access_token);
         sessionStorage.setItem('bloodmatch_user_email', res.data.user?.email || email.trim());
         sessionStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
-        sessionStorage.setItem('bloodmatch_user_role', res.data.user?.role || 'Clinician');
-        sessionStorage.setItem('bloodmatch_user_facility', 'Metro Transfusion Center');
+        const memberId = res.data.user?.member_id || ('BM-' + (res.data.user?.id || '9481NX01').replace(/-/g, '').slice(0, 8).toUpperCase());
+        sessionStorage.setItem('bloodmatch_member_id', memberId);
+        localStorage.setItem('bloodmatch_member_id', memberId);
+        localStorage.setItem('bloodmatch_user_email', res.data.user?.email || email.trim());
+        localStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
 
         // Requirement 4: Cross-Device Cloud Sync Hydration on Login
         if (res.data.user?.photo_url) {
@@ -244,8 +247,11 @@ export default function Login() {
         sessionStorage.setItem('bloodmatch_auth_token', res.data.access_token);
         sessionStorage.setItem('bloodmatch_user_email', res.data.user?.email || email.trim());
         sessionStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
-        sessionStorage.setItem('bloodmatch_user_role', res.data.user?.role || 'Clinician');
-        sessionStorage.setItem('bloodmatch_user_facility', 'Metro Transfusion Center');
+        const memberId = res.data.user?.member_id || ('BM-' + (res.data.user?.id || '9481NX01').replace(/-/g, '').slice(0, 8).toUpperCase());
+        sessionStorage.setItem('bloodmatch_member_id', memberId);
+        localStorage.setItem('bloodmatch_member_id', memberId);
+        localStorage.setItem('bloodmatch_user_email', res.data.user?.email || email.trim());
+        localStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
 
         if (res.data.user?.photo_url) {
           const cacheBusted = `${res.data.user.photo_url}?v=${Date.now()}`;

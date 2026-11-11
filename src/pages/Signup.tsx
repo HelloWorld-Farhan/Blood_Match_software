@@ -287,7 +287,12 @@ export default function Signup() {
       sessionStorage.setItem('bloodmatch_user_email', registeredEmail);
       sessionStorage.setItem('bloodmatch_user_name', registeredName);
       sessionStorage.setItem('bloodmatch_user_phone', registeredPhone);
-      sessionStorage.setItem('bloodmatch_user_facility', 'Verified Transfusion Member');
+      const memberId = res.data?.user?.member_id || ('BM-' + (res.data?.user?.id || '9481NX01').replace(/-/g, '').slice(0, 8).toUpperCase());
+      sessionStorage.setItem('bloodmatch_member_id', memberId);
+      localStorage.setItem('bloodmatch_member_id', memberId);
+      localStorage.setItem('bloodmatch_user_email', registeredEmail);
+      localStorage.setItem('bloodmatch_user_name', registeredName);
+      localStorage.setItem('bloodmatch_user_phone', registeredPhone);
 
       navigate('/dashboard');
     } catch (err: any) {
@@ -602,7 +607,7 @@ export default function Signup() {
                           setName(e.target.value);
                           if (formErrors.name) setFormErrors(prev => ({ ...prev, name: '' }));
                         }}
-                        placeholder="Dr. Alex Mercer"
+                        placeholder="Alex Mercer"
                         className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
                           formErrors.name 
                             ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 

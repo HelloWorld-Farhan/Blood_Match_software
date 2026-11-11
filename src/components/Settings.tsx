@@ -66,23 +66,18 @@ export default function Settings() {
 
   // Profile details state (loaded from sessionStorage / localStorage)
   const [name, setName] = useState(
-    () => sessionStorage.getItem('bloodmatch_user_name') || localStorage.getItem('bloodmatch_user_name') || 'Dr. Farhan Khalid, MD'
+    () => (sessionStorage.getItem('bloodmatch_user_name') || localStorage.getItem('bloodmatch_user_name') || 'Farhan Khalid').replace(/^Dr\.\s+/i, '')
   );
   const [email, setEmail] = useState(
-    () => sessionStorage.getItem('bloodmatch_user_email') || localStorage.getItem('bloodmatch_user_email') || 'clinician@bloodmatch.org'
+    () => sessionStorage.getItem('bloodmatch_user_email') || localStorage.getItem('bloodmatch_user_email') || 'farhankhalid17968@gmail.com'
   );
   const [phone, setPhone] = useState(
-    () => sessionStorage.getItem('bloodmatch_user_phone') || localStorage.getItem('bloodmatch_user_phone') || '+91 98765 43210'
+    () => sessionStorage.getItem('bloodmatch_user_phone') || localStorage.getItem('bloodmatch_user_phone') || '+91 8851860838'
   );
-  const [facility, setFacility] = useState(
-    () => sessionStorage.getItem('bloodmatch_user_facility') || localStorage.getItem('bloodmatch_user_facility') || 'Metro Transfusion Cryo-Vault 01'
-  );
-  const [roleTitle, setRoleTitle] = useState(
-    () => localStorage.getItem('bloodmatch_user_role') || 'Chief Hematologist & Transfusion Director'
-  );
-  const [licenseId, setLicenseId] = useState(
-    () => localStorage.getItem('bloodmatch_user_license') || 'MED-TRANS-2026-8941'
-  );
+  // Permanent alphanumeric unique member ID (Read-only preview, cannot be edited)
+  const memberId = useMemo(() => {
+    return sessionStorage.getItem('bloodmatch_member_id') || localStorage.getItem('bloodmatch_member_id') || 'BM-9481-NX';
+  }, []);
 
   // Avatar state
   const [avatar, setAvatar] = useState<string | null>(
@@ -212,29 +207,16 @@ export default function Settings() {
       errors.phone = 'Verified emergency contact phone number is required';
     }
 
-    if (!facility.trim()) {
-      errors.facility = 'Assigned transfusion center or hospital facility is required';
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setProfileErrors(errors);
-      return;
-    }
-
     // Persist to session and localStorage
     sessionStorage.setItem('bloodmatch_user_name', name.trim());
     sessionStorage.setItem('bloodmatch_user_email', email.trim());
     sessionStorage.setItem('bloodmatch_user_phone', phone.trim());
-    sessionStorage.setItem('bloodmatch_user_facility', facility.trim());
     localStorage.setItem('bloodmatch_user_name', name.trim());
     localStorage.setItem('bloodmatch_user_email', email.trim());
     localStorage.setItem('bloodmatch_user_phone', phone.trim());
-    localStorage.setItem('bloodmatch_user_facility', facility.trim());
-    localStorage.setItem('bloodmatch_user_role', roleTitle.trim());
-    localStorage.setItem('bloodmatch_user_license', licenseId.trim());
 
     window.dispatchEvent(new Event('bloodmatch_profile_updated'));
-    setProfileSuccess('Clinician profile changes saved and broadcasted across terminal.');
+    setProfileSuccess('Profile changes saved successfully across all stations.');
     setTimeout(() => setProfileSuccess(null), 4000);
   };
 
@@ -292,8 +274,7 @@ export default function Settings() {
       <motion.div 
         variants={scrollBlurVariants}
         initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.2 }}
+        animate="visible"
         className="p-6 sm:p-8 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
       >
         <div>
@@ -322,8 +303,7 @@ export default function Settings() {
       <motion.div 
         variants={scrollBlurVariants}
         initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.15 }}
+        animate="visible"
         className="p-5 sm:p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-hidden"
       >
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
@@ -425,8 +405,7 @@ export default function Settings() {
       <motion.div 
         variants={scrollBlurVariants}
         initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.2 }}
+        animate="visible"
         className="flex flex-wrap gap-2"
       >
         <button
@@ -621,52 +600,27 @@ export default function Settings() {
                 )}
               </div>
 
-              {/* Assigned Facility */}
+              {/* Unique Clinical Member ID (Preview Only - Cannot Be Edited) */}
               <div>
-                <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
-                  Assigned Transfusion Center / Facility
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
+                    Unique Clinical ID
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-slate-400" />
+                    <span>System Assigned • Read-only</span>
+                  </span>
+                </div>
                 <div className="relative group">
-                  <Layers className="absolute left-3.5 top-3 w-4 h-4 text-slate-400 group-focus-within:text-[#D72638] transition-colors" />
+                  <KeyRound className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
                   <input
                     type="text"
-                    value={facility}
-                    onChange={(e) => setFacility(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white text-sm text-[#1A1D20] outline-hidden transition-all font-semibold"
+                    value={memberId}
+                    readOnly
+                    disabled
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-100 border border-[#D9C7C2] text-sm text-slate-600 font-mono font-bold tracking-wider cursor-not-allowed select-all"
                   />
                 </div>
-                {profileErrors.facility && (
-                  <p className="text-xs text-[#D72638] mt-1 flex items-center gap-1 font-semibold">
-                    <AlertCircle className="w-3 h-3 shrink-0" />
-                    <span>{profileErrors.facility}</span>
-                  </p>
-                )}
-              </div>
-
-              {/* Clinical Title / Department */}
-              <div>
-                <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
-                  Medical Title & Department
-                </label>
-                <input
-                  type="text"
-                  value={roleTitle}
-                  onChange={(e) => setRoleTitle(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white text-sm text-[#1A1D20] outline-hidden transition-all font-semibold"
-                />
-              </div>
-
-              {/* Staff License ID */}
-              <div>
-                <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
-                  Staff License ID
-                </label>
-                <input
-                  type="text"
-                  value={licenseId}
-                  onChange={(e) => setLicenseId(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white text-sm text-[#1A1D20] outline-hidden transition-all font-mono font-bold"
-                />
               </div>
             </div>
 
