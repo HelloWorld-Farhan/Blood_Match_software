@@ -113,11 +113,69 @@ export interface TrustedDeviceItem {
   lastUsedAt: string;
 }
 
+export interface ClinicalCheckItem {
+  id: string;
+  user_email: string;
+  patient_name: string;
+  patient_id?: string;
+  blood_type: BloodType;
+  check_type: string;
+  status: 'passed' | 'flagged' | 'inconclusive' | string;
+  notes?: string;
+  created_at?: string;
+}
+
+export interface ClinicalDocumentItem {
+  id: string;
+  user_email: string;
+  title: string;
+  doc_type: string;
+  file_url: string;
+  file_size_kb?: number;
+  created_at?: string;
+}
+
+export interface ClinicalAuditLogItem {
+  id: string;
+  user_email: string;
+  action: string;
+  entity_type: string;
+  entity_id?: string;
+  details?: string;
+  ip_address?: string;
+  timestamp?: string;
+}
+
 export interface SyncTelemetryResponse {
   authenticated: boolean;
+  reconciled_from_r2?: boolean;
+  userEmail?: string;
   user?: AuthUser;
   photoUrl?: string | null;
+  profile?: Record<string, any> | null;
+  checks?: ClinicalCheckItem[];
+  documents?: ClinicalDocumentItem[];
+  auditLogs?: ClinicalAuditLogItem[];
+  donors?: Donor[];
+  emergencyRequests?: EmergencyRequest[];
+  inventory?: BloodInventoryUnit[];
   synced_at: string;
+}
+
+export interface MasterSyncData {
+  version: number;
+  userEmail: string;
+  userId?: string;
+  fullName: string;
+  photoUrl?: string | null;
+  profile?: Record<string, any>;
+  checks: ClinicalCheckItem[];
+  auditLogs: ClinicalAuditLogItem[];
+  documents: ClinicalDocumentItem[];
+  donors: Donor[];
+  emergencyRequests: EmergencyRequest[];
+  inventory: BloodInventoryUnit[];
+  lastSyncedAt: string;
 }
 
 export type ActiveTab = 'dashboard' | 'compatibility' | 'donors' | 'requests' | 'inventory';

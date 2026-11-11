@@ -9,7 +9,11 @@ import {
   AuthResponse, 
   ActiveSessionItem, 
   TrustedDeviceItem, 
-  SyncTelemetryResponse 
+  SyncTelemetryResponse,
+  ClinicalCheckItem,
+  ClinicalDocumentItem,
+  ClinicalAuditLogItem,
+  MasterSyncData
 } from '../types';
 
 export interface RegisterPayload {
@@ -204,6 +208,63 @@ export const authService = {
     return res;
   },
 
+  async pushSyncState(email?: string): Promise<ApiResponse<{ status: string; message: string; data: MasterSyncData }>> {
+    const userEmail = email || sessionStorage.getItem('bloodmatch_user_email') || '';
+    const endpoint = userEmail ? `/api/v1/sync/push?user_email=${encodeURIComponent(userEmail)}` : '/api/v1/sync/push';
+    return apiClient.post<{ status: string; message: string; data: MasterSyncData }>(endpoint, {});
+  },
+
+  async pullSyncState(email?: string): Promise<ApiResponse<{ status: string; message: string; data: MasterSyncData }>> {
+    const userEmail = email || sessionStorage.getItem('bloodmatch_user_email') || '';
+    const endpoint = userEmail ? `/api/v1/sync/pull?user_email=${encodeURIComponent(userEmail)}` : '/api/v1/sync/pull';
+    return apiClient.post<{ status: string; message: string; data: MasterSyncData }>(endpoint, {});
+  },
+
+  // --- Clinical Checks & Screening Consultations ---
+  async getClinicalChecks(email?: string): Promise<ApiResponse<ClinicalCheckItem[]>> {
+    const userEmail = email || sessionStorage.getItem('bloodmatch_user_email') || '';
+    const endpoint = userEmail ? `/api/v1/clinical/checks?user_email=${encodeURIComponent(userEmail)}` : '/api/v1/clinical/checks';
+    return apiClient.get<ClinicalCheckItem[]>(endpoint);
+  },
+
+  async createClinicalCheck(checkData: Partial<ClinicalCheckItem>, email?: string): Promise<ApiResponse<ClinicalCheckItem>> {
+    const userEmail = email || sessionStorage.getItem('bloodmatch_user_email') || '';
+    const endpoint = userEmail ? `/api/v1/clinical/checks?user_email=${encodeURIComponent(userEmail)}` : '/api/v1/clinical/checks';
+    return apiClient.post<ClinicalCheckItem>(endpoint, checkData);
+  },
+
+  async deleteClinicalCheck(checkId: string, email?: string): Promise<ApiResponse<{ message: string; deleted_id: string }>> {
+    const userEmail = email || sessionStorage.getItem('bloodmatch_user_email') || '';
+    const endpoint = userEmail ? `/api/v1/clinical/checks/${encodeURIComponent(checkId)}?user_email=${encodeURIComponent(userEmail)}` : `/api/v1/clinical/checks/${encodeURIComponent(checkId)}`;
+    return apiClient.delete<{ message: string; deleted_id: string }>(endpoint);
+  },
+
+  // --- Clinical Documents & Lab Reports ---
+  async getClinicalDocuments(email?: string): Promise<ApiResponse<ClinicalDocumentItem[]>> {
+    const userEmail = email || sessionStorage.getItem('bloodmatch_user_email') || '';
+    const endpoint = userEmail ? `/api/v1/clinical/documents?user_email=${encodeURIComponent(userEmail)}` : '/api/v1/clinical/documents';
+    return apiClient.get<ClinicalDocumentItem[]>(endpoint);
+  },
+
+  async createClinicalDocument(docData: Partial<ClinicalDocumentItem>, email?: string): Promise<ApiResponse<ClinicalDocumentItem>> {
+    const userEmail = email || sessionStorage.getItem('bloodmatch_user_email') || '';
+    const endpoint = userEmail ? `/api/v1/clinical/documents?user_email=${encodeURIComponent(userEmail)}` : '/api/v1/clinical/documents';
+    return apiClient.post<ClinicalDocumentItem>(endpoint, docData);
+  },
+
+  async deleteClinicalDocument(docId: string, email?: string): Promise<ApiResponse<{ message: string; deleted_id: string }>> {
+    const userEmail = email || sessionStorage.getItem('bloodmatch_user_email') || '';
+    const endpoint = userEmail ? `/api/v1/clinical/documents/${encodeURIComponent(docId)}?user_email=${encodeURIComponent(userEmail)}` : `/api/v1/clinical/documents/${encodeURIComponent(docId)}`;
+    return apiClient.delete<{ message: string; deleted_id: string }>(endpoint);
+  },
+
+  // --- Clinical Audit Logs ---
+  async getClinicalAuditLogs(email?: string): Promise<ApiResponse<ClinicalAuditLogItem[]>> {
+    const userEmail = email || sessionStorage.getItem('bloodmatch_user_email') || '';
+    const endpoint = userEmail ? `/api/v1/clinical/audit-logs?user_email=${encodeURIComponent(userEmail)}` : '/api/v1/clinical/audit-logs';
+    return apiClient.get<ClinicalAuditLogItem[]>(endpoint);
+  },
+
   // --- Session State Helpers ---
   persistSession(data: AuthResponse) {
     if (data.access_token) {
@@ -246,3 +307,4 @@ export const authService = {
     return sessionStorage.getItem('bloodmatch_auth_token') || localStorage.getItem('bloodmatch_auth_token');
   }
 };
+
