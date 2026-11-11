@@ -70,25 +70,16 @@ export const AmbientBackgroundVideo: React.FC<AmbientBackgroundVideoProps> = ({
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    if (isPreloaderDone) {
-      startPlayback();
-    } else {
-      const onReady = () => startPlayback();
-      window.addEventListener('bloodmatch_preloader_opening', onReady);
-      window.addEventListener('bloodmatch_preloader_complete', onReady);
-      const timer = setTimeout(startPlayback, 6000);
+    // Start buffering and playback immediately on mount so video is decoded & ready
+    startPlayback();
 
-      return () => {
-        clearTimeout(timer);
-        window.removeEventListener('bloodmatch_preloader_opening', onReady);
-        window.removeEventListener('bloodmatch_preloader_complete', onReady);
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-        video.removeEventListener('playing', handlePlaying);
-        video.removeEventListener('timeupdate', handleTimeUpdate);
-      };
-    }
+    const onReady = () => startPlayback();
+    window.addEventListener('bloodmatch_preloader_opening', onReady);
+    window.addEventListener('bloodmatch_preloader_complete', onReady);
 
     return () => {
+      window.removeEventListener('bloodmatch_preloader_opening', onReady);
+      window.removeEventListener('bloodmatch_preloader_complete', onReady);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       video.removeEventListener('playing', handlePlaying);
       video.removeEventListener('timeupdate', handleTimeUpdate);
@@ -97,7 +88,7 @@ export const AmbientBackgroundVideo: React.FC<AmbientBackgroundVideoProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none"
+      className="fixed inset-0 pointer-events-none z-0 overflow-hidden select-none bg-[#F5F1EF]"
       style={{
         transform: 'translate3d(0, 0, 0)',
         backfaceVisibility: 'hidden',
@@ -105,18 +96,16 @@ export const AmbientBackgroundVideo: React.FC<AmbientBackgroundVideoProps> = ({
         opacity
       }}
     >
-      {/* Background Poster Image */}
+      {/* Background Poster Image (Never flashes white; seamless backdrop) */}
       {posterSrc && (
         <img
           src={posterSrc}
           alt="Ambient Background"
-          className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-1000 ease-out ${
-            isVideoPlaying ? 'opacity-0' : 'opacity-100'
-          }`}
+          className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none"
         />
       )}
 
-      {/* Synchronized Ambient Video */}
+      {/* Synchronized Ambient Video (Muted autoplay hardware-accelerated) */}
       <video
         ref={videoRef}
         key={videoSrc}
@@ -126,9 +115,7 @@ export const AmbientBackgroundVideo: React.FC<AmbientBackgroundVideoProps> = ({
         muted
         playsInline
         preload="auto"
-        className={`w-full h-full object-cover object-center pointer-events-none transition-opacity duration-1000 ease-out ${
-          isVideoPlaying ? 'opacity-100' : 'opacity-0'
-        }`}
+        className="w-full h-full object-cover object-center pointer-events-none"
         style={{
           transform: 'translateZ(0)',
           willChange: 'transform'

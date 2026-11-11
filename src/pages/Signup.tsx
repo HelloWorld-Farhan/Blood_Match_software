@@ -109,28 +109,18 @@ export default function Signup() {
     };
     video.addEventListener('ended', handleEnded);
 
-    if (isPreloaderDone) {
+    // Start buffering and playback immediately on mount so video frames are warm & ready
+    startPlayback();
+
+    const onPreloaderReady = () => {
       startPlayback();
-    } else {
-      const onPreloaderReady = () => {
-        startPlayback();
-      };
-      window.addEventListener('bloodmatch_preloader_opening', onPreloaderReady);
-      window.addEventListener('bloodmatch_preloader_complete', onPreloaderReady);
-
-      const fallbackTimer = setTimeout(startPlayback, 6000);
-
-      return () => {
-        clearTimeout(fallbackTimer);
-        window.removeEventListener('bloodmatch_preloader_opening', onPreloaderReady);
-        window.removeEventListener('bloodmatch_preloader_complete', onPreloaderReady);
-        video.removeEventListener('playing', handleVideoPlaying);
-        video.removeEventListener('timeupdate', handleTimeUpdate);
-        video.removeEventListener('ended', handleEnded);
-      };
-    }
+    };
+    window.addEventListener('bloodmatch_preloader_opening', onPreloaderReady);
+    window.addEventListener('bloodmatch_preloader_complete', onPreloaderReady);
 
     return () => {
+      window.removeEventListener('bloodmatch_preloader_opening', onPreloaderReady);
+      window.removeEventListener('bloodmatch_preloader_complete', onPreloaderReady);
       video.removeEventListener('playing', handleVideoPlaying);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('ended', handleEnded);
@@ -361,13 +351,11 @@ export default function Signup() {
               className="w-full lg:w-1/2 relative bg-black/90 flex flex-col justify-between overflow-hidden p-5 sm:p-8 border-b lg:border-b-0 lg:border-r border-[#D9C7C2] min-h-[240px] sm:min-h-[320px] lg:min-h-full"
             >
               <div className="absolute inset-0 w-full h-full">
-                {/* Permanent High-Resolution Poster Layer (Guarantees zero blank/black screen flash) */}
+                {/* Permanent High-Resolution Poster Layer (Zero blank/black screen flash) */}
                 <img
                   src={step === 'OTP_VERIFY' ? '/287987_poster.jpg' : '/signup_poster.jpg'}
                   alt="BloodMatch Clinical Registry"
-                  className={`w-full h-full object-cover object-center pointer-events-none transition-opacity duration-700 ease-out ${
-                    isVideoPlaying ? 'opacity-0' : 'opacity-100'
-                  }`}
+                  className="w-full h-full object-cover object-center pointer-events-none"
                 />
                 <video
                   ref={videoRef}
@@ -378,10 +366,11 @@ export default function Signup() {
                   muted
                   playsInline
                   preload="auto"
-                  className={`absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-opacity duration-700 ease-out ${
-                    isVideoPlaying ? 'opacity-100' : 'opacity-0'
-                  }`}
-                  style={{ transform: 'translateZ(0)' }}
+                  className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none"
+                  style={{
+                    transform: 'translateZ(0)',
+                    willChange: 'transform'
+                  }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-[#7A0C17]/40 pointer-events-none z-[1]"></div>
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_rgba(215,38,56,0.35)_0%,_transparent_60%)] pointer-events-none z-[1]"></div>

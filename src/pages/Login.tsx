@@ -102,30 +102,18 @@ export default function Login() {
     video.addEventListener('playing', handleVideoPlaying);
     video.addEventListener('timeupdate', handleTimeUpdate);
 
-    if (isPreloaderDone) {
-      // Preloader already completed or disabled: start video immediately
+    // Start buffering and playback immediately on mount so video frames are warm & ready
+    startPlayback();
+
+    const onPreloaderReady = () => {
       startPlayback();
-    } else {
-      // Preloader is active: listen for opening/completion events before playback
-      const onPreloaderReady = () => {
-        startPlayback();
-      };
-      window.addEventListener('bloodmatch_preloader_opening', onPreloaderReady);
-      window.addEventListener('bloodmatch_preloader_complete', onPreloaderReady);
-
-      // Fallback timer: if preloader takes > 6s, start video anyway
-      const fallbackTimer = setTimeout(startPlayback, 6000);
-
-      return () => {
-        clearTimeout(fallbackTimer);
-        window.removeEventListener('bloodmatch_preloader_opening', onPreloaderReady);
-        window.removeEventListener('bloodmatch_preloader_complete', onPreloaderReady);
-        video.removeEventListener('playing', handleVideoPlaying);
-        video.removeEventListener('timeupdate', handleTimeUpdate);
-      };
-    }
+    };
+    window.addEventListener('bloodmatch_preloader_opening', onPreloaderReady);
+    window.addEventListener('bloodmatch_preloader_complete', onPreloaderReady);
 
     return () => {
+      window.removeEventListener('bloodmatch_preloader_opening', onPreloaderReady);
+      window.removeEventListener('bloodmatch_preloader_complete', onPreloaderReady);
       video.removeEventListener('playing', handleVideoPlaying);
       video.removeEventListener('timeupdate', handleTimeUpdate);
     };
@@ -333,16 +321,14 @@ export default function Login() {
               transition={{ duration: 0.5, ease: 'easeOut' }}
               className="relative w-full lg:w-1/2 min-h-[300px] sm:min-h-[360px] lg:min-h-[580px] p-6 sm:p-8 lg:p-12 flex flex-col justify-between overflow-hidden bg-[#7A0C17]"
             >
-              {/* Permanent High-Resolution Poster Layer (Guarantees zero blank/black screen flash) */}
+              {/* Permanent High-Resolution Poster Layer (Zero blank/black screen flash) */}
               <img
                 src="/login_poster.jpg"
                 alt="BloodMatch Clinical Cross-Match"
-                className={`absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-700 ease-out ${
-                  isVideoPlaying ? 'opacity-0 pointer-events-none' : 'opacity-100'
-                }`}
+                className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
               />
 
-              {/* Hardware-Accelerated Video Layer (Fades in smoothly upon preloader completion) */}
+              {/* Hardware-Accelerated Video Layer (Smooth native playback with poster warmup) */}
               <video
                 ref={videoRef}
                 src="/Login.mp4"
@@ -351,9 +337,11 @@ export default function Login() {
                 muted
                 playsInline
                 preload="auto"
-                className={`absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-700 ease-out ${
-                  isVideoPlaying ? 'opacity-100' : 'opacity-0'
-                }`}
+                className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
+                style={{
+                  transform: 'translateZ(0)',
+                  willChange: 'transform'
+                }}
               />
 
               {/* Atmospheric Clinical Contrast Gradient */}

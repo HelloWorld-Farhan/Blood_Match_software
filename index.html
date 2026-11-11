@@ -9,6 +9,20 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>Blood Match — Emergency Compatibility & Transfusion Network</title>
+    <script type="text/javascript">
+      // Restore SPA deep-link route if routed via 404 fallback
+      (function(l) {
+        if (l.search) {
+          var params = new URLSearchParams(l.search);
+          var p = params.get('p');
+          if (p) {
+            var q = params.get('q');
+            var restored = '/' + p + (q ? '?' + q : '') + l.hash;
+            window.history.replaceState(null, null, restored);
+          }
+        }
+      }(window.location));
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">

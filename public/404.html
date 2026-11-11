@@ -2,16 +2,16 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Blood Match</title>
+    <title>Blood Match — Emergency Transfusion Network</title>
     <script type="text/javascript">
-      // Single Page Apps for Cloudflare/GitHub Pages
-      // Re-route 404s back to root with original path preserved
-      var path = window.location.pathname;
-      var search = window.location.search;
-      var hash = window.location.hash;
-      window.location.replace('/' + (path.startsWith('/') ? path.substring(1) : path) + search + hash);
+      // Cloudflare & Static Host SPA Route Redirect
+      var l = window.location;
+      var path = l.pathname;
+      var cleanPath = path.startsWith('/') ? path.substring(1) : path;
+      var target = l.protocol + '//' + l.host + '/?p=' + encodeURIComponent(cleanPath) + (l.search ? '&q=' + encodeURIComponent(l.search.slice(1)) : '') + l.hash;
+      l.replace(target);
     </script>
   </head>
-  <body>
+  <body style="background:#F5F1EF;margin:0;padding:0;">
   </body>
 </html>
