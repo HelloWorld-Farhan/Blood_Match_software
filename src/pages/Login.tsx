@@ -19,6 +19,7 @@ import { AmbientBackgroundVideo } from '../components/AmbientBackgroundVideo';
 import { validateEmail } from '../utils/countryCodes';
 import { ForgotPasswordModal } from '../components/ForgotPasswordModal';
 import { apiClient } from '../services/api';
+import { DrippingBloodBadge } from '../components/DrippingBloodBadge';
 
 const getPersistentDeviceId = (): string => {
   if (typeof window === 'undefined') return 'terminal-default';
@@ -412,9 +413,7 @@ export default function Login() {
                           Enter authenticated credentials to manage reserves and donors
                         </p>
                       </div>
-                      <div className="w-12 h-12 rounded-2xl bg-[#7A0C17]/10 border border-[#D72638]/20 flex items-center justify-center text-[#D72638] shadow-inner">
-                        <Droplet className="w-6 h-6 fill-current animate-pulse-subtle" />
-                      </div>
+                      <DrippingBloodBadge />
                     </div>
 
                     {loginError && (
@@ -567,6 +566,7 @@ export default function Login() {
                           A 6-digit security OTP was dispatched to <strong className="text-[#1A1D20]">{email}</strong>
                         </p>
                       </div>
+                      <DrippingBloodBadge />
                     </div>
 
                     {twoFactorError && (

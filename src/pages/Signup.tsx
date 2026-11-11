@@ -23,6 +23,7 @@ import { BloodDropsCanvas } from '../components/BloodDropsCanvas';
 import { AmbientBackgroundVideo } from '../components/AmbientBackgroundVideo';
 import { COUNTRY_CODES, validatePhoneNumber, validateEmail, checkPasswordCriteria } from '../utils/countryCodes';
 import { apiClient } from '../services/api';
+import { DrippingBloodBadge } from '../components/DrippingBloodBadge';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -447,19 +448,22 @@ export default function Signup() {
             >
               <div>
                 {/* Dynamic Header */}
-                <div className="mb-6">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-[11px] font-bold border border-[#D72638]/20 mb-2">
-                    {step === 'OTP_VERIFY' ? <KeyRound className="w-3 h-3 text-[#D72638]" /> : <User className="w-3 h-3 text-[#D72638]" />}
-                    <span>{step === 'OTP_VERIFY' ? 'Email Token Validation' : 'Portal Enrollment'}</span>
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-[11px] font-bold border border-[#D72638]/20 mb-2">
+                      {step === 'OTP_VERIFY' ? <KeyRound className="w-3 h-3 text-[#D72638]" /> : <User className="w-3 h-3 text-[#D72638]" />}
+                      <span>{step === 'OTP_VERIFY' ? 'Email Token Validation' : 'Portal Enrollment'}</span>
+                    </div>
+                    <h1 className="text-2xl sm:text-3xl font-black text-[#1A1D20] tracking-tight">
+                      {step === 'OTP_VERIFY' ? 'Verify Email Token' : 'Create Portal Profile'}
+                    </h1>
+                    <p className="text-xs sm:text-sm text-[#5A626A] mt-1">
+                      {step === 'OTP_VERIFY' 
+                        ? `Enter the 6-digit cryptographic verification code sent to ${email}`
+                        : 'Register as a voluntary donor or clinical emergency officer'}
+                    </p>
                   </div>
-                  <h1 className="text-2xl sm:text-3xl font-black text-[#1A1D20] tracking-tight">
-                    {step === 'OTP_VERIFY' ? 'Verify Email Token' : 'Create Portal Profile'}
-                  </h1>
-                  <p className="text-xs sm:text-sm text-[#5A626A] mt-1">
-                    {step === 'OTP_VERIFY' 
-                      ? `Enter the 6-digit cryptographic verification code sent to ${email}`
-                      : 'Register as a voluntary donor or clinical emergency officer'}
-                  </p>
+                  <DrippingBloodBadge />
                 </div>
 
                 {step === 'OTP_VERIFY' ? (
