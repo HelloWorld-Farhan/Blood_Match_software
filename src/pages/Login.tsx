@@ -48,7 +48,8 @@ export default function Login() {
   const [twoFactorError, setTwoFactorError] = useState<string | null>(null);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Seamless instant auto-play video reference
+  // Seamless synchronized video playback state
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -60,20 +61,72 @@ export default function Login() {
     video.playsInline = true;
     video.loop = true;
 
-    const playVideo = () => {
-      const playPromise = video.play();
+    // Check if preloader has already completed
+    const isPreloaderDone = 
+      typeof window !== 'undefined' && 
+      (sessionStorage.getItem('bloodmatch_preloader_done') === 'true' || 
+       !document.getElementById('preloader'));
+
+    const startPlayback = () => {
+      const v = videoRef.current;
+      if (!v) return;
+      v.muted = true;
+      v.defaultMuted = true;
+      v.playsInline = true;
+      v.loop = true;
+
+      const playPromise = v.play();
       if (playPromise !== undefined) {
-        playPromise.catch(() => {});
+        playPromise
+          .then(() => setIsVideoPlaying(true))
+          .catch(() => {
+            v.muted = true;
+            v.play()
+              .then(() => setIsVideoPlaying(true))
+              .catch(() => {});
+          });
       }
     };
 
-    video.addEventListener('canplay', playVideo);
-    video.addEventListener('loadeddata', playVideo);
-    playVideo();
+    const handleVideoPlaying = () => {
+      setIsVideoPlaying(true);
+    };
+
+    const handleTimeUpdate = () => {
+      if (video.currentTime > 0.05) {
+        setIsVideoPlaying(true);
+      }
+    };
+
+    video.addEventListener('playing', handleVideoPlaying);
+    video.addEventListener('timeupdate', handleTimeUpdate);
+
+    if (isPreloaderDone) {
+      // Preloader already completed or disabled: start video immediately
+      startPlayback();
+    } else {
+      // Preloader is active: listen for opening/completion events before playback
+      const onPreloaderReady = () => {
+        startPlayback();
+      };
+      window.addEventListener('bloodmatch_preloader_opening', onPreloaderReady);
+      window.addEventListener('bloodmatch_preloader_complete', onPreloaderReady);
+
+      // Fallback timer: if preloader takes > 6s, start video anyway
+      const fallbackTimer = setTimeout(startPlayback, 6000);
+
+      return () => {
+        clearTimeout(fallbackTimer);
+        window.removeEventListener('bloodmatch_preloader_opening', onPreloaderReady);
+        window.removeEventListener('bloodmatch_preloader_complete', onPreloaderReady);
+        video.removeEventListener('playing', handleVideoPlaying);
+        video.removeEventListener('timeupdate', handleTimeUpdate);
+      };
+    }
 
     return () => {
-      video.removeEventListener('canplay', playVideo);
-      video.removeEventListener('loadeddata', playVideo);
+      video.removeEventListener('playing', handleVideoPlaying);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
     };
   }, []);
 
@@ -273,19 +326,31 @@ export default function Login() {
               transition={{ duration: 0.5, ease: 'easeOut' }}
               className="relative w-full lg:w-1/2 min-h-[300px] sm:min-h-[360px] lg:min-h-[580px] p-6 sm:p-8 lg:p-12 flex flex-col justify-between overflow-hidden bg-[#7A0C17]"
             >
+              {/* Permanent High-Resolution Poster Layer (Guarantees zero blank/black screen flash) */}
+              <img
+                src="/login_poster.jpg"
+                alt="BloodMatch Clinical Cross-Match"
+                className={`absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-700 ease-out ${
+                  isVideoPlaying ? 'opacity-0 pointer-events-none' : 'opacity-100'
+                }`}
+              />
+
+              {/* Hardware-Accelerated Video Layer (Fades in smoothly upon preloader completion) */}
               <video
                 ref={videoRef}
                 src="/Login.mp4"
                 poster="/login_poster.jpg"
-                autoPlay
                 loop
                 muted
                 playsInline
                 preload="auto"
-                className="absolute inset-0 w-full h-full object-cover z-0"
+                className={`absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-700 ease-out ${
+                  isVideoPlaying ? 'opacity-100' : 'opacity-0'
+                }`}
               />
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/30 z-0 pointer-events-none" />
+              {/* Atmospheric Clinical Contrast Gradient */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20 z-[1] pointer-events-none" />
 
               {/* Top Video Header */}
               <div className="relative z-10 flex items-center justify-between">

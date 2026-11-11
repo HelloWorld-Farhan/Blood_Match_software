@@ -50,7 +50,8 @@ export default function Signup() {
   const passwordCriteria = useMemo(() => checkPasswordCriteria(password), [password]);
   const passwordsMatch = password.length > 0 && password === confirmPassword;
 
-  // Seamless auto-play video reference with glitch-free loop
+  // Seamless auto-play video reference with preloader synchronization
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -62,23 +63,75 @@ export default function Signup() {
     video.playsInline = true;
     video.loop = true;
 
-    video.addEventListener('canplay', () => video.play().catch(() => {}));
+    const isPreloaderDone = 
+      typeof window !== 'undefined' && 
+      (sessionStorage.getItem('bloodmatch_preloader_done') === 'true' || 
+       !document.getElementById('preloader'));
 
-    const playPromise = video.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        video.muted = true;
-        video.play().catch(() => {});
-      });
-    }
+    const startPlayback = () => {
+      const v = videoRef.current;
+      if (!v) return;
+      v.muted = true;
+      v.defaultMuted = true;
+      v.playsInline = true;
+      v.loop = true;
+
+      const playPromise = v.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => setIsVideoPlaying(true))
+          .catch(() => {
+            v.muted = true;
+            v.play()
+              .then(() => setIsVideoPlaying(true))
+              .catch(() => {});
+          });
+      }
+    };
+
+    const handleVideoPlaying = () => {
+      setIsVideoPlaying(true);
+    };
+
+    const handleTimeUpdate = () => {
+      if (video.currentTime > 0.05) {
+        setIsVideoPlaying(true);
+      }
+    };
+
+    video.addEventListener('playing', handleVideoPlaying);
+    video.addEventListener('timeupdate', handleTimeUpdate);
 
     const handleEnded = () => {
       video.currentTime = 0;
       video.play().catch(() => {});
     };
-
     video.addEventListener('ended', handleEnded);
+
+    if (isPreloaderDone) {
+      startPlayback();
+    } else {
+      const onPreloaderReady = () => {
+        startPlayback();
+      };
+      window.addEventListener('bloodmatch_preloader_opening', onPreloaderReady);
+      window.addEventListener('bloodmatch_preloader_complete', onPreloaderReady);
+
+      const fallbackTimer = setTimeout(startPlayback, 6000);
+
+      return () => {
+        clearTimeout(fallbackTimer);
+        window.removeEventListener('bloodmatch_preloader_opening', onPreloaderReady);
+        window.removeEventListener('bloodmatch_preloader_complete', onPreloaderReady);
+        video.removeEventListener('playing', handleVideoPlaying);
+        video.removeEventListener('timeupdate', handleTimeUpdate);
+        video.removeEventListener('ended', handleEnded);
+      };
+    }
+
     return () => {
+      video.removeEventListener('playing', handleVideoPlaying);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('ended', handleEnded);
     };
   }, [step]);
@@ -302,21 +355,30 @@ export default function Signup() {
               className="w-full lg:w-1/2 relative bg-black/90 flex flex-col justify-between overflow-hidden p-5 sm:p-8 border-b lg:border-b-0 lg:border-r border-[#D9C7C2] min-h-[240px] sm:min-h-[320px] lg:min-h-full"
             >
               <div className="absolute inset-0 w-full h-full">
+                {/* Permanent High-Resolution Poster Layer (Guarantees zero blank/black screen flash) */}
+                <img
+                  src={step === 'OTP_VERIFY' ? '/287987_poster.jpg' : '/signup_poster.jpg'}
+                  alt="BloodMatch Clinical Registry"
+                  className={`w-full h-full object-cover object-center pointer-events-none transition-opacity duration-700 ease-out ${
+                    isVideoPlaying ? 'opacity-0' : 'opacity-100'
+                  }`}
+                />
                 <video
                   ref={videoRef}
                   key={step === 'OTP_VERIFY' ? 'otp-video-287987' : 'signup-flow-video'}
                   src={step === 'OTP_VERIFY' ? '/287987.mp4' : '/signup.mp4'}
                   poster={step === 'OTP_VERIFY' ? '/287987_poster.jpg' : '/signup_poster.jpg'}
-                  autoPlay
                   loop
                   muted
                   playsInline
                   preload="auto"
-                  className="w-full h-full object-cover object-center pointer-events-none"
+                  className={`absolute inset-0 w-full h-full object-cover object-center pointer-events-none transition-opacity duration-700 ease-out ${
+                    isVideoPlaying ? 'opacity-100' : 'opacity-0'
+                  }`}
                   style={{ transform: 'translateZ(0)' }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-[#7A0C17]/40 pointer-events-none"></div>
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_rgba(215,38,56,0.35)_0%,_transparent_60%)] pointer-events-none"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-[#7A0C17]/40 pointer-events-none z-[1]"></div>
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_rgba(215,38,56,0.35)_0%,_transparent_60%)] pointer-events-none z-[1]"></div>
               </div>
 
               {/* Clean Video Header */}

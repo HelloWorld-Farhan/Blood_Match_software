@@ -78,6 +78,10 @@ export const BloodPreloader: React.FC<BloodPreloaderProps> = ({ onComplete, onOp
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     document.documentElement.classList.remove('is-loading');
     document.body.classList.remove('is-loading');
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('bloodmatch_preloader_done', 'true');
+      window.dispatchEvent(new CustomEvent('bloodmatch_preloader_complete'));
+    }
     setIsGone(true);
     onOpeningChange?.(true);
     onComplete();

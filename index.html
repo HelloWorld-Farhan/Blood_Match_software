@@ -14,7 +14,20 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   </head>
   <body class="bg-[#F5F1EF] text-[#1A1D20] font-sans antialiased overflow-x-hidden selection:bg-[#D72638] selection:text-white">
-    <div id="root"></div>
+    <div id="root">
+      <!-- High-Performance Pre-Mount Branded Skeleton to completely eliminate initial blank screen flash -->
+      <div id="initial-loading-shield" style="position:fixed;inset:0;background:#F5F1EF;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999999;font-family:'Inter',system-ui,-apple-system,sans-serif;">
+        <div style="position:relative;width:56px;height:56px;display:flex;align-items:center;justify-content:center;">
+          <div style="position:absolute;inset:0;border-radius:50%;border:3px solid #D9C7C2;border-top-color:#D72638;animation:bmSpin 0.9s cubic-bezier(0.5,0.1,0.5,0.9) infinite;"></div>
+          <span style="font-size:24px;">🩸</span>
+        </div>
+        <div style="margin-top:18px;color:#7A0C17;font-weight:800;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;">BloodMatch Network</div>
+        <div style="margin-top:6px;color:#8C949D;font-size:11px;font-weight:500;">Initializing Clinical Transfusion Suite...</div>
+      </div>
+      <style>
+        @keyframes bmSpin { to { transform: rotate(360deg); } }
+      </style>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

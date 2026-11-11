@@ -52,11 +52,18 @@ export default function App() {
     if (opening) {
       document.documentElement.classList.remove('is-loading');
       document.body.classList.remove('is-loading');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('bloodmatch_preloader_opening'));
+      }
     }
   };
 
   const handlePreloaderComplete = () => {
     setShowPreloader(false);
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('bloodmatch_preloader_done', 'true');
+      window.dispatchEvent(new CustomEvent('bloodmatch_preloader_complete'));
+    }
     document.documentElement.classList.remove('is-loading');
     document.body.classList.remove('is-loading');
   };

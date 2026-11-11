@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 interface AmbientBackgroundVideoProps {
   videoSrc?: string;
@@ -13,40 +13,85 @@ export const AmbientBackgroundVideo: React.FC<AmbientBackgroundVideoProps> = ({
   overlayClassName = "bg-[#F5F1EF]/60",
   opacity = 1
 }) => {
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    // Optimized hardware-accelerated autoplay & loop
     video.muted = true;
     video.defaultMuted = true;
     video.loop = true;
     video.playsInline = true;
 
-    video.addEventListener('canplay', () => video.play().catch(() => {}));
+    const isPreloaderDone = 
+      typeof window !== 'undefined' && 
+      (sessionStorage.getItem('bloodmatch_preloader_done') === 'true' || 
+       !document.getElementById('preloader'));
 
-    const playPromise = video.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        video.muted = true;
-        video.play().catch(() => {});
-      });
-    }
+    const startPlayback = () => {
+      const v = videoRef.current;
+      if (!v) return;
+      v.muted = true;
+      v.defaultMuted = true;
+      v.playsInline = true;
+      v.loop = true;
+
+      const playPromise = v.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => setIsVideoPlaying(true))
+          .catch(() => {
+            v.muted = true;
+            v.play()
+              .then(() => setIsVideoPlaying(true))
+              .catch(() => {});
+          });
+      }
+    };
+
+    const handlePlaying = () => setIsVideoPlaying(true);
+    const handleTimeUpdate = () => {
+      if (video.currentTime > 0.05) setIsVideoPlaying(true);
+    };
+
+    video.addEventListener('playing', handlePlaying);
+    video.addEventListener('timeupdate', handleTimeUpdate);
 
     // Auto pause video when tab is hidden to save 100% CPU/GPU and battery
     const handleVisibilityChange = () => {
       if (document.hidden) {
         video.pause();
       } else {
-        video.play().catch(() => {});
+        startPlayback();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    if (isPreloaderDone) {
+      startPlayback();
+    } else {
+      const onReady = () => startPlayback();
+      window.addEventListener('bloodmatch_preloader_opening', onReady);
+      window.addEventListener('bloodmatch_preloader_complete', onReady);
+      const timer = setTimeout(startPlayback, 6000);
+
+      return () => {
+        clearTimeout(timer);
+        window.removeEventListener('bloodmatch_preloader_opening', onReady);
+        window.removeEventListener('bloodmatch_preloader_complete', onReady);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        video.removeEventListener('playing', handlePlaying);
+        video.removeEventListener('timeupdate', handleTimeUpdate);
+      };
+    }
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      video.removeEventListener('playing', handlePlaying);
+      video.removeEventListener('timeupdate', handleTimeUpdate);
     };
   }, [videoSrc]);
 
@@ -60,17 +105,30 @@ export const AmbientBackgroundVideo: React.FC<AmbientBackgroundVideoProps> = ({
         opacity
       }}
     >
+      {/* Background Poster Image */}
+      {posterSrc && (
+        <img
+          src={posterSrc}
+          alt="Ambient Background"
+          className={`absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-1000 ease-out ${
+            isVideoPlaying ? 'opacity-0' : 'opacity-100'
+          }`}
+        />
+      )}
+
+      {/* Synchronized Ambient Video */}
       <video
         ref={videoRef}
         key={videoSrc}
         src={videoSrc}
         poster={posterSrc}
-        autoPlay
         loop
         muted
         playsInline
         preload="auto"
-        className="w-full h-full object-cover object-center pointer-events-none"
+        className={`w-full h-full object-cover object-center pointer-events-none transition-opacity duration-1000 ease-out ${
+          isVideoPlaying ? 'opacity-100' : 'opacity-0'
+        }`}
         style={{
           transform: 'translateZ(0)',
           willChange: 'transform'
