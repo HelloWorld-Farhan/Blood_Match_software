@@ -13,7 +13,8 @@ import {
   Layers,
   Database
 } from 'lucide-react';
-import { getInventory, updateInventoryUnits, resetAllDataToZero } from '../services/storage';
+import { getInventory, updateInventoryUnits, resetAllDataToZero, saveInventory } from '../services/storage';
+import { fetchInventoryApi } from '../services/api';
 
 // Modern scroll-triggered blur-in entrance variants
 const scrollBlurVariants: Variants = {
@@ -61,8 +62,30 @@ export default function InventoryManager() {
   const [syncSeconds, setSyncSeconds] = useState(1);
   const [isSyncing, setIsSyncing] = useState(false);
 
-  const loadData = () => {
-    setInventory(getInventory());
+  const loadData = async () => {
+    // 1. Initial immediate presentation from local storage combined with registered donors
+    const local = getInventory();
+    setInventory(local);
+
+    // 2. Fetch fresh live inventory from backend database
+    try {
+      const res = await fetchInventoryApi();
+      if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
+        const mapped: BloodInventoryUnit[] = res.data.map((item: any) => ({
+          id: item.id || `INV-${item.blood_type}`,
+          bloodType: (item.blood_type || item.bloodType) as BloodType,
+          unitsAvailable: item.units_available ?? item.unitsAvailable ?? 0,
+          storageFacility: 'Central Blood Bank',
+          lastTestedDate: item.last_tested_date || new Date().toISOString().split('T')[0],
+          status: item.status || 'optimal',
+          temperatureCelsius: item.temperature_celsius ?? 4.0,
+        }));
+        setInventory(mapped);
+        saveInventory(mapped);
+      }
+    } catch (e) {
+      console.warn('[InventoryManager] Backend sync fallback to local calculations:', e);
+    }
   };
 
   const handleManualSync = () => {
@@ -79,8 +102,6 @@ export default function InventoryManager() {
     loadData();
 
     // 10-Second Real-Time Auto-Sync Engine:
-    // Seconds 1-9: show seconds counter, spinner is static.
-    // Second 10: triggers isSyncing, text becomes "Syncing...", spinner spins, seconds hidden.
     const syncInterval = setInterval(() => {
       setSyncSeconds((prev) => {
         if (prev >= 9) {
@@ -98,9 +119,13 @@ export default function InventoryManager() {
 
     const handleStorage = () => loadData();
     window.addEventListener('storage', handleStorage);
+    window.addEventListener('bloodmatch_donors_updated', handleStorage);
+    window.addEventListener('bloodmatch_inventory_updated', handleStorage);
     return () => {
       clearInterval(syncInterval);
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('bloodmatch_donors_updated', handleStorage);
+      window.removeEventListener('bloodmatch_inventory_updated', handleStorage);
     };
   }, []);
 
@@ -171,10 +196,10 @@ export default function InventoryManager() {
             <span>Power BI Clinical Telemetry Hub</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-[#1A1D20] tracking-tight">
-            Cryo-Vault Blood Reserves
+            Blood Bank Reserves
           </h1>
           <p className="text-xs sm:text-sm text-[#5A626A] mt-1 max-w-2xl">
-            Real-time multi-allele inventory surveillance, automated deficit alert thresholds, and Power BI visual reserve analytics.
+            Real-time monitored blood bank inventory across all 8 ABO and Rh blood groups, synchronized live with registered voluntary donors.
           </p>
         </div>
 
@@ -182,8 +207,8 @@ export default function InventoryManager() {
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <button
             onClick={handleManualSync}
-            className="flex items-center justify-center gap-1.5 px-3 py-2.5 w-[136px] shrink-0 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95 group"
-            title="Auto-syncs vault reserves every 10s or click to sync immediately"
+            className="flex items-center justify-center gap-1.5 px-3 py-2.5 w-[145px] shrink-0 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95 group"
+            title="Auto-syncs blood bank reserves every 10s or click to sync immediately"
           >
             <RefreshCw 
               className={`w-3.5 h-3.5 text-[#D72638] shrink-0 ${isSyncing ? 'animate-spin' : ''}`}
@@ -195,7 +220,7 @@ export default function InventoryManager() {
               </>
             ) : (
               <>
-                <span className="shrink-0">Sync Vault</span>
+                <span className="shrink-0">Sync Reserves</span>
                 <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500" />
                 <span className="text-[11px] font-mono font-bold text-[#7A0C17] shrink-0">
                   {syncSeconds}s
@@ -410,7 +435,7 @@ export default function InventoryManager() {
             <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-xs pointer-events-none">
               <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white font-bold">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                Cryo-Chamber Sensor Bay 04
+                Blood Bank Sensor Bay 01
               </span>
               <span className="px-2.5 py-0.5 rounded-full bg-[#D72638]/90 text-white font-mono font-bold text-[11px] shadow-xs">
                 Deep-Cold Storage 60fps
@@ -440,7 +465,7 @@ export default function InventoryManager() {
             <div>
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/20 mb-2">
                 <Database className="w-3.5 h-3.5 text-[#D72638]" />
-                <span>Cryogenic Environmental Integrity</span>
+                <span>Storage Temperature Integrity</span>
               </div>
               <h2 className="text-lg sm:text-xl font-black text-[#1A1D20] tracking-tight">
                 Sub-Zero Whole Blood & Packed Red Cell Preservation
@@ -468,7 +493,7 @@ export default function InventoryManager() {
             <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span className="text-emerald-900 font-semibold text-xs">AABB Cryo-Chain Compliance</span>
+                <span className="text-emerald-900 font-semibold text-xs">AABB Cold-Chain Storage Standard</span>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 font-bold text-[10px]">
                 CERTIFIED
@@ -668,7 +693,7 @@ export default function InventoryManager() {
                       {item.unitsAvailable}
                     </div>
                     <div className="text-[10px] uppercase font-bold text-[#5A626A] mt-1">
-                      Pints in Cryo-Vault
+                      Pints Available in Blood Bank
                     </div>
                     <div className="text-[10px] font-mono font-bold text-[#7A0C17] mt-0.5">
                       {pct}% of 20-Pt Goal

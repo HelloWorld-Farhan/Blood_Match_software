@@ -237,3 +237,7 @@ export async function registerDonorApi(payload: {
 }) {
   return apiClient.post<any>('/api/donors', payload);
 }
+
+export async function fetchInventoryApi() {
+  return apiClient.get<any[]>('/api/inventory');
+}

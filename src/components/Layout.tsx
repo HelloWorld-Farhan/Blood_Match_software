@@ -116,7 +116,13 @@ export default function Layout() {
 
     updateStats();
     window.addEventListener('storage', updateStats);
-    return () => window.removeEventListener('storage', updateStats);
+    window.addEventListener('bloodmatch_donors_updated', updateStats);
+    window.addEventListener('bloodmatch_inventory_updated', updateStats);
+    return () => {
+      window.removeEventListener('storage', updateStats);
+      window.removeEventListener('bloodmatch_donors_updated', updateStats);
+      window.removeEventListener('bloodmatch_inventory_updated', updateStats);
+    };
   }, []);
 
   // Close dropdowns on outside click
@@ -165,7 +171,7 @@ export default function Layout() {
       badge: donorsCount > 0 ? `${donorsCount}` : undefined,
     },
     { 
-      name: 'Cryo-Vault Inventory', 
+      name: 'Blood Bank Reserve', 
       path: '/dashboard/inventory', 
       icon: Database,
       badge: `${totalUnits} Pts`,
@@ -315,16 +321,16 @@ export default function Layout() {
 
       {/* Bottom Section: Telemetry & Full Clinician Profile Card */}
       <div className="pt-3 border-t border-[#D9C7C2] space-y-3 shrink-0">
-        {/* Work 2: Power BI Cryo-Vault Capacity Visual */}
+        {/* Work 2: Power BI Blood Bank Capacity Visual */}
         <Link
           to="/dashboard/inventory"
           className="group block p-2.5 rounded-xl bg-gradient-to-br from-white to-[#F5F1EF] hover:to-red-50/50 border border-[#D9C7C2] hover:border-[#D72638]/50 text-xs transition-all shadow-2xs hover:shadow-xs cursor-pointer"
-          title="Inspect Cryo-Vault Inventory & Stored Units"
+          title="Inspect Blood Bank Reserve & Stored Units"
         >
           <div className="flex items-center justify-between text-[#4A5568] mb-1">
             <span className="flex items-center gap-1.5 font-bold text-[#1A1D20] text-[11px] group-hover:text-[#D72638] transition-colors">
               <Database className="w-3.5 h-3.5 text-[#D72638]" />
-              <span>Cryo-Vault Reserve</span>
+              <span>Blood Bank Reserve</span>
             </span>
             <span className="text-emerald-700 font-bold text-[11px]">4.0°C Optimal</span>
           </div>

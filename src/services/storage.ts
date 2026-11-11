@@ -37,6 +37,7 @@ export const BloodStorage = {
     try {
       localStorage.setItem(STORAGE_KEYS.DONORS, JSON.stringify(donors));
       window.dispatchEvent(new CustomEvent('bloodmatch_donors_updated'));
+      window.dispatchEvent(new CustomEvent('bloodmatch_inventory_updated'));
       window.dispatchEvent(new Event('storage'));
     } catch (e) {
       console.warn('Failed to save donors', e);
@@ -99,23 +100,46 @@ export const BloodStorage = {
     this.saveEmergencyRequests(list);
   },
 
-  // --- Blood Inventory (Initially 0) ---
+  // --- Blood Bank Inventory (Live Synchronized with Registered Donors) ---
   getInventory(): BloodInventoryUnit[] {
     if (typeof window === 'undefined') return [];
     try {
-      const raw = localStorage.getItem(STORAGE_KEYS.INVENTORY);
-      if (raw) return JSON.parse(raw);
-      // Clean initial zero units for all 8 types
       const bloodTypes: BloodType[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-      const initial: BloodInventoryUnit[] = bloodTypes.map(type => ({
-        id: `INV-${type}`,
-        bloodType: type,
-        unitsAvailable: 0,
-        storageFacility: 'Central Cryo-Vault 01',
-        lastTestedDate: new Date().toISOString().split('T')[0],
-        status: 'critical',
-      }));
-      return initial;
+      const raw = localStorage.getItem(STORAGE_KEYS.INVENTORY);
+      const savedMap = new Map<BloodType, BloodInventoryUnit>();
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((item: BloodInventoryUnit) => savedMap.set(item.bloodType, item));
+        }
+      }
+
+      // Aggregate live registered donors per blood group
+      const donors = this.getDonors();
+      const donorPledgedCounts: Record<BloodType, number> = {
+        'A+': 0, 'A-': 0, 'B+': 0, 'B-': 0, 'AB+': 0, 'AB-': 0, 'O+': 0, 'O-': 0
+      };
+      donors.forEach(d => {
+        if (donorPledgedCounts[d.bloodType] !== undefined && (d.isAvailable ?? true)) {
+          donorPledgedCounts[d.bloodType] += Math.max(1, d.unitsDonatedTotal || 1);
+        }
+      });
+
+      const result: BloodInventoryUnit[] = bloodTypes.map(type => {
+        const existing = savedMap.get(type);
+        const bankedUnits = existing ? existing.unitsAvailable : 0;
+        const donorUnits = donorPledgedCounts[type] || 0;
+        const totalUnits = Math.max(bankedUnits, donorUnits);
+        return {
+          id: existing?.id || `INV-${type}`,
+          bloodType: type,
+          unitsAvailable: totalUnits,
+          storageFacility: 'Central Blood Bank',
+          lastTestedDate: existing?.lastTestedDate || new Date().toISOString().split('T')[0],
+          status: (totalUnits >= 15 ? 'optimal' : totalUnits >= 5 ? 'moderate' : 'critical') as BloodInventoryUnit['status'],
+        };
+      });
+      return result;
     } catch {
       return [];
     }

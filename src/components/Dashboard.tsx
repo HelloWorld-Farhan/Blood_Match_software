@@ -127,9 +127,13 @@ export const Dashboard: React.FC = () => {
 
     const handleStorage = () => loadData();
     window.addEventListener('storage', handleStorage);
+    window.addEventListener('bloodmatch_donors_updated', handleStorage);
+    window.addEventListener('bloodmatch_inventory_updated', handleStorage);
     return () => {
       clearInterval(syncInterval);
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('bloodmatch_donors_updated', handleStorage);
+      window.removeEventListener('bloodmatch_inventory_updated', handleStorage);
     };
   }, []);
 
@@ -211,7 +215,7 @@ export const Dashboard: React.FC = () => {
               <span>Executive Transfusion Intelligence Hub</span>
             </h1>
             <p className="text-xs text-[#5A626A]">
-              Real-time ABO/Rh cross-matching analytics, cryogenic inventory volume, and emergency trauma triage.
+              Real-time ABO/Rh cross-matching analytics, blood bank reserve volume, and emergency trauma triage.
             </p>
           </div>
         </div>
@@ -302,7 +306,7 @@ export const Dashboard: React.FC = () => {
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-bold text-[#7A0C17] uppercase tracking-wider flex items-center gap-1">
-                <span>Cryo-Vault Reserve</span>
+                <span>Blood Bank Reserve</span>
               </span>
               <div className="w-8 h-8 rounded-xl bg-[#7A0C17]/10 text-[#D72638] group-hover:bg-[#D72638] group-hover:text-white transition-colors flex items-center justify-center border border-[#D72638]/30">
                 <Database className="w-4 h-4" />
@@ -357,10 +361,10 @@ export const Dashboard: React.FC = () => {
 
           <div className="mt-3 flex items-center justify-between text-[11px] text-[#5A626A] border-t border-[#D9C7C2]/60 pt-2">
             <span className={criticalUnitsCount > 0 ? "text-amber-600 font-semibold" : "text-emerald-600 font-semibold"}>
-              {criticalUnitsCount} shortage alleles
+              {criticalUnitsCount > 0 ? `${criticalUnitsCount} groups need donors` : 'All groups stocked'}
             </span>
             <span className="text-[#D72638] font-bold group-hover:underline flex items-center gap-0.5">
-              <span>Inspect Vault</span>
+              <span>Inspect Blood Bank</span>
               <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </span>
           </div>
@@ -661,7 +665,7 @@ export const Dashboard: React.FC = () => {
               <div className="flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-[#D72638]" />
                 <h2 className="text-sm font-bold text-[#1A1D20] uppercase tracking-wider">
-                  Cryo-Vault Reserve Distribution (8 Alleles)
+                  Blood Bank Reserve Distribution (8 Groups)
                 </h2>
               </div>
               <div className="flex items-center gap-2">
@@ -725,7 +729,7 @@ export const Dashboard: React.FC = () => {
           <div className="mt-4 pt-3 border-t border-[#D9C7C2]/60 flex items-center justify-between text-[11px] text-[#5A626A]">
             <span>Center Line: 10 Pint Buffer</span>
             <Link to="/dashboard/inventory" className="text-[#D72638] font-bold hover:underline">
-              Adjust Cryo Vault Units →
+              Manage Blood Bank Units →
             </Link>
           </div>
         </div>
@@ -958,7 +962,7 @@ export const Dashboard: React.FC = () => {
                 <ShieldAlert className="w-8 h-8 mx-auto text-slate-400 mb-2" />
                 <p className="text-xs font-bold text-[#1A1D20]">No emergency requests active</p>
                 <p className="text-[11px] text-[#5A626A] mt-1">
-                  System is actively monitoring 8-group cryo inventory reserves.
+                  System is actively monitoring 8-group blood bank reserves.
                 </p>
                 <Link
                   to="/dashboard/emergency"

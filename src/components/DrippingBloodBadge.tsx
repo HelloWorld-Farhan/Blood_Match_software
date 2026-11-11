@@ -27,7 +27,7 @@ export const DrippingBloodBadge: React.FC<DrippingBloodBadgeProps> = ({
 
   return (
     <div
-      className={`relative flex items-center justify-center bg-white border border-[#D9C7C2] text-[#D72638] shadow-xs overflow-hidden select-none ${containerSizeClasses} ${className}`}
+      className={`relative flex items-center justify-center bg-white border border-slate-200 text-[#D72638] shadow-xs overflow-hidden select-none ${containerSizeClasses} ${className}`}
       title="BloodMatch Reserve Stream"
       aria-label="Falling Blood Droplet"
     >

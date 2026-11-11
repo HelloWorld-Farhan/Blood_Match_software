@@ -481,7 +481,7 @@ export default function Signup() {
                       <div className="relative flex items-center justify-center mb-3">
                         <DrippingBloodBadge 
                           size="xl" 
-                          className="relative z-10 shadow-sm border border-[#D9C7C2] bg-white" 
+                          className="relative z-10 shadow-sm border border-slate-200 bg-white" 
                         />
                       </div>
 

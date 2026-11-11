@@ -1057,7 +1057,7 @@ export default function DonorRegistry() {
               <div className="space-y-5 py-2">
                 <div className="flex flex-col items-center justify-center text-center">
                   <div className="mb-2">
-                    <DrippingBloodBadge size="lg" className="border border-[#D9C7C2] shadow-xs bg-white" />
+                    <DrippingBloodBadge size="lg" className="border border-slate-200 shadow-xs bg-white" />
                   </div>
                   <h3 className="text-xl font-black text-[#1A1D20]">
                     Verify Voluntary Donor Email
