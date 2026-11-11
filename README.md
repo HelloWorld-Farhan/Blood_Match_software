@@ -29,11 +29,15 @@
 
 ---
 
-## 🔗 Project Repository
+## 🔗 Connected Repositories & Cloud Architecture
 
-| Repository | Purpose | Status |
-|---|---|---|
-| [Blood_Match_software](https://github.com/HelloWorld-Farhan/Blood_Match_software) | Main Blood Match Application & Transfusion Network | Active |
+| Repository | Component | Platform | Status |
+|---|---|---|---|
+| [Blood_Match_software](https://github.com/HelloWorld-Farhan/Blood_Match_software) | Frontend SPA (React 19 + TypeScript + Framer Motion) | **Cloudflare Workers** | Active |
+| [Blood_Match_Backend](https://github.com/HelloWorld-Farhan/Blood_Match_Backend) | API Microservice (Python FastAPI + Uvicorn) | **Render.com** | Active |
+| **Supabase Cloud** | Relational Database, Realtime WebSockets & Auth (PostgreSQL) | **Supabase** | Connected |
+| **Cloudflare R2** | Object Storage for Profile Avatars & Large Media (S3 API) | **Cloudflare** | Connected |
+| **Google Apps Script** | Autonomous Webhook for Emergency Hospital Logging & Sheets | **Google Cloud** | Connected |
 
 ---
 
