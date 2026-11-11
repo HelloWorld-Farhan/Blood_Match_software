@@ -23,6 +23,14 @@ dist-ssr
 *.local
 .wrangler
 
+# Documentation: ignore all markdown files except README.md
+*.md
+!README.md
+!readme.md
+**/*.md
+!**/README.md
+!**/readme.md
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
