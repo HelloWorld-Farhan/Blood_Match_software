@@ -476,22 +476,12 @@ export default function Signup() {
                       STEP 2: EMAIL OTP VERIFICATION WITH ANIMATED BLOOD DROPLET
                       ================================================================= */
                   <form onSubmit={handleVerifyOtp} className="space-y-5">
-                    {/* Pulsing Liquid Blood Droplet Animation */}
+                    {/* Clean Liquid Blood Droplet Animation on Pure White UI Background */}
                     <div className="flex flex-col items-center justify-center py-2">
                       <div className="relative flex items-center justify-center mb-3">
-                        <motion.span
-                          animate={{ scale: [1, 1.7, 2.3], opacity: [0.65, 0.25, 0] }}
-                          transition={{ repeat: Infinity, duration: 2.4, ease: 'easeOut' }}
-                          className="absolute w-20 h-20 rounded-full border-2 border-[#D72638] pointer-events-none"
-                        />
-                        <motion.span
-                          animate={{ scale: [1, 1.35, 1.8], opacity: [0.75, 0.35, 0] }}
-                          transition={{ repeat: Infinity, duration: 2.4, delay: 0.35, ease: 'easeOut' }}
-                          className="absolute w-20 h-20 rounded-full bg-[#D72638]/25 pointer-events-none"
-                        />
                         <DrippingBloodBadge 
                           size="xl" 
-                          className="relative z-10 shadow-2xl shadow-[#D72638]/40 border-2 border-[#D72638]/40 bg-[#7A0C17]/15" 
+                          className="relative z-10 shadow-sm border border-[#D9C7C2] bg-white" 
                         />
                       </div>
 

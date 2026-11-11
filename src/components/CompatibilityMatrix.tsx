@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, Variants } from 'framer-motion';
 import { BloodType } from '../types';
 import { BLOOD_COMPATIBILITY_TABLE } from '../utils/bloodCompatibility';
-import { HeartPulse, CheckCircle2, Info, Activity, ShieldCheck, Dna, BarChart3 } from 'lucide-react';
+import { HeartPulse, CheckCircle2, Info, Activity, ShieldCheck, Dna, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const scrollBlurVariants: Variants = {
   hidden: { 
@@ -28,6 +28,17 @@ export default function CompatibilityMatrix() {
   const [selectedType, setSelectedType] = useState<BloodType>('O-');
 
   const selectedInfo = BLOOD_COMPATIBILITY_TABLE[selectedType];
+  const currentIndex = bloodTypes.indexOf(selectedType);
+
+  const handlePrev = () => {
+    const prevIdx = (currentIndex - 1 + bloodTypes.length) % bloodTypes.length;
+    setSelectedType(bloodTypes[prevIdx]);
+  };
+
+  const handleNext = () => {
+    const nextIdx = (currentIndex + 1) % bloodTypes.length;
+    setSelectedType(bloodTypes[nextIdx]);
+  };
 
   return (
     <div className="space-y-6 sm:space-y-8 pb-12 relative z-10">
@@ -177,10 +188,35 @@ export default function CompatibilityMatrix() {
         >
           <div>
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold text-[#7A0C17]">Selected Profile</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#F5F1EF] text-[#7A0C17] border border-[#D9C7C2]">
-                {selectedInfo.rhFactor ? 'Rh Positive (+)' : 'Rh Negative (-)'}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-[#7A0C17]">Selected Profile</span>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] border border-[#D72638]/20">
+                  {currentIndex + 1} of 8
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handlePrev}
+                  className="p-1 rounded-lg bg-[#F5F1EF] hover:bg-[#E8DFDC] text-[#7A0C17] border border-[#D9C7C2] transition-colors cursor-pointer"
+                  title="Previous Blood Group"
+                  aria-label="Previous Blood Group"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="p-1 rounded-lg bg-[#F5F1EF] hover:bg-[#E8DFDC] text-[#7A0C17] border border-[#D9C7C2] transition-colors cursor-pointer"
+                  title="Next Blood Group"
+                  aria-label="Next Blood Group"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#F5F1EF] text-[#7A0C17] border border-[#D9C7C2] ml-1">
+                  {selectedInfo.rhFactor ? 'Rh Positive (+)' : 'Rh Negative (-)'}
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] flex items-center justify-center font-black text-2xl text-white shadow-md shadow-[#D72638]/20 border border-[#D72638]/40">
@@ -229,20 +265,28 @@ export default function CompatibilityMatrix() {
             <div className="grid grid-cols-4 gap-2 my-4">
               {bloodTypes.map(bt => {
                 const canGive = selectedInfo.canGiveTo.includes(bt);
+                const isSelected = bt === selectedType;
                 return (
-                  <div
+                  <button
                     key={bt}
-                    className={`py-3 rounded-2xl flex flex-col items-center justify-center border font-black text-xs transition-all ${
+                    type="button"
+                    onClick={() => setSelectedType(bt)}
+                    title={`Switch focus to Group ${bt}`}
+                    className={`py-3 rounded-2xl flex flex-col items-center justify-center border font-black text-xs transition-all cursor-pointer hover:scale-105 active:scale-95 ${
+                      isSelected
+                        ? 'ring-2 ring-[#D72638] ring-offset-2 shadow-sm'
+                        : ''
+                    } ${
                       canGive
-                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-xs'
-                        : 'bg-[#F5F1EF] border-[#D9C7C2] text-slate-400 opacity-40'
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800 shadow-xs hover:bg-emerald-100'
+                        : 'bg-[#F5F1EF] border-[#D9C7C2] text-slate-400 opacity-60 hover:opacity-100'
                     }`}
                   >
                     <span>{bt}</span>
                     <span className="text-[9px] font-normal mt-0.5">
                       {canGive ? '✓ Safe' : '✗ No'}
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -274,20 +318,28 @@ export default function CompatibilityMatrix() {
             <div className="grid grid-cols-4 gap-2 my-4">
               {bloodTypes.map(bt => {
                 const canReceive = selectedInfo.canReceiveFrom.includes(bt);
+                const isSelected = bt === selectedType;
                 return (
-                  <div
+                  <button
                     key={bt}
-                    className={`py-3 rounded-2xl flex flex-col items-center justify-center border font-black text-xs transition-all ${
+                    type="button"
+                    onClick={() => setSelectedType(bt)}
+                    title={`Switch focus to Group ${bt}`}
+                    className={`py-3 rounded-2xl flex flex-col items-center justify-center border font-black text-xs transition-all cursor-pointer hover:scale-105 active:scale-95 ${
+                      isSelected
+                        ? 'ring-2 ring-[#D72638] ring-offset-2 shadow-sm'
+                        : ''
+                    } ${
                       canReceive
-                        ? 'bg-blue-50 border-blue-300 text-blue-800 shadow-xs'
-                        : 'bg-[#F5F1EF] border-[#D9C7C2] text-slate-400 opacity-40'
+                        ? 'bg-blue-50 border-blue-300 text-blue-800 shadow-xs hover:bg-blue-100'
+                        : 'bg-[#F5F1EF] border-[#D9C7C2] text-slate-400 opacity-60 hover:opacity-100'
                     }`}
                   >
                     <span>{bt}</span>
                     <span className="text-[9px] font-normal mt-0.5">
                       {canReceive ? '✓ Safe' : '✗ No'}
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -322,15 +374,30 @@ export default function CompatibilityMatrix() {
             <tr className="border-b border-[#D9C7C2] text-[#5A626A]">
               <th className="py-2.5 text-left font-bold pl-2 text-[#1A1D20]">Donor \ Recipient</th>
               {bloodTypes.map(rt => (
-                <th key={rt} className="py-2.5 font-bold text-[#1A1D20]">{rt}</th>
+                <th
+                  key={rt}
+                  onClick={() => setSelectedType(rt)}
+                  className={`py-2.5 font-bold cursor-pointer transition-colors hover:text-[#D72638] ${
+                    rt === selectedType ? 'text-[#D72638] underline underline-offset-4 decoration-2' : 'text-[#1A1D20]'
+                  }`}
+                  title={`Focus Group ${rt}`}
+                >
+                  {rt}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-[#D9C7C2]/60">
             {bloodTypes.map(dt => (
               <tr key={dt} className="hover:bg-[#F5F1EF]/60 transition-colors">
-                <td className="py-3 text-left font-black text-[#1A1D20] pl-2 flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#D72638]"></span>
+                <td
+                  onClick={() => setSelectedType(dt)}
+                  className={`py-3 text-left font-black pl-2 flex items-center gap-2 cursor-pointer transition-colors hover:text-[#D72638] ${
+                    dt === selectedType ? 'text-[#D72638]' : 'text-[#1A1D20]'
+                  }`}
+                  title={`Focus Group ${dt}`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${dt === selectedType ? 'bg-[#D72638] ring-2 ring-[#D72638]/40' : 'bg-[#D72638]'}`}></span>
                   <span>{dt}</span>
                 </td>
                 {bloodTypes.map(rt => {

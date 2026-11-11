@@ -27,17 +27,10 @@ export const DrippingBloodBadge: React.FC<DrippingBloodBadgeProps> = ({
 
   return (
     <div
-      className={`relative flex items-center justify-center bg-[#7A0C17]/10 border border-[#D72638]/25 text-[#D72638] shadow-inner overflow-hidden select-none ${containerSizeClasses} ${className}`}
+      className={`relative flex items-center justify-center bg-white border border-[#D9C7C2] text-[#D72638] shadow-xs overflow-hidden select-none ${containerSizeClasses} ${className}`}
       title="BloodMatch Reserve Stream"
       aria-label="Falling Blood Droplet"
     >
-      {/* Subtle ambient red background breathing glow */}
-      <motion.div
-        className="absolute inset-0 bg-radial from-[#D72638]/15 via-transparent to-transparent pointer-events-none"
-        animate={{ opacity: [0.3, 0.6, 0.3] }}
-        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-      />
-
       <svg
         viewBox="0 0 32 32"
         fill="none"
