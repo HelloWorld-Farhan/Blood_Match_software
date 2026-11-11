@@ -122,20 +122,29 @@ export default function Settings() {
 
   // Dynamic Real Station Detection (Work 3: zero fake dummy sessions)
   const realDevice = useMemo(() => {
-    const ua = navigator.userAgent;
-    let dev = 'Windows PC Workstation';
-    if (/Macintosh|Mac OS X/i.test(ua)) dev = 'Apple macOS Workstation';
-    else if (/Linux/i.test(ua)) dev = 'Linux Workstation Terminal';
-    else if (/Android/i.test(ua)) dev = 'Android Clinical Terminal';
-    else if (/iPhone|iPad/i.test(ua)) dev = 'iOS Clinical Mobile Terminal';
+    try {
+      const ua = typeof navigator !== 'undefined' ? (navigator.userAgent || '') : '';
+      let dev = 'Windows PC Workstation';
+      if (/Macintosh|Mac OS X/i.test(ua)) dev = 'Apple macOS Workstation';
+      else if (/Linux/i.test(ua)) dev = 'Linux Workstation Terminal';
+      else if (/Android/i.test(ua)) dev = 'Android Clinical Terminal';
+      else if (/iPhone|iPad/i.test(ua)) dev = 'iOS Clinical Mobile Terminal';
 
-    let browser = 'Chrome / Chromium';
-    if (/Brave/i.test(ua) || (navigator as unknown as { brave?: unknown }).brave) browser = 'Brave Secure Browser';
-    else if (/Edg/i.test(ua)) browser = 'Microsoft Edge Enterprise';
-    else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) browser = 'Apple Safari';
-    else if (/Firefox/i.test(ua)) browser = 'Mozilla Firefox';
+      let browser = 'Chrome / Chromium';
+      if (/Brave/i.test(ua) || (typeof navigator !== 'undefined' && Boolean((navigator as any)?.brave))) {
+        browser = 'Brave Secure Browser';
+      } else if (/Edg/i.test(ua)) {
+        browser = 'Microsoft Edge Enterprise';
+      } else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) {
+        browser = 'Apple Safari';
+      } else if (/Firefox/i.test(ua)) {
+        browser = 'Mozilla Firefox';
+      }
 
-    return { dev, browser };
+      return { dev, browser };
+    } catch {
+      return { dev: 'Windows PC Workstation', browser: 'Brave Secure Browser' };
+    }
   }, []);
 
   // Active Sessions State: Only the real authentic session (zero dummy data)
@@ -482,7 +491,7 @@ export default function Settings() {
                       className="w-full h-full object-cover" 
                     />
                   ) : (
-                    <span>{name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'FK'}</span>
+                    <span>{name ? name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'FK' : 'FK'}</span>
                   )}
                 </div>
 

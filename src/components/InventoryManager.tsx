@@ -2,8 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, Variants } from 'framer-motion';
 import { BloodInventoryUnit, BloodType } from '../types';
 import { 
-  Plus, 
-  Minus, 
   Droplet, 
   BarChart3, 
   ShieldCheck, 
@@ -13,7 +11,7 @@ import {
   Layers,
   Database
 } from 'lucide-react';
-import { getInventory, updateInventoryUnits, resetAllDataToZero, saveInventory } from '../services/storage';
+import { getInventory, saveInventory } from '../services/storage';
 import { fetchInventoryApi } from '../services/api';
 
 // Modern scroll-triggered blur-in entrance variants
@@ -59,7 +57,6 @@ export default function InventoryManager() {
   const [inventory, setInventory] = useState<BloodInventoryUnit[]>(getInventory());
   const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'CRITICAL' | 'RH_NEG' | 'RH_POS' | 'UNIVERSAL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [syncSeconds, setSyncSeconds] = useState(1);
   const [isSyncing, setIsSyncing] = useState(false);
 
   const loadData = async () => {
@@ -90,32 +87,19 @@ export default function InventoryManager() {
 
   const handleManualSync = () => {
     setIsSyncing(true);
-    setSyncSeconds(10);
     loadData();
     setTimeout(() => {
       setIsSyncing(false);
-      setSyncSeconds(1);
-    }, 900);
+    }, 800);
   };
 
   useEffect(() => {
     loadData();
 
-    // 10-Second Real-Time Auto-Sync Engine:
+    // 10-Second Real-Time Silent Auto-Sync Engine (seamless non-intrusive background sync)
     const syncInterval = setInterval(() => {
-      setSyncSeconds((prev) => {
-        if (prev >= 9) {
-          setIsSyncing(true);
-          loadData();
-          setTimeout(() => {
-            setIsSyncing(false);
-            setSyncSeconds(1);
-          }, 900);
-          return 10;
-        }
-        return prev + 1;
-      });
-    }, 1000);
+      loadData();
+    }, 10000);
 
     const handleStorage = () => loadData();
     window.addEventListener('storage', handleStorage);
@@ -128,17 +112,6 @@ export default function InventoryManager() {
       window.removeEventListener('bloodmatch_inventory_updated', handleStorage);
     };
   }, []);
-
-  const handleUpdateUnits = (type: BloodType, delta: number) => {
-    const updated = updateInventoryUnits(type, delta);
-    setInventory(updated);
-  };
-
-  // Reset all to clean 0
-  const handleResetToZero = () => {
-    resetAllDataToZero();
-    loadData();
-  };
 
   // KPI Calculations
   const totalUnits = useMemo(() => inventory.reduce((acc, curr) => acc + curr.unitsAvailable, 0), [inventory]);
@@ -203,55 +176,17 @@ export default function InventoryManager() {
           </p>
         </div>
 
-        {/* Quick Batch Actions - Zero Data & 10s Synchronized Telemetry */}
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <button
+        {/* Monitored Live Status Indicator (Automatic Silent Sync & Gentle On-Demand Refresh) */}
+        <div className="flex items-center gap-2 shrink-0">
+          <div 
             onClick={handleManualSync}
-            className="flex items-center justify-center gap-1.5 px-3 py-2.5 w-[145px] shrink-0 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95 group"
-            title="Auto-syncs blood bank reserves every 10s or click to sync immediately"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-50/80 border border-emerald-200 text-emerald-900 text-xs font-semibold cursor-pointer hover:bg-emerald-100 transition-colors shadow-2xs"
+            title="Monitored live with automatic 10-second background sync. Click to refresh immediately."
           >
-            <RefreshCw 
-              className={`w-3.5 h-3.5 text-[#D72638] shrink-0 ${isSyncing ? 'animate-spin' : ''}`}
-            />
-            {isSyncing ? (
-              <>
-                <span className="font-bold text-[#D72638] shrink-0">Syncing...</span>
-                <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500 animate-ping" />
-              </>
-            ) : (
-              <>
-                <span className="shrink-0">Sync Reserves</span>
-                <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500" />
-                <span className="text-[11px] font-mono font-bold text-[#7A0C17] shrink-0">
-                  {syncSeconds}s
-                </span>
-              </>
-            )}
-          </button>
-
-          <button
-            onClick={handleResetToZero}
-            className="flex items-center justify-center gap-1.5 px-3 py-2.5 w-[150px] shrink-0 rounded-xl bg-white hover:bg-red-50 border border-[#D9C7C2] text-[#7A0C17] text-xs font-bold active:scale-95 transition-all cursor-pointer shadow-xs group"
-            title="Zero Vault Data: Reset all reserves to 0 (Auto-syncs every 10s)"
-          >
-            <RefreshCw 
-              className={`w-3.5 h-3.5 text-[#D72638] shrink-0 ${isSyncing ? 'animate-spin' : ''}`}
-            />
-            {isSyncing ? (
-              <>
-                <span className="font-bold text-[#D72638] shrink-0">Syncing...</span>
-                <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500 animate-ping" />
-              </>
-            ) : (
-              <>
-                <span className="shrink-0">Zero Vault Data</span>
-                <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-400" />
-                <span className="text-[11px] font-mono font-bold text-[#7A0C17] shrink-0">
-                  {syncSeconds}s
-                </span>
-              </>
-            )}
-          </button>
+            <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>Network Live</span>
+            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          </div>
         </div>
       </motion.div>
 

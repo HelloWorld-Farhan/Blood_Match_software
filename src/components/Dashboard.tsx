@@ -19,7 +19,8 @@ import {
 } from 'lucide-react';
 import { motion, Variants } from 'framer-motion';
 import { BloodType, EmergencyRequest, Donor } from '../types';
-import { getDonors, getEmergencyRequests, getInventory, resetAllDataToZero } from '../services/storage';
+import { getDonors, getEmergencyRequests, getInventory, saveDonors, saveInventory } from '../services/storage';
+import { fetchDonorsApi, fetchInventoryApi } from '../services/api';
 import { checkCompatibility } from '../utils/bloodCompatibility';
 
 // Cinematic Framer Motion entrance variants with modern blur-in
@@ -78,7 +79,6 @@ export const Dashboard: React.FC = () => {
   const [donors, setDonors] = useState<Donor[]>([]);
   const [inventory, setInventory] = useState(getInventory());
   const [selectedBloodFilter, setSelectedBloodFilter] = useState<string>('ALL');
-  const [syncSeconds, setSyncSeconds] = useState(1);
   const [isSyncing, setIsSyncing] = useState(false);
   const [hoveredAllele, setHoveredAllele] = useState<string | null>(null);
 
@@ -88,44 +88,81 @@ export const Dashboard: React.FC = () => {
 
   const matchResult = checkCompatibility(donorType, recipientType);
 
-  const loadData = () => {
+  const loadData = async (isManual = false) => {
+    // 1. Instant immediate local storage presentation
     setRequests(getEmergencyRequests());
     setDonors(getDonors());
     setInventory(getInventory());
+
+    // 2. Silent cross-device background sync from backend database
+    try {
+      const [donorsRes, invRes] = await Promise.allSettled([
+        fetchDonorsApi('ALL'),
+        fetchInventoryApi()
+      ]);
+
+      if (donorsRes.status === 'fulfilled' && donorsRes.value.ok && Array.isArray(donorsRes.value.data)) {
+        const mappedDonors: Donor[] = donorsRes.value.data.map((d: any) => ({
+          id: d.id || `DNR-${Math.random().toString().slice(-6)}`,
+          fullName: d.name || d.fullName || 'Anonymous Donor',
+          bloodType: (d.blood_type || d.bloodType || 'O+') as BloodType,
+          age: d.age || 28,
+          gender: (d.gender || 'MALE') as Donor['gender'],
+          phone: d.phone || '+91 98765 43210',
+          email: d.email || 'donor@bloodmatch.io',
+          city: d.city || 'Delhi',
+          state: d.state || 'Delhi',
+          location: d.location || d.city || 'Delhi, India',
+          user_email: d.user_email || d.email,
+          hospital: d.hospital || 'BloodMatch Emergency Network',
+          lastDonationDate: d.last_donation_date || d.lastDonationDate,
+          isAvailable: d.is_available ?? d.available ?? true,
+          registeredAt: d.created_at || d.registeredAt || new Date().toISOString(),
+          unitsDonatedTotal: d.units_donated_total ?? d.unitsDonatedTotal ?? 0,
+        }));
+        setDonors(mappedDonors);
+        saveDonors(mappedDonors);
+      }
+
+      if (invRes.status === 'fulfilled' && invRes.value.ok && Array.isArray(invRes.value.data)) {
+        const mappedInv = invRes.value.data.map((item: any) => ({
+          id: item.id || `INV-${item.blood_type}`,
+          bloodType: (item.blood_type || item.bloodType) as BloodType,
+          unitsAvailable: item.units_available ?? item.unitsAvailable ?? 0,
+          storageFacility: 'Central Blood Bank',
+          lastTestedDate: item.last_tested_date || new Date().toISOString().split('T')[0],
+          status: item.status || 'optimal',
+          temperatureCelsius: item.temperature_celsius ?? 4.0,
+        }));
+        setInventory(mappedInv);
+        saveInventory(mappedInv);
+      }
+    } catch (err) {
+      console.warn('[Dashboard] Background sync completed with local cache:', err);
+    }
   };
 
   const handleManualSync = () => {
     setIsSyncing(true);
-    setSyncSeconds(10);
-    loadData();
+    loadData(true);
     setTimeout(() => {
       setIsSyncing(false);
-      setSyncSeconds(1);
-    }, 900);
+    }, 800);
   };
 
   useEffect(() => {
     loadData();
 
-    // 10-Second Real-Time Auto-Sync Engine:
-    // Seconds 1-9: show seconds counter, spinner is static.
-    // Second 10: triggers isSyncing, text becomes "Syncing...", spinner spins, seconds hidden.
+    // 10-Second Silent Real-Time Auto-Sync Engine (Smooth, calm background polling with zero UI jumps)
     const syncInterval = setInterval(() => {
-      setSyncSeconds((prev) => {
-        if (prev >= 9) {
-          setIsSyncing(true);
-          loadData();
-          setTimeout(() => {
-            setIsSyncing(false);
-            setSyncSeconds(1);
-          }, 900);
-          return 10;
-        }
-        return prev + 1;
-      });
-    }, 1000);
+      loadData();
+    }, 10000);
 
-    const handleStorage = () => loadData();
+    const handleStorage = () => {
+      setRequests(getEmergencyRequests());
+      setDonors(getDonors());
+      setInventory(getInventory());
+    };
     window.addEventListener('storage', handleStorage);
     window.addEventListener('bloodmatch_donors_updated', handleStorage);
     window.addEventListener('bloodmatch_inventory_updated', handleStorage);
@@ -136,11 +173,6 @@ export const Dashboard: React.FC = () => {
       window.removeEventListener('bloodmatch_inventory_updated', handleStorage);
     };
   }, []);
-
-  const handleResetToZero = () => {
-    resetAllDataToZero();
-    loadData();
-  };
 
   const totalUnits = inventory.reduce((acc, curr) => acc + curr.unitsAvailable, 0);
   const urgentCount = requests.filter(r => r.status === 'urgent' || r.status === 'critical').length;
@@ -221,9 +253,9 @@ export const Dashboard: React.FC = () => {
         </div>
 
         {/* Power BI Interactive Slicers & Zero Actions */}
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full lg:w-auto z-10 shrink-0">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 w-full lg:w-auto z-10 shrink-0">
           <div className="flex items-center gap-1 bg-[#F5F1EF] p-1 rounded-xl border border-[#D9C7C2] overflow-x-auto no-scrollbar max-w-full">
-            {['ALL', 'O-', 'O+', 'A+', 'B+', 'AB+'].map(type => (
+            {['ALL', 'O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'].map(type => (
               <button
                 key={type}
                 onClick={() => setSelectedBloodFilter(type)}
@@ -238,53 +270,22 @@ export const Dashboard: React.FC = () => {
             ))}
           </div>
 
-          <button
-            onClick={handleManualSync}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 w-[132px] shrink-0 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] text-xs font-semibold transition-all cursor-pointer shadow-xs active:scale-95 group"
-            title="Auto-syncs every 10s or click to sync immediately"
-          >
-            <RefreshCw 
-              className={`w-3.5 h-3.5 text-[#D72638] shrink-0 ${isSyncing ? 'animate-spin' : ''}`}
-            />
-            {isSyncing ? (
-              <>
-                <span className="font-bold text-[#D72638] shrink-0">Syncing...</span>
-                <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500 animate-ping" />
-              </>
-            ) : (
-              <>
-                <span className="shrink-0">Sync Hub</span>
-                <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500" />
-                <span className="text-[11px] font-mono font-bold text-[#7A0C17] shrink-0">
-                  {syncSeconds}s
-                </span>
-              </>
-            )}
-          </button>
-
-          <button
-            onClick={handleResetToZero}
-            className="flex items-center justify-center gap-1.5 px-3 py-2 w-[132px] shrink-0 rounded-xl bg-white hover:bg-red-50 text-[#7A0C17] border border-[#D9C7C2] text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95 group"
-            title="Data Hub: Reset real storage to zero (Auto-syncs every 10s)"
-          >
-            <RefreshCw 
-              className={`w-3.5 h-3.5 text-[#D72638] shrink-0 ${isSyncing ? 'animate-spin' : ''}`}
-            />
-            {isSyncing ? (
-              <>
-                <span className="font-bold text-[#D72638] shrink-0">Syncing...</span>
-                <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-500 animate-ping" />
-              </>
-            ) : (
-              <>
-                <span className="shrink-0">Data Hub</span>
-                <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-emerald-400" />
-                <span className="text-[11px] font-mono font-bold text-[#7A0C17] shrink-0">
-                  {syncSeconds}s
-                </span>
-              </>
-            )}
-          </button>
+          {/* Silent, Real-Time Network Sync Status (Single Clean Non-Intrusive Live Hub) */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-[#D9C7C2] shadow-xs text-xs shrink-0 select-none">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+            </span>
+            <span className="font-bold text-[#1A1D20]">Network Live</span>
+            <button
+              type="button"
+              onClick={handleManualSync}
+              className="p-1 rounded-lg hover:bg-[#F5F1EF] text-slate-400 hover:text-[#D72638] transition-colors cursor-pointer"
+              title="Click to refresh live data immediately"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-[#D72638]' : ''}`} />
+            </button>
+          </div>
         </div>
       </motion.div>
 

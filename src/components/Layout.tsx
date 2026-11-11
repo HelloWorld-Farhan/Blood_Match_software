@@ -507,7 +507,7 @@ export default function Layout() {
               {avatar ? (
                 <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
-                <span>{userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'FK'}</span>
+                <span>{userName ? userName.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'FK' : 'FK'}</span>
               )}
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                 <Camera className="w-3.5 h-3.5 text-white" />
@@ -824,7 +824,7 @@ export default function Layout() {
                 {avatar ? (
                   <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <span>{userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'FK'}</span>
+                  <span>{userName ? userName.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'FK' : 'FK'}</span>
                 )}
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
