@@ -3,7 +3,11 @@
  * Automatically recovers from network blocks and free-tier container sleep (15-20s cold starts)
  */
 
-export const API_BASE_URL = ((import.meta as any).env?.VITE_API_URL || '').replace(/\/+$/, '');
+export const API_BASE_URL = (
+  (import.meta as any).env?.VITE_BACKEND_URL ||
+  (import.meta as any).env?.VITE_API_URL ||
+  ''
+).replace(/\/+$/, '');
 
 export interface ApiRequestOptions extends RequestInit {
   timeoutMs?: number;
