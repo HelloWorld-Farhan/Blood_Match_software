@@ -56,6 +56,11 @@ export const BloodStorage = {
     return newDonor;
   },
 
+  deleteDonor(donorId: string): void {
+    const donors = this.getDonors().filter(d => d.id !== donorId);
+    this.saveDonors(donors);
+  },
+
   // --- Emergency Requests (Initially 0) ---
   getEmergencyRequests(): EmergencyRequest[] {
     if (typeof window === 'undefined') return [];
@@ -224,6 +229,7 @@ export const BloodStorage = {
 
 export const getDonors = () => BloodStorage.getDonors();
 export const saveDonors = (donors: Donor[]) => BloodStorage.saveDonors(donors);
+export const deleteDonor = (donorId: string) => BloodStorage.deleteDonor(donorId);
 export const getEmergencyRequests = () => BloodStorage.getEmergencyRequests();
 export const saveEmergencyRequests = (requests: EmergencyRequest[]) => BloodStorage.saveEmergencyRequests(requests);
 export const getInventory = () => BloodStorage.getInventory();

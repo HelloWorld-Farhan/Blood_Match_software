@@ -20,21 +20,29 @@ import {
   Activity,
   Layers,
   Settings as SettingsIcon,
-  Camera
+  Camera,
+  ArrowRight,
+  MapPin,
+  Sparkles,
+  Phone
 } from 'lucide-react';
 import { BloodDropsCanvas } from './BloodDropsCanvas';
 import { AmbientBackgroundVideo } from './AmbientBackgroundVideo';
 import { AvatarUploadModal } from './AvatarUploadModal';
 import { getDonors, getEmergencyRequests, getInventory } from '../services/storage';
-import { apiClient } from '../services/api';
+import { apiClient, fetchAlertsApi } from '../services/api';
+import { Donor } from '../types';
 
-interface NotificationItem {
+interface TransfusionAlertItem {
   id: string;
+  creator_email: string;
+  donor_id: string;
+  blood_type: string;
+  donor_name: string;
+  location: string;
   title: string;
-  desc: string;
-  time: string;
-  type: 'urgent' | 'donor' | 'inventory';
-  unread: boolean;
+  message: string;
+  created_at: string;
 }
 
 export default function Layout() {
@@ -102,7 +110,107 @@ export default function Layout() {
     };
   }, []);
 
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  // Transfusion Alerts state (Targeted alerts excluding current creator)
+  const [alerts, setAlerts] = useState<TransfusionAlertItem[]>([]);
+  const [readAlertIds, setReadAlertIds] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined' || !userEmail) return new Set();
+    try {
+      const raw = localStorage.getItem(`bloodmatch_read_alerts_${userEmail}`);
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Global Multi-Field Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Keyboard shortcut (⌘K or Ctrl+K) to focus search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        setSearchOpen(true);
+      }
+      if (e.key === 'Escape') {
+        setSearchOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Fetch Transfusion Alerts from Backend (Excluding creator's own registrations)
+  const loadAlerts = async () => {
+    try {
+      const res = await fetchAlertsApi(userEmail);
+      if (res.ok && Array.isArray(res.data)) {
+        setAlerts(res.data);
+      }
+    } catch (err) {
+      console.warn('[Layout] Alerts fetch fallback:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadAlerts();
+    // 8-second continuous cross-device background sync
+    const alertInterval = setInterval(loadAlerts, 8000);
+    const handleStorageChange = () => loadAlerts();
+    window.addEventListener('bloodmatch_alerts_updated', handleStorageChange);
+    window.addEventListener('bloodmatch_donors_updated', handleStorageChange);
+    return () => {
+      clearInterval(alertInterval);
+      window.removeEventListener('bloodmatch_alerts_updated', handleStorageChange);
+      window.removeEventListener('bloodmatch_donors_updated', handleStorageChange);
+    };
+  }, [userEmail]);
+
+  const markAlertAsRead = (id: string) => {
+    setReadAlertIds(prev => {
+      const next = new Set(prev).add(id);
+      if (userEmail) {
+        localStorage.setItem(`bloodmatch_read_alerts_${userEmail}`, JSON.stringify(Array.from(next)));
+      }
+      return next;
+    });
+  };
+
+  const markAllAlertsAsRead = () => {
+    const allIds = new Set(alerts.map(a => a.id));
+    setReadAlertIds(allIds);
+    if (userEmail) {
+      localStorage.setItem(`bloodmatch_read_alerts_${userEmail}`, JSON.stringify(Array.from(allIds)));
+    }
+  };
+
+  const unreadAlertsCount = alerts.filter(a => !readAlertIds.has(a.id)).length;
+
+  // Real-time Global Search results across all registered donors
+  const searchResults = React.useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return [];
+    const allDonors = getDonors();
+    return allDonors.filter(d => 
+      d.fullName.toLowerCase().includes(q) ||
+      d.bloodType.toLowerCase().includes(q) ||
+      d.city.toLowerCase().includes(q) ||
+      (d.location && d.location.toLowerCase().includes(q)) ||
+      d.phone.includes(q) ||
+      d.email.toLowerCase().includes(q) ||
+      d.id.toLowerCase().includes(q)
+    ).slice(0, 8);
+  }, [searchQuery]);
+
+  const handleSelectDonor = (donorId: string) => {
+    setSearchOpen(false);
+    setSearchQuery('');
+    navigate(`/dashboard/donors?highlight=${encodeURIComponent(donorId)}`);
+  };
 
   useEffect(() => {
     const updateStats = () => {
@@ -134,10 +242,26 @@ export default function Layout() {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setNotificationsOpen(false);
       }
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const formatRelativeTime = (isoString?: string) => {
+    if (!isoString) return 'Just now';
+    try {
+      const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
+      if (diff < 60) return 'Just now';
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      return `${Math.floor(diff / 86400)}d ago`;
+    } catch {
+      return 'Recent';
+    }
+  };
 
   // Close mobile sidebar on route change
   useEffect(() => {
@@ -480,17 +604,97 @@ export default function Layout() {
 
         {/* Topbar Search & Actions */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Global Search Bar (Hidden on Mobile) */}
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus-within:border-[#D72638] transition-colors w-56 lg:w-64">
-            <Search className="w-4 h-4 text-[#7A0C17]/60" />
-            <input
-              type="text"
-              placeholder="Search donor, group, case..."
-              className="w-full bg-transparent text-xs text-[#1A1D20] placeholder-slate-400 outline-hidden"
-            />
-            <span className="text-[10px] text-slate-500 font-mono px-1.5 py-0.5 rounded bg-white border border-[#D9C7C2]">
-              ⌘K
-            </span>
+          {/* Global Multi-Field Search Bar (Interactive Dropdown & Direct Donor Highlight) */}
+          <div className="relative" ref={searchRef}>
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus-within:border-[#D72638] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#D72638]/15 transition-all w-56 lg:w-72">
+              <Search className="w-4 h-4 text-[#7A0C17]/60 shrink-0" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setSearchOpen(true);
+                }}
+                onFocus={() => setSearchOpen(true)}
+                placeholder="Search donor, group, locality..."
+                className="w-full bg-transparent text-xs text-[#1A1D20] placeholder-slate-400 outline-hidden font-medium"
+              />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setSearchOpen(false);
+                  }}
+                  className="p-0.5 rounded text-slate-400 hover:text-[#1A1D20] cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              ) : (
+                <span className="text-[10px] text-slate-500 font-mono px-1.5 py-0.5 rounded bg-white border border-[#D9C7C2] shrink-0 select-none">
+                  ⌘K
+                </span>
+              )}
+            </div>
+
+            {/* Floating Live Search Dropdown */}
+            {searchOpen && searchQuery.trim().length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 w-72 lg:w-96 rounded-2xl bg-white shadow-2xl p-3 border border-[#D9C7C2] z-50 animate-slide-up text-[#1A1D20]">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#D9C7C2]/60 px-1">
+                  <span className="text-[10px] font-bold text-[#7A0C17] uppercase tracking-wider">
+                    Donor Directory Matches ({searchResults.length})
+                  </span>
+                  <span className="text-[10px] font-mono text-slate-400">Esc to close</span>
+                </div>
+
+                <div className="space-y-2 max-h-72 overflow-y-auto no-scrollbar">
+                  {searchResults.length === 0 ? (
+                    <div className="py-4 text-center text-xs text-[#5A626A]">
+                      <Search className="w-5 h-5 mx-auto mb-1 text-slate-300" />
+                      <p className="font-semibold text-[#1A1D20]">No donors match "{searchQuery}"</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Search by blood group (e.g. O-, A+), locality, or name</p>
+                    </div>
+                  ) : (
+                    searchResults.map((donor) => (
+                      <div
+                        key={donor.id}
+                        onClick={() => handleSelectDonor(donor.id)}
+                        className="p-2.5 rounded-xl bg-[#F5F1EF] hover:bg-red-50/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/50 transition-all cursor-pointer group flex items-center justify-between gap-3"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] text-white font-black text-xs flex flex-col items-center justify-center shrink-0 shadow-xs">
+                            <span className="text-[8px] font-bold text-red-200 uppercase leading-none">Type</span>
+                            <span className="leading-none mt-0.5">{donor.bloodType}</span>
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-xs font-bold text-[#1A1D20] truncate group-hover:text-[#D72638] transition-colors">
+                              {donor.fullName}
+                            </h4>
+                            <div className="text-[10px] text-[#5A626A] flex items-center gap-1 truncate mt-0.5">
+                              <MapPin className="w-3 h-3 text-[#D72638] shrink-0" />
+                              <span className="truncate">{donor.location || donor.city}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectDonor(donor.id);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-[#D72638] hover:bg-[#b51d2c] text-white text-[10px] font-bold shrink-0 transition-colors flex items-center gap-1 shadow-2xs"
+                        >
+                          <span>View</span>
+                          <ArrowRight className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Quick Emergency Broadcast */}
@@ -502,7 +706,7 @@ export default function Layout() {
             <span className="hidden sm:inline">Dispatch Request</span>
           </Link>
 
-          {/* Notifications Dropdown */}
+          {/* Notifications Dropdown with Animated Red Blinking Beacon */}
           <div className="relative" ref={notifRef}>
             <button
               onClick={() => setNotificationsOpen(!notificationsOpen)}
@@ -510,43 +714,99 @@ export default function Layout() {
               aria-label="View notifications"
             >
               <Bell className="w-4 h-4" />
-              {notifications.some(n => n.unread) && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#D72638]"></span>
+              {/* Red Color Blinking Notification Beacon (Animates whenever there are unread alerts) */}
+              {unreadAlertsCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D72638] opacity-80" />
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-[#D72638] border-2 border-white shadow-xs" />
+                </span>
               )}
             </button>
 
             {notificationsOpen && (
-              <div className="fixed sm:absolute top-16 sm:top-full left-4 sm:left-auto right-4 sm:right-0 mt-2 sm:w-80 rounded-2xl bg-white shadow-2xl p-4 border border-[#D9C7C2] z-50 animate-slide-up text-[#1A1D20]">
+              <div className="fixed sm:absolute top-16 sm:top-full left-4 sm:left-auto right-4 sm:right-0 mt-2 sm:w-88 rounded-2xl bg-white shadow-2xl p-4 border border-[#D9C7C2] z-50 animate-slide-up text-[#1A1D20]">
                 <div className="flex items-center justify-between pb-3 border-b border-[#D9C7C2]">
-                  <span className="text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
-                    Transfusion Alerts
-                  </span>
-                  {notifications.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-[#1A1D20] uppercase tracking-wider">
+                      Transfusion Alerts
+                    </span>
+                    {unreadAlertsCount > 0 && (
+                      <span className="px-2 py-0.5 rounded-full bg-[#D72638] text-white text-[10px] font-black">
+                        {unreadAlertsCount} New
+                      </span>
+                    )}
+                  </div>
+                  {alerts.length > 0 && (
                     <button
-                      onClick={() => setNotifications(prev => prev.map(n => ({ ...n, unread: false })))}
+                      onClick={markAllAlertsAsRead}
                       className="text-[11px] font-semibold text-[#D72638] hover:underline cursor-pointer"
                     >
                       Mark all read
                     </button>
                   )}
                 </div>
-                <div className="space-y-2.5 pt-3 max-h-64 overflow-y-auto no-scrollbar">
-                  {notifications.length === 0 ? (
+
+                <div className="space-y-2.5 pt-3 max-h-72 overflow-y-auto no-scrollbar">
+                  {alerts.length === 0 ? (
                     <div className="py-6 text-center text-xs text-[#5A626A]">
                       <Bell className="w-6 h-6 mx-auto mb-2 text-slate-300" />
                       <p className="font-bold text-[#1A1D20]">No alerts at this time</p>
                       <p className="text-[11px] mt-0.5 text-[#5A626A]">Transfusion queue clear</p>
                     </div>
                   ) : (
-                    notifications.map(n => (
-                      <div key={n.id} className="p-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]/70 text-xs">
-                        <div className="font-bold text-[#1A1D20] flex items-center justify-between">
-                          <span>{n.title}</span>
-                          <span className="text-[10px] text-slate-500 font-normal">{n.time}</span>
+                    alerts.map(a => {
+                      const isUnread = !readAlertIds.has(a.id);
+                      return (
+                        <div 
+                          key={a.id} 
+                          className={`p-3 rounded-xl border text-xs transition-all ${
+                            isUnread 
+                              ? 'bg-red-50/50 border-[#D72638]/40 shadow-xs' 
+                              : 'bg-[#F5F1EF] border-[#D9C7C2]/70'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-1.5 font-bold text-[#1A1D20]">
+                              {isUnread && (
+                                <span className="w-2 h-2 rounded-full bg-[#D72638] animate-pulse shrink-0" />
+                              )}
+                              <span>{a.title}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-500 font-mono shrink-0">
+                              {formatRelativeTime(a.created_at)}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                            <span className="px-2 py-0.5 rounded-md bg-[#D72638] text-white text-[10px] font-black">
+                              Type {a.blood_type}
+                            </span>
+                            <span className="px-2 py-0.5 rounded-md bg-white border border-[#D9C7C2] text-[10px] text-[#5A626A] font-semibold flex items-center gap-1">
+                              <MapPin className="w-2.5 h-2.5 text-[#D72638]" />
+                              <span>{a.location}</span>
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] text-[#4A5568] mt-1.5 leading-relaxed">
+                            {a.message}
+                          </p>
+
+                          {/* Direct Action Button to View Exact Donor Record with Highlighting */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              markAlertAsRead(a.id);
+                              setNotificationsOpen(false);
+                              navigate(`/dashboard/donors?highlight=${encodeURIComponent(a.donor_id)}`);
+                            }}
+                            className="mt-2.5 w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-[#D72638] hover:bg-[#b51d2c] active:scale-95 text-white font-bold text-[11px] shadow-xs transition-colors cursor-pointer"
+                          >
+                            <span>View Donor Record</span>
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
                         </div>
-                        <p className="text-[11px] text-[#4A5568] mt-1 leading-relaxed">{n.desc}</p>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>

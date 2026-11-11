@@ -241,3 +241,15 @@ export async function registerDonorApi(payload: {
 export async function fetchInventoryApi() {
   return apiClient.get<any[]>('/api/inventory');
 }
+
+export async function fetchAlertsApi(userEmail?: string) {
+  const endpoint = userEmail 
+    ? `/api/alerts?user_email=${encodeURIComponent(userEmail)}` 
+    : '/api/alerts';
+  return apiClient.get<any[]>(endpoint);
+}
+
+export async function deleteDonorApi(donorId: string, userEmail: string) {
+  const endpoint = `/api/donors/${encodeURIComponent(donorId)}?user_email=${encodeURIComponent(userEmail)}`;
+  return apiClient.delete<{ message: string; deleted_id: string }>(endpoint);
+}

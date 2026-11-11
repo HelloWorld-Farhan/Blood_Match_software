@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { BloodType, Donor } from '../types';
@@ -22,10 +23,11 @@ import {
   RefreshCw,
   Star,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Trash2
 } from 'lucide-react';
-import { getDonors, saveDonors } from '../services/storage';
-import { fetchDonorsApi, sendDonorOtpApi, registerDonorApi } from '../services/api';
+import { getDonors, saveDonors, deleteDonor as deleteDonorStorage } from '../services/storage';
+import { fetchDonorsApi, sendDonorOtpApi, registerDonorApi, deleteDonorApi } from '../services/api';
 import { COUNTRY_CODES, validatePhoneNumber, validateEmail } from '../utils/countryCodes';
 import { BLOOD_COMPATIBILITY_TABLE } from '../utils/bloodCompatibility';
 import { DrippingBloodBadge } from './DrippingBloodBadge';
@@ -67,10 +69,29 @@ const POPULAR_DELHI_LOCALITIES = [
 ];
 
 export default function DonorRegistry() {
+  const [searchParams] = useSearchParams();
+  const highlightParam = searchParams.get('highlight');
+  const [highlightedId, setHighlightedId] = useState<string | null>(highlightParam);
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+
   const [donors, setDonors] = useState<Donor[]>([]);
   const [search, setSearch] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<string>('ALL');
-  const [expandedDonorId, setExpandedDonorId] = useState<string | null>(null);
+  const [expandedDonorId, setExpandedDonorId] = useState<string | null>(highlightParam);
+
+  // Auto-scroll and highlight target donor when arriving via direct alert link or search
+  useEffect(() => {
+    if (highlightParam) {
+      setHighlightedId(highlightParam);
+      setExpandedDonorId(highlightParam);
+      setTimeout(() => {
+        const el = document.getElementById(`donor-card-${highlightParam}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 400);
+    }
+  }, [highlightParam, donors.length]);
 
   // Modal lifecycle states: FORM -> OTP -> SUCCESS
   const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
@@ -427,6 +448,29 @@ export default function DonorRegistry() {
     setIsOpenModal(false);
     setModalStep('FORM');
     setOtpDigits(['', '', '', '', '', '']);
+  };
+
+  // Owner-Only Donor Deletion Handler (Zero deletion notification dispatched)
+  const handleDeleteDonor = async (donorId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm('Are you sure you want to remove your voluntary blood donor pledge from the active registry? This will immediately update the blood bank reserve.')) {
+      return;
+    }
+
+    setIsDeletingId(donorId);
+    try {
+      if (currentUserEmail) {
+        await deleteDonorApi(donorId, currentUserEmail);
+      }
+      deleteDonorStorage(donorId);
+      setDonors(prev => prev.filter(d => d.id !== donorId));
+      if (expandedDonorId === donorId) setExpandedDonorId(null);
+      // Strictly: Zero deletion notification is dispatched
+    } catch (err) {
+      console.warn('[DonorRegistry] Failed to delete donor record:', err);
+    } finally {
+      setIsDeletingId(null);
+    }
   };
 
   // Filter donors by query and blood group
@@ -1182,47 +1226,78 @@ export default function DonorRegistry() {
    */
   function renderDonorCard(donor: Donor, isOwnPledge: boolean) {
     const isExpanded = expandedDonorId === donor.id;
+    const isTargeted = highlightedId === donor.id;
     const compatibility = BLOOD_COMPATIBILITY_TABLE[donor.bloodType];
 
     return (
       <motion.div
+        id={`donor-card-${donor.id}`}
         key={donor.id}
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
         whileHover={{ y: -2 }}
-        className={`rounded-2xl transition-all duration-200 overflow-hidden ${
-          isOwnPledge
+        className={`rounded-2xl transition-all duration-300 overflow-hidden ${
+          isTargeted
+            ? 'ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/25 scale-[1.01] bg-gradient-to-br from-white via-red-50/40 to-white'
+            : isOwnPledge
             ? 'bg-gradient-to-br from-white via-red-50/25 to-white border-2 border-[#D72638] shadow-md shadow-[#D72638]/10'
             : 'bg-white/95 border border-[#D9C7C2] shadow-sm hover:border-[#D72638]/50'
         }`}
       >
         {/* Card Header (Clickable for Dropdown Toggle) */}
         <div 
-          onClick={() => setExpandedDonorId(isExpanded ? null : donor.id)}
+          onClick={() => {
+            setExpandedDonorId(isExpanded ? null : donor.id);
+            if (isTargeted) setHighlightedId(null);
+          }}
           className="p-5 cursor-pointer select-none"
         >
           {/* Top Pill / Badge */}
           <div className="flex items-center justify-between gap-2 mb-3">
-            {isOwnPledge ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#D72638] text-white text-[10px] font-black uppercase tracking-wider shadow-2xs">
-                <Star className="w-3 h-3 fill-white" />
-                <span>Your Registered Pledge</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#F5F1EF] text-[#7A0C17] text-[10px] font-bold uppercase tracking-wider border border-[#D9C7C2]">
-                <Users className="w-3 h-3 text-[#D72638]" />
-                <span>Community Donor</span>
-              </span>
-            )}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {isTargeted && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D72638] text-white text-[10px] font-black uppercase tracking-wider animate-pulse shadow-xs">
+                  <Sparkles className="w-3 h-3" />
+                  <span>Targeted Record</span>
+                </span>
+              )}
+              {isOwnPledge ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#D72638] text-white text-[10px] font-black uppercase tracking-wider shadow-2xs">
+                  <Star className="w-3 h-3 fill-white" />
+                  <span>Your Registered Pledge</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#F5F1EF] text-[#7A0C17] text-[10px] font-bold uppercase tracking-wider border border-[#D9C7C2]">
+                  <Users className="w-3 h-3 text-[#D72638]" />
+                  <span>Community Donor</span>
+                </span>
+              )}
+            </div>
 
-            <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${
-              donor.isAvailable 
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
-                : 'bg-[#F5F1EF] text-slate-500 border-[#D9C7C2]'
-            }`}>
-              {donor.isAvailable ? '● Standby Ready' : 'Resting'}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${
+                donor.isAvailable 
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                  : 'bg-[#F5F1EF] text-slate-500 border-[#D9C7C2]'
+              }`}>
+                {donor.isAvailable ? '● Standby Ready' : 'Resting'}
+              </span>
+
+              {/* Owner-Only Delete Pledge Action */}
+              {isOwnPledge && (
+                <button
+                  type="button"
+                  onClick={(e) => handleDeleteDonor(donor.id, e)}
+                  disabled={isDeletingId === donor.id}
+                  className="px-2 py-0.5 rounded-lg bg-red-50 hover:bg-red-100 text-[#D72638] border border-red-200 text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                  title="Remove your blood donor pledge"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Delete</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Blood Type Badge & Primary Info */}
@@ -1353,7 +1428,7 @@ export default function DonorRegistry() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-2 pt-2 border-t border-[#D9C7C2]/40">
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#D9C7C2]/40">
                 <a
                   href={`tel:${donor.phone}`}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
@@ -1368,6 +1443,18 @@ export default function DonorRegistry() {
                   <Mail className="w-3 h-3 text-[#D72638]" />
                   <span>Send Alert</span>
                 </a>
+                {isOwnPledge && (
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteDonor(donor.id, e)}
+                    disabled={isDeletingId === donor.id}
+                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-[#D72638] border border-red-200 font-bold text-xs transition-colors cursor-pointer"
+                    title="Remove your blood donor pledge"
+                  >
+                    <Trash2 className="w-3 h-3 text-[#D72638]" />
+                    <span>Delete Pledge</span>
+                  </button>
+                )}
               </div>
             </motion.div>
           )}
