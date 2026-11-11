@@ -18,6 +18,7 @@ import {
   Check
 } from 'lucide-react';
 import { validateEmail, checkPasswordCriteria } from '../utils/countryCodes';
+import { apiClient } from '../services/api';
 
 interface ForgotPasswordModalProps {
   isOpen: boolean;
@@ -52,6 +53,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [confirmPasswordError, setConfirmPasswordError] = useState<string | null>(null);
+  const [resetSessionToken, setResetSessionToken] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -111,7 +113,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   if (!isOpen) return null;
 
   // Handle Step 1: Send OTP to Email
-  const handleSendOtp = (e: React.FormEvent) => {
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setEmailError(null);
 
@@ -122,14 +124,24 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     }
 
     setIsLoading(true);
-    setTimeout(() => {
+
+    try {
+      const res = await apiClient.post('/api/auth/password-reset/request', { email: email.trim() });
       setIsLoading(false);
+
+      if (!res.ok) {
+        setEmailError(res.error || 'Failed to dispatch reset code.');
+        return;
+      }
+
       setStep('OTP_VERIFICATION');
       setResendTimer(30);
       setCanResend(false);
-      // Pre-fill a demo OTP or focus first input
       setTimeout(() => otpInputRefs.current[0]?.focus(), 150);
-    }, 600);
+    } catch (err: any) {
+      setIsLoading(false);
+      setEmailError(err?.message || 'Connection failure.');
+    }
   };
 
   // Handle OTP digit entry
@@ -151,17 +163,26 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     }
   };
 
-  const handleResendOtp = () => {
+  const handleResendOtp = async () => {
     if (!canResend) return;
     setOtp(['', '', '', '', '', '']);
     setResendTimer(30);
     setCanResend(false);
     setOtpError(null);
     otpInputRefs.current[0]?.focus();
+
+    try {
+      const res = await apiClient.post('/api/auth/password-reset/request', { email: email.trim() });
+      if (!res.ok) {
+        setOtpError(res.error || 'Could not resend reset code.');
+      }
+    } catch {
+      // Ignored
+    }
   };
 
   // Handle Step 2: Verify OTP
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     const fullCode = otp.join('');
     if (fullCode.length < 6) {
@@ -170,14 +191,29 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     }
 
     setIsLoading(true);
-    setTimeout(() => {
+
+    try {
+      const res = await apiClient.post('/api/auth/password-reset/verify', {
+        email: email.trim(),
+        otp_code: fullCode
+      });
       setIsLoading(false);
+
+      if (!res.ok) {
+        setOtpError(res.error || 'Invalid or expired recovery code.');
+        return;
+      }
+
+      setResetSessionToken(res.data?.reset_session_token || '');
       setStep('NEW_PASSWORD');
-    }, 500);
+    } catch (err: any) {
+      setIsLoading(false);
+      setOtpError(err?.message || 'Verification connection failure.');
+    }
   };
 
   // Handle Step 3: Set New Password
-  const handleResetPassword = (e: React.FormEvent) => {
+  const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordError(null);
     setConfirmPasswordError(null);
@@ -200,11 +236,26 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     if (hasError) return;
 
     setIsLoading(true);
-    setTimeout(() => {
+
+    try {
+      const res = await apiClient.post('/api/auth/password-reset/confirm', {
+        email: email.trim(),
+        reset_session_token: resetSessionToken,
+        new_password: newPassword
+      });
       setIsLoading(false);
+
+      if (!res.ok) {
+        setPasswordError(res.error || 'Failed to update security password.');
+        return;
+      }
+
       setStep('SUCCESS');
       if (onSuccess) onSuccess();
-    }, 600);
+    } catch (err: any) {
+      setIsLoading(false);
+      setPasswordError(err?.message || 'Password update failure.');
+    }
   };
 
   return createPortal(

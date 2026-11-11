@@ -22,6 +22,7 @@ import {
 import { BloodDropsCanvas } from '../components/BloodDropsCanvas';
 import { AmbientBackgroundVideo } from '../components/AmbientBackgroundVideo';
 import { COUNTRY_CODES, validatePhoneNumber, validateEmail, checkPasswordCriteria } from '../utils/countryCodes';
+import { apiClient } from '../services/api';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -95,7 +96,7 @@ export default function Signup() {
     return () => clearInterval(interval);
   }, [step, resendTimer]);
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const errors: Record<string, string> = {};
@@ -136,14 +137,29 @@ export default function Signup() {
     setFormErrors({});
     setIsLoading(true);
 
-    // Transition to Email OTP Verification
-    setTimeout(() => {
+    try {
+      const res = await apiClient.post('/api/auth/register', {
+        full_name: name.trim(),
+        email: email.trim(),
+        phone: `${countryDialCode} ${phone.trim()}`,
+        password
+      });
+
       setIsLoading(false);
+
+      if (!res.ok) {
+        setFormErrors({ email: res.error || 'Registration failed. Please check your credentials.' });
+        return;
+      }
+
       setStep('OTP_VERIFY');
       setResendTimer(30);
       setCanResend(false);
       setTimeout(() => otpInputRefs.current[0]?.focus(), 150);
-    }, 450);
+    } catch (err: any) {
+      setIsLoading(false);
+      setFormErrors({ email: err?.message || 'Network connection failed during registration.' });
+    }
   };
 
   // OTP Handlers
@@ -165,16 +181,25 @@ export default function Signup() {
     }
   };
 
-  const handleResendOtp = () => {
+  const handleResendOtp = async () => {
     if (!canResend) return;
     setOtp(['', '', '', '', '', '']);
     setResendTimer(30);
     setCanResend(false);
     setOtpError(null);
     otpInputRefs.current[0]?.focus();
+
+    try {
+      const res = await apiClient.post('/api/auth/resend-otp', { email: email.trim() });
+      if (!res.ok) {
+        setOtpError(res.error || 'Could not resend OTP code.');
+      }
+    } catch {
+      // Handled silently
+    }
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     const fullCode = otp.join('');
     if (fullCode.length < 6) {
@@ -184,19 +209,37 @@ export default function Signup() {
 
     setIsLoading(true);
 
-    setTimeout(() => {
+    try {
+      const res = await apiClient.post('/api/auth/verify-otp', {
+        email: email.trim(),
+        otp_code: fullCode
+      });
+
+      setIsLoading(false);
+
+      if (!res.ok) {
+        setOtpError(res.error || 'Invalid or expired OTP token.');
+        return;
+      }
+
       const registeredName = name.trim();
       const registeredEmail = email.trim();
       const registeredPhone = `${countryDialCode} ${phone.trim()}`;
 
       sessionStorage.setItem('bloodmatch_auth', 'true');
+      if (res.data?.access_token) {
+        sessionStorage.setItem('bloodmatch_auth_token', res.data.access_token);
+      }
       sessionStorage.setItem('bloodmatch_user_email', registeredEmail);
       sessionStorage.setItem('bloodmatch_user_name', registeredName);
       sessionStorage.setItem('bloodmatch_user_phone', registeredPhone);
       sessionStorage.setItem('bloodmatch_user_facility', 'Verified Transfusion Member');
 
       navigate('/dashboard');
-    }, 400);
+    } catch (err: any) {
+      setIsLoading(false);
+      setOtpError(err?.message || 'Verification connection failed.');
+    }
   };
 
   return (

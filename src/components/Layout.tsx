@@ -44,10 +44,18 @@ export default function Layout() {
   const profileRef = useRef<HTMLDivElement | null>(null);
   const notifRef = useRef<HTMLDivElement | null>(null);
 
-  // User session details
-  const userName = sessionStorage.getItem('bloodmatch_user_name') || 'Dr. Farhan Khalid, MD';
-  const userEmail = sessionStorage.getItem('bloodmatch_user_email') || 'clinician@bloodmatch.org';
-  const userFacility = sessionStorage.getItem('bloodmatch_user_facility') || 'Metro Transfusion Cryo-Vault';
+  // Requirement: Guard against unauthenticated viewing with zero dummy logins
+  useEffect(() => {
+    const isAuth = sessionStorage.getItem('bloodmatch_auth') === 'true';
+    if (!isAuth) {
+      navigate('/login', { replace: true });
+    }
+  }, [navigate]);
+
+  // Authentic User session details (no fake fallback clinician identity)
+  const userName = sessionStorage.getItem('bloodmatch_user_name') || 'Authenticated Clinician';
+  const userEmail = sessionStorage.getItem('bloodmatch_user_email') || '';
+  const userFacility = sessionStorage.getItem('bloodmatch_user_facility') || 'Metro Transfusion Center';
 
   // Live counters for badges
   const [activeRequestsCount, setActiveRequestsCount] = useState(0);
@@ -105,8 +113,11 @@ export default function Layout() {
 
   const handleLogout = () => {
     sessionStorage.removeItem('bloodmatch_auth');
+    sessionStorage.removeItem('bloodmatch_auth_token');
     sessionStorage.removeItem('bloodmatch_user_name');
     sessionStorage.removeItem('bloodmatch_user_email');
+    sessionStorage.removeItem('bloodmatch_user_role');
+    sessionStorage.removeItem('bloodmatch_user_facility');
     navigate('/login');
   };
 

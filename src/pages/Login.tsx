@@ -9,21 +9,25 @@ import {
   EyeOff, 
   ArrowRight, 
   ShieldCheck, 
-  Activity, 
   Sparkles,
-  AlertCircle
+  AlertCircle,
+  KeyRound,
+  ArrowLeft
 } from 'lucide-react';
 import { BloodDropsCanvas } from '../components/BloodDropsCanvas';
 import { AmbientBackgroundVideo } from '../components/AmbientBackgroundVideo';
 import { validateEmail } from '../utils/countryCodes';
 import { ForgotPasswordModal } from '../components/ForgotPasswordModal';
+import { apiClient } from '../services/api';
 
-export const OFFICIAL_CLINICIAN_CREDENTIALS = {
-  email: 'clinician@bloodmatch.org',
-  password: 'Transfusion@2026#',
-  name: 'Dr. Farhan Khalid, MD',
-  role: 'Chief Hematologist & Transfusion Director',
-  facility: 'Metro Transfusion Center — Cryo-Vault 01',
+const getPersistentDeviceId = (): string => {
+  if (typeof window === 'undefined') return 'terminal-default';
+  let devId = localStorage.getItem('bloodmatch_client_device_id');
+  if (!devId) {
+    devId = 'dev-' + Math.random().toString(36).substring(2, 12);
+    localStorage.setItem('bloodmatch_client_device_id', devId);
+  }
+  return devId;
 };
 
 export default function Login() {
@@ -38,7 +42,13 @@ export default function Login() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
 
-  // Seamless instant auto-play video reference with hardware acceleration and zero decode stutter
+  // Two-Factor Authentication Step
+  const [step, setStep] = useState<'LOGIN' | 'TWO_FACTOR'>('LOGIN');
+  const [twoFactorOtp, setTwoFactorOtp] = useState(['', '', '', '', '', '']);
+  const [twoFactorError, setTwoFactorError] = useState<string | null>(null);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Seamless instant auto-play video reference
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -67,7 +77,7 @@ export default function Login() {
     };
   }, []);
 
-  const handleLogin = (e?: React.FormEvent) => {
+  const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setLoginError(null);
     setEmailError(null);
@@ -95,33 +105,111 @@ export default function Login() {
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      const userEmail = email.trim() || OFFICIAL_CLINICIAN_CREDENTIALS.email;
-      const userName = email.trim().split('@')[0] 
-        ? `Dr. ${email.trim().split('@')[0].toUpperCase()}` 
-        : OFFICIAL_CLINICIAN_CREDENTIALS.name;
+    try {
+      const deviceId = getPersistentDeviceId();
+      const res = await apiClient.post('/api/auth/login', {
+        email: email.trim(),
+        password,
+        device_id: deviceId,
+        device_name: `${navigator.platform || 'Workstation'} Browser`,
+        remember_device: rememberMe
+      });
 
-      sessionStorage.setItem('bloodmatch_auth', 'true');
-      sessionStorage.setItem('bloodmatch_user_email', userEmail);
-      sessionStorage.setItem('bloodmatch_user_name', userName);
-      sessionStorage.setItem('bloodmatch_user_facility', OFFICIAL_CLINICIAN_CREDENTIALS.facility);
+      setIsLoading(false);
 
-      navigate('/dashboard');
-    }, 350);
+      if (!res.ok) {
+        setLoginError(res.error || 'Authentication failed. Please verify credentials.');
+        return;
+      }
+
+      // Step-up 2FA requirement
+      if (res.data?.two_factor_required) {
+        setStep('TWO_FACTOR');
+        setTwoFactorOtp(['', '', '', '', '', '']);
+        setTimeout(() => otpInputRefs.current[0]?.focus(), 150);
+        return;
+      }
+
+      // Direct Authentication Success
+      if (res.data?.access_token) {
+        sessionStorage.setItem('bloodmatch_auth', 'true');
+        sessionStorage.setItem('bloodmatch_auth_token', res.data.access_token);
+        sessionStorage.setItem('bloodmatch_user_email', res.data.user?.email || email.trim());
+        sessionStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
+        sessionStorage.setItem('bloodmatch_user_role', res.data.user?.role || 'Clinician');
+        sessionStorage.setItem('bloodmatch_user_facility', 'Metro Transfusion Center');
+        navigate('/dashboard');
+      } else {
+        setLoginError('Authentication failed: Missing security token.');
+      }
+    } catch (err: any) {
+      setIsLoading(false);
+      setLoginError(err?.message || 'Connection failure. Please verify backend status.');
+    }
   };
 
-  const handleDemoLogin = () => {
-    setEmail(OFFICIAL_CLINICIAN_CREDENTIALS.email);
-    setPassword(OFFICIAL_CLINICIAN_CREDENTIALS.password);
+  const handleVerify2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setTwoFactorError(null);
+    const code = twoFactorOtp.join('');
+
+    if (code.length < 6) {
+      setTwoFactorError('Please enter the full 6-digit security code dispatched to your email.');
+      return;
+    }
+
     setIsLoading(true);
 
-    setTimeout(() => {
-      sessionStorage.setItem('bloodmatch_auth', 'true');
-      sessionStorage.setItem('bloodmatch_user_email', OFFICIAL_CLINICIAN_CREDENTIALS.email);
-      sessionStorage.setItem('bloodmatch_user_name', OFFICIAL_CLINICIAN_CREDENTIALS.name);
-      sessionStorage.setItem('bloodmatch_user_facility', OFFICIAL_CLINICIAN_CREDENTIALS.facility);
-      navigate('/dashboard');
-    }, 300);
+    try {
+      const deviceId = getPersistentDeviceId();
+      const res = await apiClient.post('/api/auth/2fa/verify', {
+        email: email.trim(),
+        otp_code: code,
+        device_id: deviceId,
+        device_name: `${navigator.platform || 'Workstation'} Browser`,
+        remember_device: rememberMe
+      });
+
+      setIsLoading(false);
+
+      if (!res.ok) {
+        setTwoFactorError(res.error || 'Invalid or expired two-factor code.');
+        return;
+      }
+
+      if (res.data?.access_token) {
+        sessionStorage.setItem('bloodmatch_auth', 'true');
+        sessionStorage.setItem('bloodmatch_auth_token', res.data.access_token);
+        sessionStorage.setItem('bloodmatch_user_email', res.data.user?.email || email.trim());
+        sessionStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
+        sessionStorage.setItem('bloodmatch_user_role', res.data.user?.role || 'Clinician');
+        sessionStorage.setItem('bloodmatch_user_facility', 'Metro Transfusion Center');
+        navigate('/dashboard');
+      } else {
+        setTwoFactorError('Two-factor verification failed to issue access token.');
+      }
+    } catch (err: any) {
+      setIsLoading(false);
+      setTwoFactorError(err?.message || 'Connection failure during 2FA verification.');
+    }
+  };
+
+  const handleOtpChange = (index: number, val: string) => {
+    if (twoFactorError) setTwoFactorError(null);
+    const cleanVal = val.replace(/\D/g, '').slice(-1);
+    const updated = [...twoFactorOtp];
+    updated[index] = cleanVal;
+    setTwoFactorOtp(updated);
+
+    if (cleanVal && index < 5) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !twoFactorOtp[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    }
   };
 
   return (
@@ -140,63 +228,54 @@ export default function Login() {
               <Droplet className="w-5 h-5 fill-current" />
             </div>
             <div>
-              <span className="font-bold text-xl tracking-tight text-[#1A1D20] block leading-tight">
+              <span className="text-lg font-black tracking-tight text-[#1A1D20] block leading-none">
                 Blood<span className="text-[#D72638]">Match</span>
               </span>
-              <span className="text-[10px] uppercase tracking-widest text-[#7A0C17] font-bold block">
-                Transfusion Network
+              <span className="text-[10px] text-[#5A626A] font-medium tracking-wider uppercase block mt-0.5">
+                Clinical Network
               </span>
             </div>
           </Link>
 
           <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-1.5 text-[#5A626A] text-xs font-medium bg-[#F5F1EF] px-3 py-1.5 rounded-full border border-[#D9C7C2]">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>AABB & HIPAA Compliant 256-Bit</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] border border-[#D72638]/30">
+            <div className="hidden sm:flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full bg-red-50 text-[#D72638] border border-red-200">
               <span className="w-2 h-2 rounded-full bg-[#D72638] animate-ping"></span>
-              <span>Emergency Dispatch Active</span>
+              <span>Direct API Connected</span>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Split-Screen Viewport */}
-      <main className="relative z-10 w-full flex-1 flex flex-col items-center justify-center p-3 sm:p-6 lg:p-8">
-        <div className="w-full max-w-6xl mx-auto py-2 sm:py-4">
-          <div className="relative w-full rounded-2xl overflow-hidden bg-white shadow-2xl border border-[#D9C7C2] flex flex-col lg:flex-row min-h-0 lg:min-h-[640px]">
-            
-            {/* LEFT PANEL: Login.mp4 Video Presentation with NO pause/mute icons */}
+      {/* Main Content Area */}
+      <main className="relative z-10 flex-1 flex items-center justify-center py-6 sm:py-10 px-4 sm:px-6 lg:px-8">
+        <div className="w-full max-w-5xl mx-auto">
+          <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-[#D9C7C2] shadow-xl overflow-hidden flex flex-col lg:flex-row">
+
+            {/* LEFT PANEL: Cinematic Video Presentation */}
             <motion.div 
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
-              className="w-full lg:w-1/2 relative bg-black/90 flex flex-col justify-between overflow-hidden p-5 sm:p-8 border-b lg:border-b-0 lg:border-r border-[#D9C7C2] min-h-[240px] sm:min-h-[320px] lg:min-h-full"
+              className="relative w-full lg:w-1/2 min-h-[300px] sm:min-h-[360px] lg:min-h-[580px] p-6 sm:p-8 lg:p-12 flex flex-col justify-between overflow-hidden bg-[#7A0C17]"
             >
-              {/* Responsive Video Container with Smooth Glitch-Free Loop */}
-              <div className="absolute inset-0 w-full h-full">
-                <video
-                  ref={videoRef}
-                  src="/Login.mp4#t=0.52"
-                  poster="/login_poster.jpg"
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  preload="auto"
-                  className="w-full h-full object-cover object-center pointer-events-none"
-                  style={{ transform: 'translateZ(0)' }}
-                />
-                {/* Crimson Gradient Film blending into user palette */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-[#7A0C17]/35 pointer-events-none"></div>
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_rgba(215,38,56,0.35)_0%,_transparent_60%)] pointer-events-none"></div>
-              </div>
+              <video
+                ref={videoRef}
+                src="/Login.mp4"
+                poster="/login_poster.jpg"
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+                className="absolute inset-0 w-full h-full object-cover z-0"
+              />
 
-              {/* Top Video Header (Clean, NO mute or pause buttons) */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/30 z-0 pointer-events-none" />
+
+              {/* Top Video Header */}
               <div className="relative z-10 flex items-center justify-between">
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-xs font-semibold text-white">
-                  <Activity className="w-3.5 h-3.5 text-[#D72638] animate-pulse" />
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-xs font-bold tracking-wide">
+                  <Droplet className="w-3.5 h-3.5 fill-current text-red-400" />
                   <span>Clinical Cross-Match Portal</span>
                 </div>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#7A0C17]/60 border border-[#D72638]/40 text-[11px] font-semibold text-white">
@@ -234,7 +313,7 @@ export default function Login() {
               </div>
             </motion.div>
 
-            {/* RIGHT PANEL: Clinician Sign In Form */}
+            {/* RIGHT PANEL: Clinician Sign In / 2FA Form */}
             <motion.div 
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -242,151 +321,223 @@ export default function Login() {
               className="w-full lg:w-1/2 flex flex-col justify-between p-5 sm:p-8 lg:p-12 xl:p-14 bg-white"
             >
               <div>
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h1 className="text-2xl sm:text-3xl font-black text-[#1A1D20] tracking-tight">
-                      Clinician Sign In
-                    </h1>
-                    <p className="text-xs sm:text-sm text-[#5A626A] mt-1">
-                      Enter credentials to manage emergency reserves and donors
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 rounded-2xl bg-[#7A0C17]/10 border border-[#D72638]/20 flex items-center justify-center text-[#D72638] shadow-inner">
-                    <Droplet className="w-6 h-6 fill-current animate-pulse-subtle" />
-                  </div>
-                </div>
+                {step === 'LOGIN' ? (
+                  <>
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h1 className="text-2xl sm:text-3xl font-black text-[#1A1D20] tracking-tight">
+                          Clinician Sign In
+                        </h1>
+                        <p className="text-xs sm:text-sm text-[#5A626A] mt-1">
+                          Enter authenticated credentials to manage reserves and donors
+                        </p>
+                      </div>
+                      <div className="w-12 h-12 rounded-2xl bg-[#7A0C17]/10 border border-[#D72638]/20 flex items-center justify-center text-[#D72638] shadow-inner">
+                        <Droplet className="w-6 h-6 fill-current animate-pulse-subtle" />
+                      </div>
+                    </div>
 
-                {loginError && (
-                  <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-[#D72638] text-xs flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#D72638]"></span>
-                    <span>{loginError}</span>
-                  </div>
+                    {loginError && (
+                      <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-[#D72638] text-xs flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-[#D72638] shrink-0"></span>
+                        <span>{loginError}</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleLogin} className="space-y-4">
+                      {/* Email */}
+                      <div>
+                        <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
+                          Clinician Work Email
+                        </label>
+                        <div className="relative group">
+                          <Mail className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                            emailError ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                          }`} />
+                          <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => {
+                              setEmail(e.target.value);
+                              if (emailError) setEmailError(null);
+                            }}
+                            placeholder="clinician@bloodmatch.io"
+                            className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                              emailError 
+                                ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                                : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
+                            }`}
+                          />
+                        </div>
+                        {emailError && (
+                          <motion.p
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-xs text-[#D72638] mt-1.5 flex items-center gap-1.5 font-semibold"
+                          >
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>{emailError}</span>
+                          </motion.p>
+                        )}
+                      </div>
+
+                      {/* Password */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
+                            Security Password
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setIsForgotModalOpen(true)}
+                            className="text-[11px] text-[#D72638] hover:underline cursor-pointer font-semibold"
+                          >
+                            Forgot Access?
+                          </button>
+                        </div>
+                        <div className="relative group">
+                          <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                            passwordError ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                          }`} />
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            value={password}
+                            onChange={(e) => {
+                              setPassword(e.target.value);
+                              if (passwordError) setPasswordError(null);
+                            }}
+                            placeholder="••••••••••••"
+                            className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                              passwordError 
+                                ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                                : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
+                            }`}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3.5 top-3 text-slate-400 hover:text-[#1A1D20] transition-colors"
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                        {passwordError && (
+                          <motion.p
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-xs text-[#D72638] mt-1.5 flex items-center gap-1.5 font-semibold"
+                          >
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span>{passwordError}</span>
+                          </motion.p>
+                        )}
+                      </div>
+
+                      {/* Remember Me */}
+                      <div className="flex items-center justify-between pt-1">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            className="w-4 h-4 rounded-sm border-[#D9C7C2] bg-[#F5F1EF] text-[#D72638] focus:ring-[#D72638] accent-[#D72638] cursor-pointer"
+                          />
+                          <span className="text-xs text-[#5A626A]">Remember this workstation (Skip 2FA)</span>
+                        </label>
+                      </div>
+
+                      {/* Primary Sign In Button */}
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full py-3 px-4 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-sm shadow-md shadow-[#D72638]/30 hover:shadow-[#D72638]/50 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 mt-2"
+                      >
+                        {isLoading ? (
+                          <>
+                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                            <span>Verifying Credentials...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Sign In to Transfusion Portal</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  </>
+                ) : (
+                  <>
+                    {/* 2FA Step-Up Screen */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => setStep('LOGIN')}
+                          className="inline-flex items-center gap-1.5 text-xs text-[#5A626A] hover:text-[#D72638] font-bold mb-2 cursor-pointer transition-colors"
+                        >
+                          <ArrowLeft className="w-3.5 h-3.5" />
+                          Back to Sign In
+                        </button>
+                        <h1 className="text-2xl sm:text-3xl font-black text-[#1A1D20] tracking-tight flex items-center gap-2">
+                          <KeyRound className="w-6 h-6 text-[#D72638]" />
+                          Two-Factor Check
+                        </h1>
+                        <p className="text-xs text-[#5A626A] mt-1">
+                          A 6-digit security OTP was dispatched to <strong className="text-[#1A1D20]">{email}</strong>
+                        </p>
+                      </div>
+                    </div>
+
+                    {twoFactorError && (
+                      <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-[#D72638] text-xs flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>{twoFactorError}</span>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleVerify2FA} className="space-y-5">
+                      <div>
+                        <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-2 text-center">
+                          Enter 6-Digit Verification Code
+                        </label>
+                        <div className="flex items-center justify-center gap-2 sm:gap-3">
+                          {twoFactorOtp.map((digit, idx) => (
+                            <input
+                              key={idx}
+                              ref={(el) => { otpInputRefs.current[idx] = el; }}
+                              type="text"
+                              inputMode="numeric"
+                              maxLength={1}
+                              value={digit}
+                              onChange={(e) => handleOtpChange(idx, e.target.value)}
+                              onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                              className="w-11 h-12 text-center text-lg font-bold rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white outline-hidden transition-all text-[#1A1D20]"
+                            />
+                          ))}
+                        </div>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full py-3 px-4 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-sm shadow-md shadow-[#D72638]/30 hover:shadow-[#D72638]/50 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75"
+                      >
+                        {isLoading ? (
+                          <>
+                            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                            <span>Validating Token...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Verify & Enter Dashboard</span>
+                            <ArrowRight className="w-4 h-4" />
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  </>
                 )}
-
-                <form onSubmit={handleLogin} className="space-y-4">
-                  {/* Email */}
-                  <div>
-                    <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
-                      Clinician Work Email
-                    </label>
-                    <div className="relative group">
-                      <Mail className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
-                        emailError ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
-                      }`} />
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => {
-                          setEmail(e.target.value);
-                          if (emailError) setEmailError(null);
-                        }}
-                        placeholder="doctor@bloodmatch.org"
-                        className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
-                          emailError 
-                            ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
-                            : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
-                        }`}
-                      />
-                    </div>
-                    {/* Error Below Field (Work 1) */}
-                    {emailError && (
-                      <motion.p
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-xs text-[#D72638] mt-1.5 flex items-center gap-1.5 font-semibold"
-                      >
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        <span>{emailError}</span>
-                      </motion.p>
-                    )}
-                  </div>
-
-                  {/* Password */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
-                        Security Password
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setIsForgotModalOpen(true)}
-                        className="text-[11px] text-[#D72638] hover:underline cursor-pointer font-semibold"
-                      >
-                        Forgot Access?
-                      </button>
-                    </div>
-                    <div className="relative group">
-                      <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
-                        passwordError ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
-                      }`} />
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        value={password}
-                        onChange={(e) => {
-                          setPassword(e.target.value);
-                          if (passwordError) setPasswordError(null);
-                        }}
-                        placeholder="••••••••••••"
-                        className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
-                          passwordError 
-                            ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
-                            : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
-                        }`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3.5 top-3 text-slate-400 hover:text-[#1A1D20] transition-colors"
-                      >
-                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    </div>
-                    {/* Error Below Field (Work 1) */}
-                    {passwordError && (
-                      <motion.p
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="text-xs text-[#D72638] mt-1.5 flex items-center gap-1.5 font-semibold"
-                      >
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        <span>{passwordError}</span>
-                      </motion.p>
-                    )}
-                  </div>
-
-                  {/* Remember Me */}
-                  <div className="flex items-center justify-between pt-1">
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        className="w-4 h-4 rounded-sm border-[#D9C7C2] bg-[#F5F1EF] text-[#D72638] focus:ring-[#D72638] accent-[#D72638] cursor-pointer"
-                      />
-                      <span className="text-xs text-[#5A626A]">Remember this terminal</span>
-                    </label>
-                    <span className="text-[11px] text-[#5A626A]">Session: 30 Days</span>
-                  </div>
-
-                  {/* Primary Sign In Button */}
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full py-3 px-4 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-sm shadow-md shadow-[#D72638]/30 hover:shadow-[#D72638]/50 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-75 mt-2"
-                  >
-                    {isLoading ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                        <span>Authenticating Clinician...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Sign In to Transfusion Portal</span>
-                        <ArrowRight className="w-4 h-4" />
-                      </>
-                    )}
-                  </button>
-                </form>
 
                 {/* Switch to Signup */}
                 <div className="text-center pt-5">
@@ -428,22 +579,10 @@ export default function Login() {
         <p>© 2026 BloodMatch Transfusion Network. Emergency Hotline: +1 (800) 555-BLOOD</p>
       </footer>
 
-      {/* Hidden browser preloader for 299518.mp4 to ensure 0-latency instant modal opening */}
-      <video
-        src="/299518.mp4"
-        poster="/299518_poster.jpg"
-        preload="auto"
-        muted
-        playsInline
-        className="hidden"
-        aria-hidden="true"
-      />
-
-      {/* Horizontal Forgot Password Recovery Modal with 299518.mp4 & Animated Blood Droplet */}
+      {/* Forgot Password Recovery Modal */}
       <ForgotPasswordModal
         isOpen={isForgotModalOpen}
         onClose={() => setIsForgotModalOpen(false)}
-        defaultEmail={email}
       />
     </div>
   );
