@@ -138,6 +138,14 @@ export default function Login() {
         sessionStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
         sessionStorage.setItem('bloodmatch_user_role', res.data.user?.role || 'Clinician');
         sessionStorage.setItem('bloodmatch_user_facility', 'Metro Transfusion Center');
+
+        // Requirement 4: Cross-Device Cloud Sync Hydration on Login
+        if (res.data.user?.photo_url) {
+          const cacheBusted = `${res.data.user.photo_url}?v=${Date.now()}`;
+          localStorage.setItem('bloodmatch_user_avatar', cacheBusted);
+          sessionStorage.setItem('bloodmatch_user_avatar', cacheBusted);
+        }
+
         navigate('/dashboard');
       } else {
         setLoginError('Authentication failed: Missing security token.');
@@ -184,6 +192,13 @@ export default function Login() {
         sessionStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
         sessionStorage.setItem('bloodmatch_user_role', res.data.user?.role || 'Clinician');
         sessionStorage.setItem('bloodmatch_user_facility', 'Metro Transfusion Center');
+
+        if (res.data.user?.photo_url) {
+          const cacheBusted = `${res.data.user.photo_url}?v=${Date.now()}`;
+          localStorage.setItem('bloodmatch_user_avatar', cacheBusted);
+          sessionStorage.setItem('bloodmatch_user_avatar', cacheBusted);
+        }
+
         navigate('/dashboard');
       } else {
         setTwoFactorError('Two-factor verification failed to issue access token.');

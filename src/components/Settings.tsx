@@ -29,6 +29,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { validateEmail, checkPasswordCriteria } from '../utils/countryCodes';
+import { AvatarUploadModal } from './AvatarUploadModal';
 
 const scrollBlurVariants: Variants = {
   hidden: { 
@@ -87,7 +88,23 @@ export default function Settings() {
   const [avatar, setAvatar] = useState<string | null>(
     () => localStorage.getItem('bloodmatch_user_avatar') || null
   );
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+
+  // Requirement 3: Instant Multi-Component Re-render (Zero Page Refresh)
+  useEffect(() => {
+    const handleAvatarUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const newUrl = customEvent.detail?.photoUrl;
+      setAvatar(newUrl || null);
+    };
+    window.addEventListener('user_avatar_updated', handleAvatarUpdate);
+    window.addEventListener('bloodmatch_profile_updated', () => {
+      setAvatar(localStorage.getItem('bloodmatch_user_avatar') || null);
+    });
+    return () => {
+      window.removeEventListener('user_avatar_updated', handleAvatarUpdate);
+    };
+  }, []);
 
   // Profile Form Feedback
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
@@ -493,7 +510,7 @@ export default function Settings() {
                 {/* Upload Action Overlay */}
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => setIsAvatarModalOpen(true)}
                   className="absolute bottom-1 right-1 p-2 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white shadow-md border border-white cursor-pointer active:scale-95 transition-all"
                   title="Upload Custom Image"
                 >
@@ -507,36 +524,27 @@ export default function Settings() {
                   Official Practitioner Portrait
                 </div>
                 <p className="text-xs text-[#5A626A] leading-relaxed max-w-md">
-                  Upload an official medical photo or institutional avatar. JPG, PNG, or WEBP under 4MB.
+                  Upload an official medical photo or institutional avatar. JPG, PNG, or WEBP under 10MB.
                 </p>
-
-                {/* Hidden File Input */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png, image/jpeg, image/webp"
-                  onChange={handleAvatarChange}
-                  className="hidden"
-                />
 
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => setIsAvatarModalOpen(true)}
                     className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-red-50 text-[#D72638] border border-[#D9C7C2] text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
                   >
                     <Camera className="w-3.5 h-3.5" />
-                    <span>Change Image</span>
+                    <span>Upload & Adjust Image</span>
                   </button>
 
                   {avatar && (
                     <button
                       type="button"
-                      onClick={handleRemoveAvatar}
+                      onClick={() => setIsAvatarModalOpen(true)}
                       className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-[#5A626A] border border-[#D9C7C2] text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5"
                     >
                       <Trash2 className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Reset to Initials</span>
+                      <span>Manage or Remove</span>
                     </button>
                   )}
                 </div>
@@ -1070,6 +1078,16 @@ export default function Settings() {
           </div>
         </motion.div>
       )}
+
+      {/* Universal Profile Picture Upload & Crop Modal */}
+      <AvatarUploadModal
+        isOpen={isAvatarModalOpen}
+        onClose={() => setIsAvatarModalOpen(false)}
+        currentAvatarUrl={avatar}
+        userEmail={email}
+        userName={name}
+        onAvatarUpdated={(newUrl) => setAvatar(newUrl)}
+      />
     </div>
   );
 }

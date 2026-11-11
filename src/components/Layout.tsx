@@ -19,11 +19,14 @@ import {
   PhoneCall,
   Activity,
   Layers,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  Camera
 } from 'lucide-react';
 import { BloodDropsCanvas } from './BloodDropsCanvas';
 import { AmbientBackgroundVideo } from './AmbientBackgroundVideo';
+import { AvatarUploadModal } from './AvatarUploadModal';
 import { getDonors, getEmergencyRequests, getInventory } from '../services/storage';
+import { apiClient } from '../services/api';
 
 interface NotificationItem {
   id: string;
@@ -66,13 +69,36 @@ export default function Layout() {
   const [avatar, setAvatar] = useState<string | null>(
     () => localStorage.getItem('bloodmatch_user_avatar') || null
   );
+  const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
+  // Requirement 4: Cross-Device Cloud Sync Hydration on initial mount
   useEffect(() => {
-    const handleProfileUpdate = () => {
-      setAvatar(localStorage.getItem('bloodmatch_user_avatar') || null);
+    if (userEmail) {
+      apiClient.get(`/api/v1/sync/all?user_email=${encodeURIComponent(userEmail)}`).then((res) => {
+        if (res.ok && res.data?.photoUrl) {
+          const photoUrl = `${res.data.photoUrl}?v=${Date.now()}`;
+          setAvatar(photoUrl);
+          localStorage.setItem('bloodmatch_user_avatar', photoUrl);
+          sessionStorage.setItem('bloodmatch_user_avatar', photoUrl);
+        }
+      }).catch(() => {});
+    }
+  }, [userEmail]);
+
+  // Requirement 3: Immediate "Apply Everywhere" UI Updates (Zero Page Refresh)
+  useEffect(() => {
+    const handleAvatarUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const newUrl = customEvent.detail?.photoUrl;
+      setAvatar(newUrl || null);
     };
-    window.addEventListener('bloodmatch_profile_updated', handleProfileUpdate);
-    return () => window.removeEventListener('bloodmatch_profile_updated', handleProfileUpdate);
+    window.addEventListener('user_avatar_updated', handleAvatarUpdate);
+    window.addEventListener('bloodmatch_profile_updated', () => {
+      setAvatar(localStorage.getItem('bloodmatch_user_avatar') || null);
+    });
+    return () => {
+      window.removeEventListener('user_avatar_updated', handleAvatarUpdate);
+    };
   }, []);
 
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -341,13 +367,21 @@ export default function Layout() {
         {/* Dedicated Clinician Profile Card */}
         <div className="p-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] space-y-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg overflow-hidden bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-xs font-bold shadow-2xs shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsAvatarModalOpen(true)}
+              className="relative group w-8 h-8 rounded-lg overflow-hidden bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-xs font-bold shadow-2xs shrink-0 cursor-pointer border border-[#D9C7C2] hover:border-[#D72638] transition-all"
+              title="Click to change profile picture"
+            >
               {avatar ? (
                 <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
               ) : (
                 <span>{userName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'FK'}</span>
               )}
-            </div>
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                <Camera className="w-3.5 h-3.5 text-white" />
+              </div>
+            </button>
             <div className="min-w-0 flex-1">
               <div className="text-xs font-bold text-[#1A1D20] truncate leading-tight">
                 {userName}
@@ -541,6 +575,18 @@ export default function Layout() {
                 </div>
 
                 <div className="pt-2 space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileOpen(false);
+                      setIsAvatarModalOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[#1A1D20] hover:bg-[#F5F1EF] transition-colors cursor-pointer text-left"
+                  >
+                    <Camera className="w-4 h-4 text-[#D72638]" />
+                    <span>Upload & Adjust Picture</span>
+                  </button>
+
                   <Link
                     to="/dashboard/settings"
                     onClick={() => setProfileOpen(false)}
@@ -589,6 +635,16 @@ export default function Layout() {
           </AnimatePresence>
         </main>
       </div>
+
+      {/* Universal Profile Picture Upload & Crop Modal */}
+      <AvatarUploadModal
+        isOpen={isAvatarModalOpen}
+        onClose={() => setIsAvatarModalOpen(false)}
+        currentAvatarUrl={avatar}
+        userEmail={userEmail}
+        userName={userName}
+        onAvatarUpdated={(url) => setAvatar(url)}
+      />
     </div>
   );
 }
