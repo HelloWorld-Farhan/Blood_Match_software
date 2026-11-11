@@ -29,6 +29,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { validateEmail, checkPasswordCriteria } from '../utils/countryCodes';
+import { apiClient } from '../services/api';
 import { AvatarUploadModal } from './AvatarUploadModal';
 
 const scrollBlurVariants: Variants = {
@@ -105,20 +106,59 @@ export default function Settings() {
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
   const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
 
-  // Password reset state
-  const [previousPassword, setPreviousPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPrevPassword, setShowPrevPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [passwordErrors, setPasswordErrors] = useState<Record<string, string>>({});
-  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  // Multi-Channel Password Reset Channel ('EMAIL_OTP' | 'PREVIOUS_PW' | 'SMS_OTP')
+  const [resetChannel, setResetChannel] = useState<'EMAIL_OTP' | 'PREVIOUS_PW' | 'SMS_OTP'>('EMAIL_OTP');
 
-  // Real-time password criteria
-  const passwordCriteria = useMemo(() => checkPasswordCriteria(newPassword), [newPassword]);
-  const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
+  // CHANNEL 1: Email OTP State
+  const [emailOtpStep, setEmailOtpStep] = useState<'PREVIEW' | 'OTP' | 'SET_NEW' | 'DONE'>('PREVIEW');
+  const [emailOtpDigits, setEmailOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
+  const [emailOtpError, setEmailOtpError] = useState<string | null>(null);
+  const [emailResetToken, setEmailResetToken] = useState<string>('');
+  const [emailOtpCountdown, setEmailOtpCountdown] = useState<number>(30);
+  const [emailOtpCanResend, setEmailOtpCanResend] = useState<boolean>(false);
+  const [isSendingEmailOtp, setIsSendingEmailOtp] = useState<boolean>(false);
+  const [isVerifyingEmailOtp, setIsVerifyingEmailOtp] = useState<boolean>(false);
+  const [isSubmittingEmailPw, setIsSubmittingEmailPw] = useState<boolean>(false);
+  const [emailNewPassword, setEmailNewPassword] = useState<string>('');
+  const [emailConfirmPassword, setEmailConfirmPassword] = useState<string>('');
+  const [showEmailNewPw, setShowEmailNewPw] = useState<boolean>(false);
+  const [showEmailConfirmPw, setShowEmailConfirmPw] = useState<boolean>(false);
+  const [emailPwErrors, setEmailPwErrors] = useState<Record<string, string>>({});
+  const emailOtpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Email OTP countdown timer
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (emailOtpStep === 'OTP' && emailOtpCountdown > 0) {
+      interval = setInterval(() => {
+        setEmailOtpCountdown((prev) => prev - 1);
+      }, 1000);
+    } else if (emailOtpCountdown === 0) {
+      setEmailOtpCanResend(true);
+    }
+    return () => clearInterval(interval);
+  }, [emailOtpStep, emailOtpCountdown]);
+
+  const emailPwCriteria = useMemo(() => checkPasswordCriteria(emailNewPassword), [emailNewPassword]);
+  const emailPwMatch = emailNewPassword.length > 0 && emailNewPassword === emailConfirmPassword;
+
+  // CHANNEL 2: Previous Password State
+  const [prevPwStep, setPrevPwStep] = useState<'VERIFY_CURRENT' | 'SET_NEW' | 'DONE'>('VERIFY_CURRENT');
+  const [previousPassword, setPreviousPassword] = useState('');
+  const [showPrevPassword, setShowPrevPassword] = useState(false);
+  const [isVerifyingCurrentPw, setIsVerifyingCurrentPw] = useState(false);
+  const [prevNewPassword, setPrevNewPassword] = useState('');
+  const [prevConfirmPassword, setPrevConfirmPassword] = useState('');
+  const [showPrevNewPw, setShowPrevNewPw] = useState(false);
+  const [showPrevConfirmPw, setShowPrevConfirmPw] = useState(false);
+  const [prevPwErrors, setPrevPwErrors] = useState<Record<string, string>>({});
+  const [isSubmittingPrevPw, setIsSubmittingPrevPw] = useState(false);
+
+  const prevPwCriteria = useMemo(() => checkPasswordCriteria(prevNewPassword), [prevNewPassword]);
+  const prevPwMatch = prevNewPassword.length > 0 && prevNewPassword === prevConfirmPassword;
+
+  // Unified global password feedback
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   // Dynamic Real Station Detection (Work 3: zero fake dummy sessions)
   const realDevice = useMemo(() => {
@@ -229,43 +269,190 @@ export default function Settings() {
     setTimeout(() => setProfileSuccess(null), 4000);
   };
 
-  // Handle Password Reset by Previous Password
-  const handleUpdatePassword = (e: React.FormEvent) => {
-    e.preventDefault();
-    setPasswordErrors({});
-    setPasswordSuccess(null);
+  // ==========================================
+  // CHANNEL 1: EMAIL OTP HANDLERS
+  // ==========================================
 
+  const handleSendEmailOtp = async () => {
+    setEmailOtpError(null);
+    setIsSendingEmailOtp(true);
+    try {
+      const res = await apiClient.post('/api/auth/password-reset/request', { email: email.trim() });
+      setIsSendingEmailOtp(false);
+      if (!res.ok) {
+        setEmailOtpError(res.error || 'Failed to dispatch verification code to your email.');
+        return;
+      }
+      setEmailOtpStep('OTP');
+      setEmailOtpCountdown(30);
+      setEmailOtpCanResend(false);
+      setTimeout(() => emailOtpInputRefs.current[0]?.focus(), 150);
+    } catch (err: any) {
+      setIsSendingEmailOtp(false);
+      setEmailOtpError(err?.message || 'Connection failure to authentication server.');
+    }
+  };
+
+  const handleEmailOtpChange = (index: number, val: string) => {
+    if (emailOtpError) setEmailOtpError(null);
+    const clean = val.replace(/\D/g, '').slice(-1);
+    const updated = [...emailOtpDigits];
+    updated[index] = clean;
+    setEmailOtpDigits(updated);
+    if (clean && index < 5) {
+      emailOtpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleEmailOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !emailOtpDigits[index] && index > 0) {
+      emailOtpInputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleVerifyEmailOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = emailOtpDigits.join('');
+    if (code.length < 6) {
+      setEmailOtpError('Please enter the complete 6-digit code sent to your email.');
+      return;
+    }
+    setIsVerifyingEmailOtp(true);
+    setEmailOtpError(null);
+    try {
+      const res = await apiClient.post('/api/auth/password-reset/verify', {
+        email: email.trim(),
+        otp_code: code,
+      });
+      setIsVerifyingEmailOtp(false);
+      if (!res.ok) {
+        setEmailOtpError(res.error || 'Invalid or expired verification code.');
+        return;
+      }
+      setEmailResetToken(res.data?.reset_token || res.data?.reset_session_token || '');
+      setEmailOtpStep('SET_NEW');
+    } catch (err: any) {
+      setIsVerifyingEmailOtp(false);
+      setEmailOtpError(err?.message || 'Verification connection failed.');
+    }
+  };
+
+  const handleConfirmEmailNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEmailPwErrors({});
     const errors: Record<string, string> = {};
 
-    if (!previousPassword.trim()) {
-      errors.previousPassword = 'Previous (current) security password is required to verify identity';
+    if (!emailPwCriteria.allValid) {
+      errors.emailNewPassword = 'New password must fulfill all 4 security criteria below';
     }
-
-    if (!passwordCriteria.allValid) {
-      errors.newPassword = 'New password must fulfill all 4 security criteria below';
-    }
-
-    if (!confirmPassword) {
-      errors.confirmPassword = 'Confirm your new password';
-    } else if (newPassword !== confirmPassword) {
-      errors.confirmPassword = 'Passwords do not match';
+    if (!emailConfirmPassword) {
+      errors.emailConfirmPassword = 'Confirm your new password';
+    } else if (emailNewPassword !== emailConfirmPassword) {
+      errors.emailConfirmPassword = 'Passwords do not match';
     }
 
     if (Object.keys(errors).length > 0) {
-      setPasswordErrors(errors);
+      setEmailPwErrors(errors);
       return;
     }
 
-    setIsUpdatingPassword(true);
+    setIsSubmittingEmailPw(true);
+    try {
+      const res = await apiClient.post('/api/auth/password-reset/confirm', {
+        email: email.trim(),
+        reset_token: emailResetToken,
+        reset_session_token: emailResetToken,
+        new_password: emailNewPassword,
+      });
+      setIsSubmittingEmailPw(false);
+      if (!res.ok) {
+        setEmailPwErrors({ emailNewPassword: res.error || 'Failed to update password.' });
+        return;
+      }
+      setEmailOtpStep('DONE');
+      setEmailNewPassword('');
+      setEmailConfirmPassword('');
+      setPasswordSuccess('Password successfully updated and previous credentials completely removed! A confirmation email with audit telemetry has been sent to your address.');
+      setTimeout(() => setPasswordSuccess(null), 8000);
+    } catch (err: any) {
+      setIsSubmittingEmailPw(false);
+      setEmailPwErrors({ emailNewPassword: err?.message || 'Password update failed.' });
+    }
+  };
 
-    setTimeout(() => {
-      setIsUpdatingPassword(false);
+  // ==========================================
+  // CHANNEL 2: PREVIOUS PASSWORD HANDLERS
+  // ==========================================
+
+  const handleVerifyCurrentPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPrevPwErrors({});
+    if (!previousPassword.trim()) {
+      setPrevPwErrors({ previousPassword: 'Enter your current security password to verify identity' });
+      return;
+    }
+    setIsVerifyingCurrentPw(true);
+    try {
+      const res = await apiClient.post('/api/auth/password-update/verify-current', {
+        email: email.trim(),
+        current_password: previousPassword,
+      });
+      setIsVerifyingCurrentPw(false);
+      if (!res.ok) {
+        setPrevPwErrors({ previousPassword: res.error || 'Previous (current) password is incorrect.' });
+        return;
+      }
+      setPrevPwStep('SET_NEW');
+    } catch (err: any) {
+      setIsVerifyingCurrentPw(false);
+      setPrevPwErrors({ previousPassword: err?.message || 'Verification connection failed.' });
+    }
+  };
+
+  const handleConfirmPreviousNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPrevPwErrors({});
+    const errors: Record<string, string> = {};
+
+    if (!prevPwCriteria.allValid) {
+      errors.prevNewPassword = 'New password must fulfill all 4 security criteria below';
+    }
+    if (prevNewPassword === previousPassword) {
+      errors.prevNewPassword = 'New password cannot be identical to your previous password. Please choose a different password.';
+    }
+    if (!prevConfirmPassword) {
+      errors.prevConfirmPassword = 'Confirm your new password';
+    } else if (prevNewPassword !== prevConfirmPassword) {
+      errors.prevConfirmPassword = 'Passwords do not match';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setPrevPwErrors(errors);
+      return;
+    }
+
+    setIsSubmittingPrevPw(true);
+    try {
+      const res = await apiClient.post('/api/auth/password-update/previous', {
+        email: email.trim(),
+        current_password: previousPassword,
+        new_password: prevNewPassword,
+      });
+      setIsSubmittingPrevPw(false);
+      if (!res.ok) {
+        setPrevPwErrors({ prevNewPassword: res.error || 'Failed to update security password.' });
+        return;
+      }
+      setPrevPwStep('DONE');
       setPreviousPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setPasswordSuccess('Security password updated successfully. 256-Bit authentication key regenerated.');
-      setTimeout(() => setPasswordSuccess(null), 5000);
-    }, 600);
+      setPrevNewPassword('');
+      setPrevConfirmPassword('');
+      setPasswordSuccess('Security password updated successfully and previous password removed. A confirmation email has been dispatched to your address.');
+      setTimeout(() => setPasswordSuccess(null), 8000);
+    } catch (err: any) {
+      setIsSubmittingPrevPw(false);
+      setPrevPwErrors({ prevNewPassword: err?.message || 'Password update failed.' });
+    }
   };
 
   // Handle Terminate Other Sessions
@@ -667,219 +854,763 @@ export default function Settings() {
             </motion.div>
           )}
 
-          {/* Section: Change Security Password by Previous Password */}
+          {/* Section: Multi-Channel Security Password Update Suite */}
           <div>
-            <div className="flex items-center justify-between mb-4 pb-2 border-b border-[#D9C7C2]/60">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-[#D9C7C2]/60">
               <div>
                 <h3 className="text-lg font-black text-[#1A1D20] tracking-tight">
                   Update Security Password
                 </h3>
                 <p className="text-xs text-[#5A626A] mt-0.5">
-                  Verify your current security password to authorize a credential update.
+                  Choose your preferred verification method to authorize and reset your clinical access credentials.
                 </p>
               </div>
-              <span className="text-[11px] font-mono font-bold text-[#D72638] flex items-center gap-1">
+
+              {/* Real-Time Security Strength Pill */}
+              <span className="text-[11px] font-mono font-bold text-[#D72638] flex items-center gap-1 shrink-0">
                 <Droplet className="w-3 h-3 fill-current animate-pulse" />
-                <span>{passwordCriteria.strengthPercent}% Validated</span>
+                <span>
+                  {resetChannel === 'EMAIL_OTP'
+                    ? `${emailPwCriteria.strengthPercent}% Validated`
+                    : `${prevPwCriteria.strengthPercent}% Validated`}
+                </span>
               </span>
             </div>
 
-            <form onSubmit={handleUpdatePassword} className="space-y-4 max-w-2xl">
-              {/* Previous Password */}
-              <div>
-                <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
-                  Previous (Current) Password
-                </label>
-                <div className="relative group">
-                  <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
-                    passwordErrors.previousPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
-                  }`} />
-                  <input
-                    type={showPrevPassword ? 'text' : 'password'}
-                    value={previousPassword}
-                    onChange={(e) => setPreviousPassword(e.target.value)}
-                    placeholder="Enter current terminal password"
-                    className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
-                      passwordErrors.previousPassword 
-                        ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
-                        : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPrevPassword(!showPrevPassword)}
-                    className="absolute right-3.5 top-3 text-slate-400 hover:text-[#1A1D20] transition-colors"
-                  >
-                    {showPrevPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
+            {/* 3-Channel Selection Pills */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-6">
+              {/* Channel 1: Email OTP */}
+              <button
+                type="button"
+                onClick={() => {
+                  setResetChannel('EMAIL_OTP');
+                  setEmailOtpStep('PREVIEW');
+                  setEmailOtpDigits(['', '', '', '', '', '']);
+                  setEmailOtpError(null);
+                  setEmailPwErrors({});
+                }}
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                  resetChannel === 'EMAIL_OTP'
+                    ? 'border-[#D72638] bg-red-50/50 shadow-xs ring-1 ring-[#D72638]/20'
+                    : 'border-[#D9C7C2] bg-white hover:border-[#D72638]/40'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                    resetChannel === 'EMAIL_OTP' ? 'bg-[#D72638] text-white shadow-xs' : 'bg-[#F5F1EF] text-[#5A626A]'
+                  }`}>
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-[#1A1D20] truncate">Email OTP</div>
+                    <div className="text-[10px] text-[#5A626A] truncate">Primary Channel</div>
+                  </div>
                 </div>
-                {passwordErrors.previousPassword && (
-                  <p className="text-xs text-[#D72638] mt-1 flex items-center gap-1 font-semibold">
-                    <AlertCircle className="w-3 h-3 shrink-0" />
-                    <span>{passwordErrors.previousPassword}</span>
-                  </p>
-                )}
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-black uppercase">
+                  Active
+                </span>
+              </button>
+
+              {/* Channel 2: Previous Password */}
+              <button
+                type="button"
+                onClick={() => {
+                  setResetChannel('PREVIOUS_PW');
+                  setPrevPwStep('VERIFY_CURRENT');
+                  setPreviousPassword('');
+                  setPrevNewPassword('');
+                  setPrevConfirmPassword('');
+                  setPrevPwErrors({});
+                }}
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                  resetChannel === 'PREVIOUS_PW'
+                    ? 'border-[#D72638] bg-red-50/50 shadow-xs ring-1 ring-[#D72638]/20'
+                    : 'border-[#D9C7C2] bg-white hover:border-[#D72638]/40'
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                    resetChannel === 'PREVIOUS_PW' ? 'bg-[#D72638] text-white shadow-xs' : 'bg-[#F5F1EF] text-[#5A626A]'
+                  }`}>
+                    <KeyRound className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-[#1A1D20] truncate">Previous Password</div>
+                    <div className="text-[10px] text-[#5A626A] truncate">Direct Re-Auth (No OTP)</div>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300 text-[9px] font-black uppercase">
+                  Ready
+                </span>
+              </button>
+
+              {/* Channel 3: SMS Mobile OTP (Coming Soon) */}
+              <div className="p-3 rounded-2xl border border-[#D9C7C2] bg-[#F5F1EF]/60 flex items-center justify-between opacity-75 cursor-not-allowed">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-slate-200 text-slate-500 flex items-center justify-center shrink-0">
+                    <Smartphone className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-slate-700 truncate">SMS Mobile OTP</div>
+                    <div className="text-[10px] text-slate-500 truncate">Cellular Carrier Relay</div>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black uppercase tracking-wider shrink-0">
+                  Coming Soon
+                </span>
               </div>
+            </div>
 
-              {/* New Password */}
-              <div>
-                <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
-                  New Security Password
-                </label>
-                <div className="relative group">
-                  <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
-                    passwordErrors.newPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
-                  }`} />
-                  <input
-                    type={showNewPassword ? 'text' : 'password'}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Min. 8 chars, 1 uppercase, 2 numbers, 1 symbol"
-                    className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
-                      passwordErrors.newPassword 
-                        ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
-                        : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    className="absolute right-3.5 top-3 text-slate-400 hover:text-[#1A1D20] transition-colors"
-                  >
-                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
+            {/* =================================================================
+                CHANNEL 1: EMAIL OTP WORKFLOW
+                ================================================================= */}
+            {resetChannel === 'EMAIL_OTP' && (
+              <div className="p-5 sm:p-6 rounded-2xl bg-[#F5F1EF] border border-[#D9C7C2] max-w-2xl space-y-4">
+                {/* STEP 1: READ-ONLY EMAIL PREVIEW & SEND OTP */}
+                {emailOtpStep === 'PREVIEW' && (
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
+                          Registered Account Email Address
+                        </label>
+                        <span className="text-[10px] text-slate-500 font-semibold flex items-center gap-1">
+                          <Lock className="w-3 h-3 text-slate-400" />
+                          <span>System Bound • Preview Only</span>
+                        </span>
+                      </div>
+                      <div className="relative group">
+                        <Mail className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
+                        <input
+                          type="email"
+                          value={email}
+                          readOnly
+                          disabled
+                          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-100 border border-[#D9C7C2] text-sm text-slate-700 font-semibold cursor-not-allowed select-all"
+                        />
+                      </div>
+                      <p className="text-[11px] text-[#5A626A] mt-1.5 leading-relaxed">
+                        A secure 6-digit one-time password (OTP) will be dispatched directly to your authenticated hospital work email above.
+                      </p>
+                    </div>
 
-                {/* Animated Liquid Blood Strength Bar */}
-                <div className="w-full bg-[#F5F1EF] border border-[#D9C7C2]/70 h-2 rounded-full overflow-hidden mt-1.5 relative">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${passwordCriteria.strengthPercent}%` }}
-                    transition={{ duration: 0.35, ease: 'easeOut' }}
-                    className={`h-full rounded-full transition-all duration-300 ${
-                      passwordCriteria.strengthPercent === 100
-                        ? 'bg-gradient-to-r from-[#D72638] to-emerald-500 shadow-[0_0_8px_rgba(215,38,56,0.5)]'
-                        : passwordCriteria.strengthPercent >= 50
-                        ? 'bg-gradient-to-r from-amber-500 to-[#D72638]'
-                        : 'bg-[#D72638]'
-                    }`}
-                  />
-                </div>
+                    {emailOtpError && (
+                      <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-[#D72638] text-xs flex items-center gap-2 font-semibold">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        <span>{emailOtpError}</span>
+                      </div>
+                    )}
 
-                {/* Criteria Chips */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-2">
-                  <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
-                    passwordCriteria.hasMinLength ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-[#F5F1EF] text-[#5A626A] border-[#D9C7C2]'
-                  }`}>
-                    {passwordCriteria.hasMinLength ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
-                    <span>8+ Chars</span>
-                  </span>
-
-                  <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
-                    passwordCriteria.hasUppercase ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-[#F5F1EF] text-[#5A626A] border-[#D9C7C2]'
-                  }`}>
-                    {passwordCriteria.hasUppercase ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
-                    <span>1 Big (A-Z)</span>
-                  </span>
-
-                  <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
-                    passwordCriteria.hasTwoNumbers ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-[#F5F1EF] text-[#5A626A] border-[#D9C7C2]'
-                  }`}>
-                    {passwordCriteria.hasTwoNumbers ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
-                    <span>2 Numbers</span>
-                  </span>
-
-                  <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
-                    passwordCriteria.hasSpecialChar ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-[#F5F1EF] text-[#5A626A] border-[#D9C7C2]'
-                  }`}>
-                    {passwordCriteria.hasSpecialChar ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
-                    <span>1 Symbol (!@#)</span>
-                  </span>
-                </div>
-
-                {passwordErrors.newPassword && (
-                  <p className="text-xs text-[#D72638] mt-1 flex items-center gap-1 font-semibold">
-                    <AlertCircle className="w-3 h-3 shrink-0" />
-                    <span>{passwordErrors.newPassword}</span>
-                  </p>
+                    <div>
+                      <button
+                        type="button"
+                        onClick={handleSendEmailOtp}
+                        disabled={isSendingEmailOtp}
+                        className="px-6 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-xs shadow-md shadow-[#D72638]/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-75 active:scale-95"
+                      >
+                        {isSendingEmailOtp ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Dispatching OTP Code...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="w-3.5 h-3.5" />
+                            <span>Send 6-Digit Verification Code</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 )}
-              </div>
 
-              {/* Confirm Password */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
-                    Confirm New Password
-                  </label>
-                  {confirmPassword && (
-                    <span className={`text-[11px] font-semibold flex items-center gap-1 ${
-                      passwordsMatch ? 'text-emerald-700' : 'text-[#D72638]'
-                    }`}>
-                      {passwordsMatch ? (
-                        <>
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          <span>Passwords Match</span>
-                        </>
-                      ) : (
-                        <>
-                          <AlertCircle className="w-3 h-3 text-[#D72638]" />
-                          <span>Does Not Match</span>
-                        </>
+                {/* STEP 2: ENTER & VERIFY 6-DIGIT EMAIL OTP */}
+                {emailOtpStep === 'OTP' && (
+                  <form onSubmit={handleVerifyEmailOtp} className="space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
+                          Enter 6-Digit Email Code
+                        </label>
+                        <span className="text-[11px] font-mono font-bold text-[#D72638]">
+                          {emailOtpCountdown > 0 ? `Expires in ${emailOtpCountdown}s` : 'Code Expired'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#5A626A] mb-3">
+                        We sent a 6-digit cryptographic verification code to <strong className="text-[#1A1D20]">{email}</strong>.
+                      </p>
+
+                      {/* 6-Box OTP Input Grid */}
+                      <div className="flex items-center gap-2 sm:gap-2.5">
+                        {emailOtpDigits.map((digit, idx) => (
+                          <input
+                            key={idx}
+                            ref={(el) => { emailOtpInputRefs.current[idx] = el; }}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={digit}
+                            onChange={(e) => handleEmailOtpChange(idx, e.target.value)}
+                            onKeyDown={(e) => handleEmailOtpKeyDown(idx, e)}
+                            className="w-10 h-12 sm:w-12 sm:h-14 text-center font-mono font-black text-lg sm:text-xl rounded-xl bg-white border border-[#D9C7C2] text-[#1A1D20] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 outline-hidden transition-all shadow-xs"
+                          />
+                        ))}
+                      </div>
+
+                      {emailOtpError && (
+                        <p className="text-xs text-[#D72638] mt-2 flex items-center gap-1 font-semibold">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{emailOtpError}</span>
+                        </p>
                       )}
-                    </span>
-                  )}
-                </div>
-                <div className="relative group">
-                  <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
-                    passwordErrors.confirmPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
-                  }`} />
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Re-enter new password"
-                    className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
-                      passwordErrors.confirmPassword 
-                        ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
-                        : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3.5 top-3 text-slate-400 hover:text-[#1A1D20] transition-colors"
-                  >
-                    {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {passwordErrors.confirmPassword && (
-                  <p className="text-xs text-[#D72638] mt-1 flex items-center gap-1 font-semibold">
-                    <AlertCircle className="w-3 h-3 shrink-0" />
-                    <span>{passwordErrors.confirmPassword}</span>
-                  </p>
+
+                      <div className="flex items-center justify-between pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEmailOtpStep('PREVIEW');
+                            setEmailOtpDigits(['', '', '', '', '', '']);
+                            setEmailOtpError(null);
+                          }}
+                          className="text-xs text-[#5A626A] hover:text-[#1A1D20] font-semibold underline cursor-pointer"
+                        >
+                          &larr; Resend to Different Method
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleSendEmailOtp}
+                          disabled={!emailOtpCanResend || isSendingEmailOtp}
+                          className="text-xs font-bold text-[#D72638] hover:underline disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                        >
+                          {isSendingEmailOtp ? 'Sending...' : 'Resend Code'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        disabled={isVerifyingEmailOtp || emailOtpDigits.join('').length < 6}
+                        className="px-6 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-xs shadow-md shadow-[#D72638]/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-75 active:scale-95"
+                      >
+                        {isVerifyingEmailOtp ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Verifying Code...</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Verify Code & Unlock Password Change</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* STEP 3: UNLOCKED NEW PASSWORD ENTRY (EMAIL OTP FLOW) */}
+                {emailOtpStep === 'SET_NEW' && (
+                  <form onSubmit={handleConfirmEmailNewPassword} className="space-y-4">
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2 font-semibold">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Email OTP Verified. You may now specify your new security password.</span>
+                    </div>
+
+                    {/* New Password */}
+                    <div>
+                      <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
+                        New Security Password
+                      </label>
+                      <div className="relative group">
+                        <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                          emailPwErrors.emailNewPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                        }`} />
+                        <input
+                          type={showEmailNewPw ? 'text' : 'password'}
+                          value={emailNewPassword}
+                          onChange={(e) => setEmailNewPassword(e.target.value)}
+                          placeholder="Min. 8 chars, 1 uppercase, 2 numbers, 1 symbol"
+                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                            emailPwErrors.emailNewPassword 
+                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                              : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowEmailNewPw(!showEmailNewPw)}
+                          className="absolute right-3.5 top-3 text-slate-400 hover:text-[#1A1D20] transition-colors"
+                        >
+                          {showEmailNewPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+
+                      {/* Liquid Blood Strength Bar */}
+                      <div className="w-full bg-[#E8DFDC] h-2 rounded-full overflow-hidden mt-1.5 relative">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${emailPwCriteria.strengthPercent}%` }}
+                          transition={{ duration: 0.35, ease: 'easeOut' }}
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            emailPwCriteria.strengthPercent === 100
+                              ? 'bg-gradient-to-r from-[#D72638] to-emerald-500 shadow-[0_0_8px_rgba(215,38,56,0.5)]'
+                              : emailPwCriteria.strengthPercent >= 50
+                              ? 'bg-gradient-to-r from-amber-500 to-[#D72638]'
+                              : 'bg-[#D72638]'
+                          }`}
+                        />
+                      </div>
+
+                      {/* Criteria Chips */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-2">
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
+                          emailPwCriteria.hasMinLength ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
+                        }`}>
+                          {emailPwCriteria.hasMinLength ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
+                          <span>8+ Chars</span>
+                        </span>
+
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
+                          emailPwCriteria.hasUppercase ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
+                        }`}>
+                          {emailPwCriteria.hasUppercase ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
+                          <span>1 Big (A-Z)</span>
+                        </span>
+
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
+                          emailPwCriteria.hasTwoNumbers ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
+                        }`}>
+                          {emailPwCriteria.hasTwoNumbers ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
+                          <span>2 Numbers</span>
+                        </span>
+
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
+                          emailPwCriteria.hasSpecialChar ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
+                        }`}>
+                          {emailPwCriteria.hasSpecialChar ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
+                          <span>1 Symbol (!@#)</span>
+                        </span>
+                      </div>
+
+                      {emailPwErrors.emailNewPassword && (
+                        <p className="text-xs text-[#D72638] mt-1 flex items-center gap-1 font-semibold">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          <span>{emailPwErrors.emailNewPassword}</span>
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Confirm Password */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
+                          Confirm New Password
+                        </label>
+                        {emailConfirmPassword && (
+                          <span className={`text-[11px] font-semibold flex items-center gap-1 ${
+                            emailPwMatch ? 'text-emerald-700' : 'text-[#D72638]'
+                          }`}>
+                            {emailPwMatch ? (
+                              <>
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>Passwords Match</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertCircle className="w-3 h-3 text-[#D72638]" />
+                                <span>Does Not Match</span>
+                              </>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                      <div className="relative group">
+                        <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                          emailPwErrors.emailConfirmPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                        }`} />
+                        <input
+                          type={showEmailConfirmPw ? 'text' : 'password'}
+                          value={emailConfirmPassword}
+                          onChange={(e) => setEmailConfirmPassword(e.target.value)}
+                          placeholder="Re-enter new password"
+                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                            emailPwErrors.emailConfirmPassword 
+                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                              : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowEmailConfirmPw(!showEmailConfirmPw)}
+                          className="absolute right-3.5 top-3 text-slate-400 hover:text-[#1A1D20] transition-colors"
+                        >
+                          {showEmailConfirmPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      {emailPwErrors.emailConfirmPassword && (
+                        <p className="text-xs text-[#D72638] mt-1 flex items-center gap-1 font-semibold">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          <span>{emailPwErrors.emailConfirmPassword}</span>
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        disabled={isSubmittingEmailPw}
+                        className="px-6 py-3 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-xs shadow-md shadow-[#D72638]/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-75 active:scale-95"
+                      >
+                        {isSubmittingEmailPw ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span>Saving & Invalidating Old Password...</span>
+                          </>
+                        ) : (
+                          <>
+                            <KeyRound className="w-4 h-4" />
+                            <span>Save New Password & Invalidate Old</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* STEP 4: SUCCESS CONFIRMATION */}
+                {emailOtpStep === 'DONE' && (
+                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-sm text-emerald-800">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                      <span>Security Credentials Successfully Updated!</span>
+                    </div>
+                    <p className="leading-relaxed">
+                      Your old password has been permanently discarded from active authentication. A cryptographic confirmation email with timestamp and terminal IP has been dispatched to <strong>{email}</strong>.
+                    </p>
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setEmailOtpStep('PREVIEW')}
+                        className="text-emerald-800 font-bold underline cursor-pointer hover:text-emerald-950"
+                      >
+                        Reset Another Time or Return
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
+            )}
 
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={isUpdatingPassword}
-                  className="px-6 py-3 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-xs shadow-md shadow-[#D72638]/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-75 active:scale-95"
-                >
-                  {isUpdatingPassword ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>Updating Credentials...</span>
-                    </>
-                  ) : (
-                    <>
-                      <KeyRound className="w-4 h-4" />
-                      <span>Update Security Password</span>
-                    </>
-                  )}
-                </button>
+            {/* =================================================================
+                CHANNEL 2: PREVIOUS (CURRENT) PASSWORD WORKFLOW
+                ================================================================= */}
+            {resetChannel === 'PREVIOUS_PW' && (
+              <div className="p-5 sm:p-6 rounded-2xl bg-[#F5F1EF] border border-[#D9C7C2] max-w-2xl space-y-4">
+                {/* Notice: No OTP required in this flow */}
+                <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 font-medium">
+                    <KeyRound className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>Direct Password Update: No email OTP required. Verify your current password to unlock.</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-blue-200 text-blue-900 font-bold text-[10px]">
+                    NO OTP
+                  </span>
+                </div>
+
+                {/* STEP 1: VERIFY CURRENT PASSWORD */}
+                {prevPwStep === 'VERIFY_CURRENT' && (
+                  <form onSubmit={handleVerifyCurrentPassword} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
+                        Previous (Current) Security Password
+                      </label>
+                      <div className="relative group">
+                        <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                          prevPwErrors.previousPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                        }`} />
+                        <input
+                          type={showPrevPassword ? 'text' : 'password'}
+                          value={previousPassword}
+                          onChange={(e) => setPreviousPassword(e.target.value)}
+                          placeholder="Enter your current terminal password"
+                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                            prevPwErrors.previousPassword 
+                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                              : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPrevPassword(!showPrevPassword)}
+                          className="absolute right-3.5 top-3 text-slate-400 hover:text-[#1A1D20] transition-colors"
+                        >
+                          {showPrevPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      {prevPwErrors.previousPassword && (
+                        <p className="text-xs text-[#D72638] mt-1.5 flex items-center gap-1 font-semibold">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{prevPwErrors.previousPassword}</span>
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <button
+                        type="submit"
+                        disabled={isVerifyingCurrentPw || !previousPassword.trim()}
+                        className="px-6 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-xs shadow-md shadow-[#D72638]/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-75 active:scale-95"
+                      >
+                        {isVerifyingCurrentPw ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>Verifying Current Password...</span>
+                          </>
+                        ) : (
+                          <>
+                            <ShieldCheck className="w-3.5 h-3.5" />
+                            <span>Verify Identity & Unlock New Password Fields</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* STEP 2: UNLOCKED NEW PASSWORD ENTRY (PREVIOUS PW FLOW) */}
+                {prevPwStep === 'SET_NEW' && (
+                  <form onSubmit={handleConfirmPreviousNewPassword} className="space-y-4">
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 font-semibold">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>Current Password Verified. Provide your new password below.</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPrevPwStep('VERIFY_CURRENT');
+                          setPreviousPassword('');
+                        }}
+                        className="text-[11px] text-emerald-900 underline font-bold cursor-pointer"
+                      >
+                        Re-enter
+                      </button>
+                    </div>
+
+                    {/* New Password */}
+                    <div>
+                      <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
+                        New Security Password
+                      </label>
+                      <div className="relative group">
+                        <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                          prevPwErrors.prevNewPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                        }`} />
+                        <input
+                          type={showPrevNewPw ? 'text' : 'password'}
+                          value={prevNewPassword}
+                          onChange={(e) => setPrevNewPassword(e.target.value)}
+                          placeholder="Min. 8 chars, 1 uppercase, 2 numbers, 1 symbol"
+                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                            prevPwErrors.prevNewPassword 
+                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                              : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPrevNewPw(!showPrevNewPw)}
+                          className="absolute right-3.5 top-3 text-slate-400 hover:text-[#1A1D20] transition-colors"
+                        >
+                          {showPrevNewPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+
+                      {/* Liquid Blood Strength Bar */}
+                      <div className="w-full bg-[#E8DFDC] h-2 rounded-full overflow-hidden mt-1.5 relative">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${prevPwCriteria.strengthPercent}%` }}
+                          transition={{ duration: 0.35, ease: 'easeOut' }}
+                          className={`h-full rounded-full transition-all duration-300 ${
+                            prevPwCriteria.strengthPercent === 100
+                              ? 'bg-gradient-to-r from-[#D72638] to-emerald-500 shadow-[0_0_8px_rgba(215,38,56,0.5)]'
+                              : prevPwCriteria.strengthPercent >= 50
+                              ? 'bg-gradient-to-r from-amber-500 to-[#D72638]'
+                              : 'bg-[#D72638]'
+                          }`}
+                        />
+                      </div>
+
+                      {/* Criteria Chips */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-2">
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
+                          prevPwCriteria.hasMinLength ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
+                        }`}>
+                          {prevPwCriteria.hasMinLength ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
+                          <span>8+ Chars</span>
+                        </span>
+
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
+                          prevPwCriteria.hasUppercase ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
+                        }`}>
+                          {prevPwCriteria.hasUppercase ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
+                          <span>1 Big (A-Z)</span>
+                        </span>
+
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
+                          prevPwCriteria.hasTwoNumbers ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
+                        }`}>
+                          {prevPwCriteria.hasTwoNumbers ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
+                          <span>2 Numbers</span>
+                        </span>
+
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
+                          prevPwCriteria.hasSpecialChar ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
+                        }`}>
+                          {prevPwCriteria.hasSpecialChar ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
+                          <span>1 Symbol (!@#)</span>
+                        </span>
+                      </div>
+
+                      {prevPwErrors.prevNewPassword && (
+                        <p className="text-xs text-[#D72638] mt-1.5 flex items-center gap-1 font-semibold">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>{prevPwErrors.prevNewPassword}</span>
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Confirm Password */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
+                          Confirm New Password
+                        </label>
+                        {prevConfirmPassword && (
+                          <span className={`text-[11px] font-semibold flex items-center gap-1 ${
+                            prevPwMatch ? 'text-emerald-700' : 'text-[#D72638]'
+                          }`}>
+                            {prevPwMatch ? (
+                              <>
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                <span>Passwords Match</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertCircle className="w-3 h-3 text-[#D72638]" />
+                                <span>Does Not Match</span>
+                              </>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                      <div className="relative group">
+                        <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                          prevPwErrors.prevConfirmPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                        }`} />
+                        <input
+                          type={showPrevConfirmPw ? 'text' : 'password'}
+                          value={prevConfirmPassword}
+                          onChange={(e) => setPrevConfirmPassword(e.target.value)}
+                          placeholder="Re-enter new password"
+                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                            prevPwErrors.prevConfirmPassword 
+                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                              : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPrevConfirmPw(!showPrevConfirmPw)}
+                          className="absolute right-3.5 top-3 text-slate-400 hover:text-[#1A1D20] transition-colors"
+                        >
+                          {showPrevConfirmPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      {prevPwErrors.prevConfirmPassword && (
+                        <p className="text-xs text-[#D72638] mt-1 flex items-center gap-1 font-semibold">
+                          <AlertCircle className="w-3 h-3 shrink-0" />
+                          <span>{prevPwErrors.prevConfirmPassword}</span>
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="pt-2">
+                      <button
+                        type="submit"
+                        disabled={isSubmittingPrevPw}
+                        className="px-6 py-3 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-xs shadow-md shadow-[#D72638]/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-75 active:scale-95"
+                      >
+                        {isSubmittingPrevPw ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            <span>Updating Credentials & Inactivating Old...</span>
+                          </>
+                        ) : (
+                          <>
+                            <KeyRound className="w-4 h-4" />
+                            <span>Save New Password & Discard Previous</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* STEP 3: SUCCESS CONFIRMATION */}
+                {prevPwStep === 'DONE' && (
+                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs space-y-2">
+                    <div className="flex items-center gap-2 font-bold text-sm text-emerald-800">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                      <span>Security Password Updated Successfully!</span>
+                    </div>
+                    <p className="leading-relaxed">
+                      Your previous password has been completely removed from active service. A security confirmation advisory has been dispatched to <strong>{email}</strong>.
+                    </p>
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setPrevPwStep('VERIFY_CURRENT')}
+                        className="text-emerald-800 font-bold underline cursor-pointer hover:text-emerald-950"
+                      >
+                        Return to Password Verification
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </form>
+            )}
+
+            {/* =================================================================
+                CHANNEL 3: SMS MOBILE OTP (COMING SOON)
+                ================================================================= */}
+            {resetChannel === 'SMS_OTP' && (
+              <div className="p-5 sm:p-6 rounded-2xl bg-[#F5F1EF] border border-[#D9C7C2] max-w-2xl space-y-3">
+                <div className="flex items-center gap-2">
+                  <Smartphone className="w-5 h-5 text-amber-600" />
+                  <h4 className="text-sm font-bold text-[#1A1D20]">SMS Mobile OTP Channel</h4>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black uppercase tracking-wider ml-auto">
+                    Coming Soon
+                  </span>
+                </div>
+                <p className="text-xs text-[#5A626A] leading-relaxed">
+                  Direct cellular carrier SMS gateway dispatch to verified mobile telephone <strong className="text-[#1A1D20]">{phone}</strong>. This multi-factor route is currently undergoing final AABB clinical telemetry and telecom compliance audit.
+                </p>
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setResetChannel('EMAIL_OTP')}
+                    className="px-4 py-2 rounded-xl bg-white hover:bg-red-50 text-[#D72638] border border-[#D9C7C2] text-xs font-bold cursor-pointer transition-colors"
+                  >
+                    Use Email OTP Verification Instead
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Section: Two-Factor Authorization Channels */}

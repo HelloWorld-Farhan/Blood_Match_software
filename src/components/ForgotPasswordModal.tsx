@@ -204,7 +204,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
         return;
       }
 
-      setResetSessionToken(res.data?.reset_session_token || '');
+      setResetSessionToken(res.data?.reset_token || res.data?.reset_session_token || '');
       setStep('NEW_PASSWORD');
     } catch (err: any) {
       setIsLoading(false);
@@ -240,6 +240,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     try {
       const res = await apiClient.post('/api/auth/password-reset/confirm', {
         email: email.trim(),
+        reset_token: resetSessionToken,
         reset_session_token: resetSessionToken,
         new_password: newPassword
       });
@@ -787,7 +788,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                   Access Credentials Restored!
                 </h3>
                 <p className="text-xs text-[#5A626A] max-w-sm mx-auto">
-                  Your clinical password has been securely updated. You can now authenticate and access emergency transfusion commands.
+                  Your clinical password has been securely updated. A confirmation email with audit telemetry has been dispatched to your registered address.
                 </p>
                 <button
                   type="button"
