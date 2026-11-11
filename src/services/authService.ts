@@ -163,14 +163,24 @@ export const authService = {
   },
 
   // --- Layer 3 & 12: Universal Profile Picture & Cloudflare R2 Sync ---
-  async uploadAvatar(file: Blob, email?: string): Promise<ApiResponse<{ photoUrl: string; message: string }>> {
+  async uploadAvatar(
+    file: Blob,
+    cropData?: { crop_x?: number; crop_y?: number; crop_width?: number; crop_height?: number },
+    email?: string
+  ): Promise<ApiResponse<{ photoUrl: string; message: string; s3_key?: string }>> {
     const userEmail = email || sessionStorage.getItem('bloodmatch_user_email') || '';
     const formData = new FormData();
     formData.append('file', file, 'avatar.webp');
     if (userEmail) {
       formData.append('user_email', userEmail);
     }
-    const res = await apiClient.post<{ photoUrl: string; message: string }>('/api/v1/auth/avatar', formData);
+    if (cropData) {
+      if (cropData.crop_x !== undefined) formData.append('crop_x', cropData.crop_x.toString());
+      if (cropData.crop_y !== undefined) formData.append('crop_y', cropData.crop_y.toString());
+      if (cropData.crop_width !== undefined) formData.append('crop_width', cropData.crop_width.toString());
+      if (cropData.crop_height !== undefined) formData.append('crop_height', cropData.crop_height.toString());
+    }
+    const res = await apiClient.post<{ photoUrl: string; message: string; s3_key?: string }>('/api/v1/storage/avatar', formData);
     if (res.ok && res.data?.photoUrl) {
       const cacheBusted = `${res.data.photoUrl}?v=${Date.now()}`;
       localStorage.setItem('bloodmatch_user_avatar', cacheBusted);
@@ -179,6 +189,36 @@ export const authService = {
       window.dispatchEvent(new Event('bloodmatch_profile_updated'));
     }
     return res;
+  },
+
+  async uploadScopedAsset(
+    file: Blob | File,
+    category: string = 'documents',
+    email?: string
+  ): Promise<ApiResponse<{ s3_key: string; public_url: string; category: string; size_bytes: number }>> {
+    const userEmail = email || sessionStorage.getItem('bloodmatch_user_email') || '';
+    const formData = new FormData();
+    formData.append('file', file, (file as File).name || 'asset.bin');
+    formData.append('category', category);
+    if (userEmail) {
+      formData.append('user_email', userEmail);
+    }
+    return apiClient.post<{ s3_key: string; public_url: string; category: string; size_bytes: number }>('/api/v1/storage/upload', formData);
+  },
+
+  async listScopedFiles(category?: string, email?: string): Promise<ApiResponse<Array<{ s3_key: string; public_url: string; size_bytes: number }>>> {
+    const userEmail = email || sessionStorage.getItem('bloodmatch_user_email') || '';
+    let url = '/api/v1/storage/files';
+    const params = new URLSearchParams();
+    if (category) params.append('category', category);
+    if (userEmail) params.append('user_email', userEmail);
+    const qs = params.toString();
+    if (qs) url += `?${qs}`;
+    return apiClient.get<Array<{ s3_key: string; public_url: string; size_bytes: number }>>(url);
+  },
+
+  async deleteScopedFile(s3Key: string): Promise<ApiResponse<{ success: boolean; deleted_key: string; message: string }>> {
+    return apiClient.delete<{ success: boolean; deleted_key: string; message: string }>(`/api/v1/storage/files?s3_key=${encodeURIComponent(s3Key)}`);
   },
 
   async removeAvatar(email?: string): Promise<ApiResponse<{ photoUrl: null; message: string }>> {
