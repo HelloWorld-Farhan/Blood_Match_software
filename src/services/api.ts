@@ -203,3 +203,37 @@ export const apiClient = {
     }
   }
 };
+
+/**
+ * Donor API Helpers for Cross-Device Global Synchronization
+ */
+export async function fetchDonorsApi(bloodType?: string, userEmail?: string) {
+  const params = new URLSearchParams();
+  if (bloodType && bloodType !== 'ALL') params.append('blood_type', bloodType);
+  if (userEmail) params.append('user_email', userEmail);
+  const endpoint = `/api/donors${params.toString() ? `?${params.toString()}` : ''}`;
+  return apiClient.get<any[]>(endpoint);
+}
+
+export async function sendDonorOtpApi(email: string, name: string) {
+  return apiClient.post<{ message: string; success: boolean; cooldown_seconds: number }>(
+    '/api/donors/send-otp',
+    { email, name }
+  );
+}
+
+export async function registerDonorApi(payload: {
+  name: string;
+  blood_type: string;
+  phone: string;
+  email: string;
+  city: string;
+  location?: string;
+  hospital?: string;
+  age?: number;
+  gender?: string;
+  user_email?: string;
+  otp_code?: string;
+}) {
+  return apiClient.post<any>('/api/donors', payload);
+}

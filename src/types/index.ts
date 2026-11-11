@@ -24,6 +24,9 @@ export interface Donor {
   email: string;
   city: string;
   state: string;
+  location?: string;
+  hospital?: string;
+  user_email?: string;
   lastDonationDate?: string;
   available?: boolean;
   isAvailable?: boolean;
