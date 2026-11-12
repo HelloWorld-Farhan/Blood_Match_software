@@ -48,6 +48,26 @@ export default function Login() {
   const [twoFactorError, setTwoFactorError] = useState<string | null>(null);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+  // Guard against browser Back button navigating back to logged out dashboard sessions
+  useEffect(() => {
+    const isAuth = sessionStorage.getItem('bloodmatch_auth') === 'true' || localStorage.getItem('bloodmatch_auth') === 'true';
+    if (isAuth) {
+      navigate('/dashboard', { replace: true });
+      return;
+    }
+
+    // Push state trap so pressing browser Back cannot return to previous protected views
+    window.history.pushState(null, '', window.location.href);
+    const handlePopState = () => {
+      const currentAuth = sessionStorage.getItem('bloodmatch_auth') === 'true' || localStorage.getItem('bloodmatch_auth') === 'true';
+      if (!currentAuth) {
+        window.history.pushState(null, '', window.location.href);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [navigate]);
+
   // Seamless synchronized video playback state
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);

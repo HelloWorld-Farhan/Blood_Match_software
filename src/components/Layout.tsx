@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation, Outlet, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet, Link, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Droplet, 
@@ -55,13 +55,28 @@ export default function Layout() {
   const profileRef = useRef<HTMLDivElement | null>(null);
   const notifRef = useRef<HTMLDivElement | null>(null);
 
+  // Synchronous Guard: Check authenticated state
+  const isAuth = typeof window !== 'undefined' && (
+    sessionStorage.getItem('bloodmatch_auth') === 'true' || 
+    localStorage.getItem('bloodmatch_auth') === 'true'
+  );
+
   // Requirement: Guard against unauthenticated viewing with zero dummy logins & rehydrate across tab closures
   useEffect(() => {
-    const isAuth = sessionStorage.getItem('bloodmatch_auth') === 'true' || localStorage.getItem('bloodmatch_auth') === 'true';
     if (!isAuth) {
-      navigate('/login', { replace: true });
+      window.location.replace('/login');
       return;
     }
+
+    // Intercept back-forward cache (bfcache) and popstate events immediately
+    const handleNavigationSecurity = (e?: Event) => {
+      const currentAuth = sessionStorage.getItem('bloodmatch_auth') === 'true' || localStorage.getItem('bloodmatch_auth') === 'true';
+      if (!currentAuth || (e && (e as any).persisted)) {
+        window.location.replace('/login');
+      }
+    };
+    window.addEventListener('pageshow', handleNavigationSecurity);
+    window.addEventListener('popstate', handleNavigationSecurity);
 
     // Rehydrate sessionStorage from localStorage if restoring after window/tab close
     const token = localStorage.getItem('bloodmatch_auth_token');
@@ -77,7 +92,12 @@ export default function Layout() {
       const avatar = localStorage.getItem('bloodmatch_user_avatar');
       if (avatar) sessionStorage.setItem('bloodmatch_user_avatar', avatar);
     }
-  }, [navigate]);
+
+    return () => {
+      window.removeEventListener('pageshow', handleNavigationSecurity);
+      window.removeEventListener('popstate', handleNavigationSecurity);
+    };
+  }, [isAuth]);
 
   // Authentic User session details (no fake fallback clinician identity)
   const rawUserName = sessionStorage.getItem('bloodmatch_user_name') || localStorage.getItem('bloodmatch_user_name') || 'Farhan Khalid';
@@ -310,20 +330,21 @@ export default function Layout() {
     };
   }, [sidebarOpen]);
 
-  const handleLogout = () => {
-    sessionStorage.removeItem('bloodmatch_auth');
-    sessionStorage.removeItem('bloodmatch_auth_token');
-    sessionStorage.removeItem('bloodmatch_user_name');
-    sessionStorage.removeItem('bloodmatch_user_email');
-    sessionStorage.removeItem('bloodmatch_user_role');
-    sessionStorage.removeItem('bloodmatch_user_facility');
-    sessionStorage.removeItem('bloodmatch_member_id');
+  const handleLogout = async () => {
+    try {
+      await apiClient.post('/api/auth/logout', {});
+    } catch {}
+    sessionStorage.clear();
     localStorage.removeItem('bloodmatch_auth');
     localStorage.removeItem('bloodmatch_auth_token');
     localStorage.removeItem('bloodmatch_user_name');
     localStorage.removeItem('bloodmatch_user_email');
+    localStorage.removeItem('bloodmatch_user_phone');
+    localStorage.removeItem('bloodmatch_user_role');
+    localStorage.removeItem('bloodmatch_user_facility');
     localStorage.removeItem('bloodmatch_member_id');
-    navigate('/login');
+    localStorage.removeItem('bloodmatch_user_avatar');
+    window.location.replace('/login');
   };
 
   const navItems = [
@@ -586,6 +607,10 @@ export default function Layout() {
       </div>
     </div>
   );
+
+  if (!isAuth) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <div className="relative h-screen max-h-screen bg-[#F5F1EF] font-sans text-[#1A1D20] flex flex-col overflow-hidden selection:bg-[#D72638] selection:text-white">
