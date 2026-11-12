@@ -43,6 +43,15 @@ export default function Login() {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isForgotModalOpen, setIsForgotModalOpen] = useState(false);
+  const [sessionNotice, setSessionNotice] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('reason') === 'terminated') {
+        return 'Your previous session was remotely terminated from another device. Please sign in with your password and 6-digit email OTP.';
+      }
+    }
+    return null;
+  });
 
   // Two-Factor Authentication Step
   const [step, setStep] = useState<'LOGIN' | 'TWO_FACTOR'>('LOGIN');
@@ -509,6 +518,13 @@ export default function Login() {
                         <ShieldCheck className="w-5 h-5" />
                       </div>
                     </div>
+
+                    {sessionNotice && (
+                      <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2 font-medium">
+                        <span className="w-2 h-2 rounded-full bg-amber-600 shrink-0"></span>
+                        <span>{sessionNotice}</span>
+                      </div>
+                    )}
 
                     {loginError && (
                       <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-[#D72638] text-xs flex items-center gap-2">

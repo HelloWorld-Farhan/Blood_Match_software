@@ -322,3 +322,15 @@ export async function emailEmergencyRosterApi(payload: {
 }) {
   return apiClient.post<{ message: string; success: boolean; has_attachment?: boolean }>('/api/emergency/email-roster', payload);
 }
+
+export async function fetchSessionsApi() {
+  return apiClient.get<any[]>('/api/sessions');
+}
+
+export async function revokeSessionApi(sessionId: string) {
+  return apiClient.delete<{ message: string; session_id: string; status: string }>(`/api/sessions/${encodeURIComponent(sessionId)}`);
+}
+
+export async function revokeOtherSessionsApi() {
+  return apiClient.delete<{ message: string; terminated_count: number }>('/api/sessions/others');
+}

@@ -31,7 +31,7 @@ import {
   X
 } from 'lucide-react';
 import { validateEmail, checkPasswordCriteria } from '../utils/countryCodes';
-import { apiClient } from '../services/api';
+import { apiClient, fetchSessionsApi, revokeSessionApi, revokeOtherSessionsApi } from '../services/api';
 import { AvatarUploadModal } from './AvatarUploadModal';
 import { DeleteAccountModal } from './DeleteAccountModal';
 
@@ -58,10 +58,14 @@ interface SessionItem {
   id: string;
   device: string;
   browser: string;
+  os?: string;
   location: string;
   ip: string;
   lastActive: string;
   isCurrent: boolean;
+  status: 'active' | 'revoked';
+  deviceId?: string;
+  createdAt?: string;
 }
 
 export default function Settings() {
@@ -277,19 +281,77 @@ export default function Settings() {
     }
   }, []);
 
-  // Active Sessions State: Only the real authentic session (zero dummy data)
+  // Active Sessions State: Surveillance of all devices
   const [sessions, setSessions] = useState<SessionItem[]>(() => [
     {
       id: 'sess-current',
       device: realDevice.dev,
       browser: realDevice.browser,
+      os: 'Windows 11',
       location: 'Metro Transfusion Center — Primary Terminal',
       ip: '192.168.1.104 (Encrypted LAN)',
       lastActive: 'Active Now (Current Terminal)',
       isCurrent: true,
+      status: 'active',
     },
   ]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [sessionTerminatedNotice, setSessionTerminatedNotice] = useState<string | null>(null);
+  const [sessionToTerminate, setSessionToTerminate] = useState<SessionItem | null>(null);
+  const [terminateInput, setTerminateInput] = useState('');
+  const [isTerminating, setIsTerminating] = useState(false);
+  const [terminateError, setTerminateError] = useState<string | null>(null);
+
+  // Load live multi-device sessions from backend
+  const loadSessions = async () => {
+    setIsLoadingSessions(true);
+    try {
+      const res = await fetchSessionsApi();
+      if (res.ok && Array.isArray(res.data) && res.data.length > 0) {
+        const mapped: SessionItem[] = res.data.map((item: any) => {
+          let formattedLastActive = 'Active Now (Current Terminal)';
+          if (!item.is_current) {
+            if (item.last_active) {
+              const d = new Date(item.last_active);
+              formattedLastActive = isNaN(d.getTime()) 
+                ? 'Recently' 
+                : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' at ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            } else {
+              formattedLastActive = 'Unknown';
+            }
+          }
+          return {
+            id: item.id,
+            device: item.device_name || item.device || 'Clinician Terminal',
+            browser: item.browser || 'Secure Browser',
+            os: item.os || 'Desktop OS',
+            location: item.location || 'Metro Transfusion Center',
+            ip: item.ip_address || '127.0.0.1',
+            lastActive: formattedLastActive,
+            isCurrent: Boolean(item.is_current),
+            status: item.status || 'active',
+            deviceId: item.device_id,
+            createdAt: item.created_at,
+          };
+        });
+        setSessions(mapped);
+      }
+    } catch (err) {
+      console.warn('Failed to fetch sessions:', err);
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSessions();
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'SESSIONS') {
+      loadSessions();
+    }
+  }, [activeTab]);
 
   // Handle Avatar Image File Upload
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -577,11 +639,53 @@ export default function Settings() {
     }
   };
 
+  // Open Terminate Session Confirmation Modal
+  const handleOpenTerminateModal = (sess: SessionItem) => {
+    setSessionToTerminate(sess);
+    setTerminateInput('');
+    setTerminateError(null);
+  };
+
+  // Confirm and Execute Session Termination (with 'Terminate' keyword validation)
+  const handleConfirmTerminate = async () => {
+    if (!sessionToTerminate) return;
+    if (terminateInput.trim().toLowerCase() !== 'terminate') {
+      setTerminateError('Please type "Terminate" exactly to confirm.');
+      return;
+    }
+    setIsTerminating(true);
+    setTerminateError(null);
+    try {
+      const res = await revokeSessionApi(sessionToTerminate.id);
+      if (res.ok) {
+        setSessionTerminatedNotice(`Session for ${sessionToTerminate.device} has been terminated and device trust revoked.`);
+        setTimeout(() => setSessionTerminatedNotice(null), 5000);
+        setSessionToTerminate(null);
+        await loadSessions();
+      } else {
+        setTerminateError(res.error || 'Failed to terminate session.');
+      }
+    } catch (err: any) {
+      setTerminateError(err?.message || 'Connection failure while terminating session.');
+    } finally {
+      setIsTerminating(false);
+    }
+  };
+
   // Handle Terminate Other Sessions
-  const handleTerminateOtherSessions = () => {
-    setSessions(prev => prev.filter(s => s.isCurrent));
-    setSessionTerminatedNotice('All other remote terminals and ward iPads have been disconnected.');
-    setTimeout(() => setSessionTerminatedNotice(null), 4000);
+  const handleTerminateOtherSessions = async () => {
+    try {
+      const res = await revokeOtherSessionsApi();
+      if (res.ok) {
+        setSessionTerminatedNotice('All other remote device sessions have been terminated and device trust revoked.');
+        setTimeout(() => setSessionTerminatedNotice(null), 5000);
+        await loadSessions();
+      } else {
+        setSessions(prev => prev.filter(s => s.isCurrent));
+      }
+    } catch {
+      setSessions(prev => prev.filter(s => s.isCurrent));
+    }
   };
 
   return (
@@ -700,9 +804,9 @@ export default function Settings() {
               <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]">
                 <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Active Sessions</span>
                 <span className="text-sm font-black text-[#1A1D20] mt-0.5 block truncate font-mono">
-                  {sessions.length} Terminals
+                  {sessions.filter(s => s.status === 'active').length} Terminals
                 </span>
-                <span className="text-[10px] text-[#5A626A] mt-0.5 block">1 Local • {sessions.length - 1} Remote</span>
+                <span className="text-[10px] text-[#5A626A] mt-0.5 block">1 Local • {Math.max(0, sessions.filter(s => s.status === 'active' && !s.isCurrent).length)} Remote</span>
               </div>
             </div>
 
@@ -761,7 +865,7 @@ export default function Settings() {
           }`}
         >
           <Monitor className="w-3.5 h-3.5" />
-          <span>Active Sessions ({sessions.length})</span>
+          <span>Active Sessions ({sessions.filter(s => s.status === 'active').length})</span>
         </button>
       </motion.div>
 
@@ -1903,9 +2007,82 @@ export default function Settings() {
               </div>
             )}
 
-            {/* Center Email OTP Cryptographic Video Telemetry Showcase */}
-            <div className="relative rounded-2xl overflow-hidden border border-[#D9C7C2] bg-black shadow-xs mb-5 group">
-              <div className="relative aspect-16/7 sm:aspect-21/8 w-full overflow-hidden">
+            {/* Balanced Two-Column 2FA Architecture: Left Channels, Right Sized Video */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch mb-5">
+              {/* Left Column: 2FA Authentication Channels */}
+              <div className="flex flex-col gap-4 justify-between">
+                {/* Channel 1: Email OTP */}
+                <div className={`p-4 rounded-2xl transition-all duration-200 flex items-start justify-between gap-3 ${
+                  is2FAEnabled 
+                    ? 'border-2 border-[#D72638] bg-red-50/40 shadow-xs' 
+                    : 'border border-[#D9C7C2] bg-slate-50/70 opacity-60'
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs transition-colors ${
+                      is2FAEnabled ? 'bg-[#D72638] text-white' : 'bg-slate-200 text-slate-400'
+                    }`}>
+                      <Mail className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`text-sm font-bold ${is2FAEnabled ? 'text-[#1A1D20]' : 'text-slate-500'}`}>
+                          Email OTP Verification
+                        </span>
+                        {is2FAEnabled ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold flex items-center gap-1">
+                            <Check className="w-3 h-3 text-emerald-700" />
+                            <span>Enforced & Ticked</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 border border-slate-300 text-[10px] font-bold">
+                            Disabled
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
+                        {is2FAEnabled ? (
+                          <>Instant 6-digit cryptographic codes sent to your registered email (<strong>{email}</strong>) on every login and sensitive operation.</>
+                        ) : (
+                          <>Channel is inactive because 2FA is turned OFF. Turn on the master switch above to activate.</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  {is2FAEnabled ? (
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0 mt-1" />
+                  ) : (
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0 mt-1" />
+                  )}
+                </div>
+
+                {/* Channel 2: SMS Mobile OTP */}
+                <div className="p-4 rounded-2xl border border-[#D9C7C2] bg-[#F5F1EF]/60 flex items-start justify-between gap-3 opacity-60 cursor-not-allowed">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-400 flex items-center justify-center shrink-0">
+                      <Smartphone className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-slate-600">SMS Mobile OTP</span>
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black uppercase tracking-wider">
+                          Coming Soon
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
+                        {is2FAEnabled ? (
+                          <>Direct carrier SMS gateway dispatch to verified mobile ({phone}). Currently under AABB carrier compliance review.</>
+                        ) : (
+                          <>Channel is inactive because 2FA is turned OFF.</>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0 mt-1" />
+                </div>
+              </div>
+
+              {/* Right Column: Properly Sized & Aligned Video Telemetry Showcase */}
+              <div className="relative rounded-2xl overflow-hidden border border-[#D9C7C2] bg-black shadow-xs group min-h-[200px] flex flex-col justify-between">
                 <video
                   src="/287987.mp4"
                   autoPlay
@@ -1913,29 +2090,29 @@ export default function Settings() {
                   muted
                   playsInline
                   preload="auto"
-                  className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                  className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/20 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/25 pointer-events-none" />
                 
                 {/* Top Badge Overlay */}
-                <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
+                <div className="relative top-0 left-0 right-0 p-3 sm:p-4 flex items-center justify-between z-10">
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-[11px] font-bold">
                     <Mail className="w-3.5 h-3.5 text-red-400" />
-                    <span>Email OTP Authorization Relay</span>
+                    <span>Email OTP Challenge</span>
                   </div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#7A0C17]/70 backdrop-blur-md border border-[#D72638]/40 text-[10px] font-bold text-white">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#7A0C17]/80 backdrop-blur-md border border-[#D72638]/40 text-[10px] font-bold text-white">
                     <span className={`w-1.5 h-1.5 rounded-full ${is2FAEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
                     <span>{is2FAEnabled ? '2FA Enforced' : 'Standby Mode'}</span>
                   </div>
                 </div>
 
                 {/* Bottom Video Telemetry Details */}
-                <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between z-10 text-white">
+                <div className="relative bottom-0 left-0 right-0 p-3 sm:p-4 flex items-end justify-between z-10 text-white mt-auto">
                   <div>
                     <h4 className="text-xs sm:text-sm font-extrabold leading-tight">
                       Automated 6-Digit Email Challenge
                     </h4>
-                    <p className="text-[11px] text-slate-200 mt-0.5 max-w-md hidden sm:block font-light">
+                    <p className="text-[11px] text-slate-200 mt-0.5 max-w-xs font-light hidden sm:block">
                       Cryptographic one-time passcode verification required for unauthenticated sessions and high-priority dispatches.
                     </p>
                   </div>
@@ -1945,77 +2122,6 @@ export default function Settings() {
                     </span>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Channel 1: Email OTP */}
-              <div className={`p-4 rounded-2xl transition-all duration-200 flex items-start justify-between gap-3 ${
-                is2FAEnabled 
-                  ? 'border-2 border-[#D72638] bg-red-50/40 shadow-xs' 
-                  : 'border border-[#D9C7C2] bg-slate-50/70 opacity-60'
-              }`}>
-                <div className="flex items-start gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs transition-colors ${
-                    is2FAEnabled ? 'bg-[#D72638] text-white' : 'bg-slate-200 text-slate-400'
-                  }`}>
-                    <Mail className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-sm font-bold ${is2FAEnabled ? 'text-[#1A1D20]' : 'text-slate-500'}`}>
-                        Email OTP Verification
-                      </span>
-                      {is2FAEnabled ? (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold flex items-center gap-1">
-                          <Check className="w-3 h-3 text-emerald-700" />
-                          <span>Enforced & Ticked</span>
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 border border-slate-300 text-[10px] font-bold">
-                          Disabled
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
-                      {is2FAEnabled ? (
-                        <>Instant 6-digit cryptographic codes sent to your registered email (<strong>{email}</strong>) on every login and sensitive operation.</>
-                      ) : (
-                        <>Channel is inactive because 2FA is turned OFF. Turn on the master switch above to activate.</>
-                      )}
-                    </p>
-                  </div>
-                </div>
-                {is2FAEnabled ? (
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0 mt-1" />
-                ) : (
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0 mt-1" />
-                )}
-              </div>
-
-              {/* Channel 2: SMS Mobile OTP */}
-              <div className="p-4 rounded-2xl border border-[#D9C7C2] bg-[#F5F1EF]/60 flex items-start justify-between gap-3 opacity-60 cursor-not-allowed">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-400 flex items-center justify-center shrink-0">
-                    <Smartphone className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-600">SMS Mobile OTP</span>
-                      <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black uppercase tracking-wider">
-                        Coming Soon
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
-                      {is2FAEnabled ? (
-                        <>Direct carrier SMS gateway dispatch to verified mobile ({phone}). Currently under AABB carrier compliance review.</>
-                      ) : (
-                        <>Channel is inactive because 2FA is turned OFF.</>
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <span className="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0 mt-1" />
               </div>
             </div>
           </div>
@@ -2060,9 +2166,9 @@ export default function Settings() {
             <motion.div
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2 font-medium"
+              className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center gap-2 font-medium"
             >
-              <CheckCircle2 className="w-4 h-4 text-amber-600 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>{sessionTerminatedNotice}</span>
             </motion.div>
           )}
@@ -2077,76 +2183,242 @@ export default function Settings() {
               </p>
             </div>
 
-            {sessions.length > 1 && (
+            <div className="flex items-center gap-2 flex-wrap">
               <button
                 type="button"
-                onClick={handleTerminateOtherSessions}
-                className="px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-[#D72638] border border-red-200 text-xs font-bold transition-colors cursor-pointer shrink-0"
+                onClick={loadSessions}
+                disabled={isLoadingSessions}
+                className="px-3.5 py-2 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#5A626A] border border-[#D9C7C2] text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                title="Refresh sessions from server"
               >
-                Terminate All Other Sessions
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingSessions ? 'animate-spin' : ''}`} />
+                <span>Refresh</span>
               </button>
-            )}
+              {sessions.filter(s => !s.isCurrent && s.status === 'active').length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleTerminateOtherSessions}
+                  className="px-4 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-[#D72638] border border-red-200 text-xs font-bold transition-colors cursor-pointer shrink-0"
+                >
+                  Terminate All Other Sessions
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="space-y-3">
-            {sessions.map((sess) => (
-              <div
-                key={sess.id}
-                className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-                  sess.isCurrent 
-                    ? 'border-[#D72638] bg-red-50/30' 
-                    : 'border-[#D9C7C2] bg-white hover:border-[#D72638]/40'
-                }`}
-              >
-                <div className="flex items-start sm:items-center gap-3.5">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    sess.isCurrent ? 'bg-[#D72638] text-white shadow-xs' : 'bg-[#F5F1EF] text-[#5A626A]'
-                  }`}>
-                    {sess.device.includes('iPad') ? <Laptop className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-[#1A1D20]">{sess.device}</span>
-                      {sess.isCurrent && (
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold">
-                          Current Device
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-[#5A626A] mt-0.5">
-                      <span>{sess.browser}</span>
-                      <span>•</span>
-                      <span>{sess.location}</span>
-                      <span>•</span>
-                      <span className="font-mono text-[11px] text-[#7A0C17]">{sess.ip}</span>
-                    </div>
-                  </div>
-                </div>
+            {sessions.map((sess) => {
+              const isPhone = (sess.os || '').toLowerCase().includes('android') || 
+                              (sess.os || '').toLowerCase().includes('ios') || 
+                              (sess.device || '').toLowerCase().includes('phone') || 
+                              (sess.device || '').toLowerCase().includes('mobile');
+              const isTablet = (sess.device || '').toLowerCase().includes('ipad') || 
+                               (sess.device || '').toLowerCase().includes('tablet');
 
-                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#D9C7C2]/50">
-                  <div className="text-right">
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Activity</span>
-                    <span className={`text-xs font-semibold ${sess.isCurrent ? 'text-emerald-700 font-bold' : 'text-slate-600'}`}>
-                      {sess.lastActive}
-                    </span>
+              return (
+                <div
+                  key={sess.id}
+                  className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                    sess.isCurrent 
+                      ? 'border-[#D72638] bg-red-50/30' 
+                      : sess.status === 'active'
+                        ? 'border-[#D9C7C2] bg-white hover:border-[#D72638]/40'
+                        : 'border-slate-200 bg-slate-50/60 opacity-70'
+                  }`}
+                >
+                  <div className="flex items-start sm:items-center gap-3.5">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      sess.isCurrent 
+                        ? 'bg-[#D72638] text-white shadow-xs' 
+                        : sess.status === 'active'
+                          ? 'bg-[#F5F1EF] text-[#5A626A]'
+                          : 'bg-slate-200 text-slate-400'
+                    }`}>
+                      {isPhone ? <Smartphone className="w-5 h-5" /> : isTablet ? <Laptop className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`text-sm font-bold ${sess.status === 'revoked' ? 'text-slate-500 line-through' : 'text-[#1A1D20]'}`}>
+                          {sess.device}
+                        </span>
+                        {sess.isCurrent ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>Active Now (Current Terminal)</span>
+                          </span>
+                        ) : sess.status === 'active' ? (
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            <span>Active (Remote Device)</span>
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 border border-slate-300 text-[10px] font-bold">
+                            Terminated / Revoked
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-xs text-[#5A626A] mt-0.5">
+                        <span>{sess.browser}</span>
+                        {sess.os && (
+                          <>
+                            <span>•</span>
+                            <span>{sess.os}</span>
+                          </>
+                        )}
+                        <span>•</span>
+                        <span>{sess.location}</span>
+                        <span>•</span>
+                        <span className="font-mono text-[11px] text-[#7A0C17]">{sess.ip}</span>
+                      </div>
+                    </div>
                   </div>
-                  {sess.isCurrent ? (
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setSessions(prev => prev.filter(s => s.id !== sess.id))}
-                      className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[#D72638] hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors cursor-pointer"
-                    >
-                      Revoke
-                    </button>
-                  )}
+
+                  <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#D9C7C2]/50">
+                    <div className="text-right">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Last Open / Activity</span>
+                      <span className={`text-xs font-semibold ${sess.isCurrent ? 'text-emerald-700 font-bold' : sess.status === 'revoked' ? 'text-slate-400' : 'text-slate-700'}`}>
+                        {sess.lastActive}
+                      </span>
+                    </div>
+
+                    {sess.isCurrent ? (
+                      <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+                        Current Terminal
+                      </span>
+                    ) : sess.status === 'active' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenTerminateModal(sess)}
+                        className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-[#D72638] hover:bg-[#B31D2C] shadow-xs hover:shadow-sm transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Terminate Session</span>
+                      </button>
+                    ) : (
+                      <span className="px-3 py-1 rounded-lg text-[11px] font-medium text-slate-400 bg-slate-100 border border-slate-200">
+                        Session Inactive
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </motion.div>
       )}
+
+      {/* Terminate Session Confirmation Modal with 'Terminate' word confirmation */}
+      <AnimatePresence>
+        {sessionToTerminate && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-red-200 overflow-hidden"
+            >
+              {/* Modal Header */}
+              <div className="p-5 bg-gradient-to-r from-red-600 to-[#7A0C17] text-white flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black tracking-tight leading-tight">Terminate Remote Session</h3>
+                    <p className="text-[11px] text-red-100 font-medium">Real-Time Terminal Disconnection</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSessionToTerminate(null)}
+                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 space-y-4">
+                <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900 space-y-1.5">
+                  <div className="flex items-center gap-2 font-bold text-red-800">
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                    <span>Confirm Remote Session Invalidation</span>
+                  </div>
+                  <p className="leading-relaxed">
+                    You are terminating the session for <strong>{sessionToTerminate.device}</strong> ({sessionToTerminate.browser}).
+                  </p>
+                  <p className="text-[11px] text-red-700 leading-relaxed">
+                    This will instantly log out that device in real-time, revoke its security token, and remove it from trusted devices. Next time someone signs in from that device, <strong>email OTP verification will be required</strong>.
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-xs space-y-1 text-[#5A626A]">
+                  <div className="flex justify-between">
+                    <span>IP Address:</span>
+                    <span className="font-mono font-bold text-[#1A1D20]">{sessionToTerminate.ip}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Location:</span>
+                    <span className="font-medium text-[#1A1D20]">{sessionToTerminate.location}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Last Open:</span>
+                    <span className="font-medium text-[#1A1D20]">{sessionToTerminate.lastActive}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-[#1A1D20] mb-1.5">
+                    To confirm termination, type <span className="text-[#D72638] font-mono font-black">Terminate</span> below:
+                  </label>
+                  <input
+                    type="text"
+                    value={terminateInput}
+                    onChange={(e) => setTerminateInput(e.target.value)}
+                    placeholder="Type Terminate"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 text-sm font-semibold outline-none transition-all"
+                  />
+                  {terminateError && (
+                    <p className="text-xs text-red-600 mt-1.5 font-medium flex items-center gap-1">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>{terminateError}</span>
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setSessionToTerminate(null)}
+                    disabled={isTerminating}
+                    className="px-4 py-2.5 rounded-xl border border-[#D9C7C2] text-xs font-bold text-[#5A626A] hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmTerminate}
+                    disabled={terminateInput.trim().toLowerCase() !== 'terminate' || isTerminating}
+                    className="px-5 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#B31D2C] disabled:bg-slate-300 text-white text-xs font-bold shadow-md shadow-[#D72638]/20 transition-all cursor-pointer disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isTerminating ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Terminating...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Confirm Terminate</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Universal Profile Picture Upload & Crop Modal */}
       <AvatarUploadModal
