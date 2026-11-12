@@ -319,7 +319,7 @@ export function AvatarUploadModal({
             </div>
             <div>
               <h3 className="text-base font-black text-[#1A1D20] tracking-tight">
-                Profile Avatar & Practitioner Portrait
+                Profile Photo & User Avatar
               </h3>
               <p className="text-[11px] text-[#5A626A]">
                 Synchronized across all clinical stations and account views

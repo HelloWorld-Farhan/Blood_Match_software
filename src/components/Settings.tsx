@@ -280,7 +280,11 @@ export default function Settings() {
       const res = await apiClient.post('/api/auth/password-reset/request', { email: email.trim() });
       setIsSendingEmailOtp(false);
       if (!res.ok) {
-        setEmailOtpError(res.error || 'Failed to dispatch verification code to your email.');
+        if (res.error?.includes('No account') || res.status === 404) {
+          setEmailOtpError('No account registered with this email address. Since system data was recently cleared, please sign out and create your account via Sign Up.');
+        } else {
+          setEmailOtpError(res.error || 'Failed to dispatch verification code to your email.');
+        }
         return;
       }
       setEmailOtpStep('OTP');
@@ -399,7 +403,11 @@ export default function Settings() {
       });
       setIsVerifyingCurrentPw(false);
       if (!res.ok) {
-        setPrevPwErrors({ previousPassword: res.error || 'Previous (current) password is incorrect.' });
+        if (res.error?.toLowerCase().includes('not found') || res.status === 404) {
+          setPrevPwErrors({ previousPassword: 'User account not found in database. Since system data was recently cleared, please sign out and create your account via Sign Up.' });
+        } else {
+          setPrevPwErrors({ previousPassword: res.error || 'Previous (current) password is incorrect.' });
+        }
         return;
       }
       setPrevPwStep('SET_NEW');
@@ -561,7 +569,7 @@ export default function Settings() {
                 Zero-Trust Transfusion Authentication
               </h2>
               <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
-                All clinical actions, emergency broadcasts, and donor disclosures are cryptographically signed and locked to authenticated practitioner terminals.
+                All clinical actions, emergency broadcasts, and donor disclosures are cryptographically signed and locked to authenticated user sessions.
               </p>
             </div>
 
@@ -696,7 +704,7 @@ export default function Settings() {
               {/* Upload Info & Controls */}
               <div className="flex-1 text-center sm:text-left space-y-2">
                 <div className="text-sm font-bold text-[#1A1D20]">
-                  Official Practitioner Portrait
+                  Official Profile Photo
                 </div>
                 <p className="text-xs text-[#5A626A] leading-relaxed max-w-md">
                   Upload an official medical photo or institutional avatar. JPG, PNG, or WEBP under 10MB.
@@ -1694,7 +1702,7 @@ export default function Settings() {
                 Active Clinician Terminal Sessions
               </h3>
               <p className="text-xs text-[#5A626A] mt-0.5">
-                Surveillance log of all authenticated stations connected with this medical practitioner ID.
+                Surveillance log of all authenticated stations connected with this user account ID.
               </p>
             </div>
 
