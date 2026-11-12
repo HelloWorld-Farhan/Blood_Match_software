@@ -380,11 +380,6 @@ export default function Layout() {
       badge: donorsCount > 0 ? `${donorsCount}` : undefined,
     },
     { 
-      name: 'Geospatial Matcher', 
-      path: '/dashboard/matcher', 
-      icon: MapPin,
-    },
-    { 
       name: 'Blood Bank Reserve', 
       path: '/dashboard/inventory', 
       icon: Database,
@@ -798,7 +793,7 @@ export default function Layout() {
 
           {/* Quick Emergency Broadcast */}
           <Link
-            to="/dashboard/emergency"
+            to="/dashboard/emergency?action=broadcast"
             className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] active:scale-95 text-white text-xs font-bold shadow-md shadow-[#D72638]/30 transition-all cursor-pointer shrink-0"
           >
             <PlusCircle className="w-4 h-4" />

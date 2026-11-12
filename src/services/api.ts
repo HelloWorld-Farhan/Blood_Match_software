@@ -268,6 +268,25 @@ export async function deleteDonorApi(donorId: string, userEmail: string) {
   return apiClient.delete<{ message: string; deleted_id: string }>(endpoint);
 }
 
+export async function fetchEmergencyRequestsApi(userEmail?: string) {
+  const params = new URLSearchParams();
+  if (userEmail) params.append('user_email', userEmail);
+  return apiClient.get<any[]>(`/api/emergency${params.toString() ? `?${params.toString()}` : ''}`);
+}
+
+export async function createEmergencyRequestApi(payload: {
+  user_email?: string;
+  patient_name: string;
+  hospital?: string;
+  blood_type: string;
+  units_needed: number;
+  status?: string;
+  contact_person: string;
+  contact_phone: string;
+}) {
+  return apiClient.post<any>('/api/emergency', payload);
+}
+
 export async function dispatchEmergencyDonorApi(payload: {
   donor_id?: string;
   donor_name: string;

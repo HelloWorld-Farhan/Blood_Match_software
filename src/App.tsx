@@ -11,7 +11,6 @@ import EmergencyRequests from './components/EmergencyRequests';
 import DonorRegistry from './components/DonorRegistry';
 import InventoryManager from './components/InventoryManager';
 import Settings from './components/Settings';
-import GeospatialBloodMatcher from './components/GeospatialBloodMatcher';
 
 function AppRoutes() {
   return (
@@ -27,8 +26,8 @@ function AppRoutes() {
         <Route path="matrix" element={<CompatibilityMatrix />} />
         <Route path="emergency" element={<EmergencyRequests />} />
         <Route path="donors" element={<DonorRegistry />} />
-        <Route path="matcher" element={<GeospatialBloodMatcher />} />
-        <Route path="search" element={<GeospatialBloodMatcher />} />
+        <Route path="matcher" element={<Navigate to="/dashboard/emergency?action=broadcast" replace />} />
+        <Route path="search" element={<Navigate to="/dashboard/emergency?action=broadcast" replace />} />
         <Route path="inventory" element={<InventoryManager />} />
         <Route path="settings" element={<Settings />} />
       </Route>
