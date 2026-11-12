@@ -269,3 +269,36 @@ export async function deleteDonorApi(donorId: string, userEmail: string) {
   const endpoint = `/api/donors/${encodeURIComponent(donorId)}?user_email=${encodeURIComponent(userEmail)}`;
   return apiClient.delete<{ message: string; deleted_id: string }>(endpoint);
 }
+
+export async function dispatchEmergencyDonorApi(payload: {
+  donor_id?: string;
+  donor_name: string;
+  donor_email: string;
+  donor_phone?: string;
+  patient_name: string;
+  recipient_blood_type: string;
+  units_needed?: number;
+  hospital: string;
+  locality?: string;
+  urgency?: string;
+  clinician_name?: string;
+  emergency_contact?: string;
+  message?: string;
+}) {
+  return apiClient.post<{ message: string; success: boolean }>('/api/emergency/dispatch-donor', payload);
+}
+
+export async function emailEmergencyRosterApi(payload: {
+  clinician_email: string;
+  clinician_name?: string;
+  patient_name: string;
+  recipient_blood_type: string;
+  units_needed?: number;
+  hospital: string;
+  locality?: string;
+  urgency?: string;
+  emergency_phone?: string;
+  roster_items: any[];
+}) {
+  return apiClient.post<{ message: string; success: boolean }>('/api/emergency/email-roster', payload);
+}

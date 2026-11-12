@@ -15,7 +15,8 @@ import {
   RefreshCw,
   BarChart3,
   HeartPulse,
-  Plus
+  Plus,
+  MapPin
 } from 'lucide-react';
 import { motion, Variants } from 'framer-motion';
 import { BloodType, EmergencyRequest, Donor } from '../types';
@@ -273,6 +274,16 @@ export const Dashboard: React.FC = () => {
 
           {/* Silent, Real-Time Network Sync Status with Dynamic Speed Telemetry Colors */}
           <NetworkHealthPill onRefresh={handleManualSync} />
+
+          {/* Rapid Geospatial Blood Proximity Matcher Launch Button */}
+          <button
+            onClick={() => navigate('/dashboard/matcher')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 text-white text-xs font-bold shadow-sm hover:from-red-700 hover:to-rose-700 transition-all cursor-pointer"
+            title="Launch Real-Time Geospatial Proximity Matcher & Emergency Docket Generator"
+          >
+            <MapPin className="w-3.5 h-3.5" />
+            <span>Geospatial Matcher</span>
+          </button>
         </div>
       </motion.div>
 

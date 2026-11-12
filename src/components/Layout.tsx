@@ -364,6 +364,11 @@ export default function Layout() {
       badge: donorsCount > 0 ? `${donorsCount}` : undefined,
     },
     { 
+      name: 'Geospatial Matcher', 
+      path: '/dashboard/matcher', 
+      icon: MapPin,
+    },
+    { 
       name: 'Blood Bank Reserve', 
       path: '/dashboard/inventory', 
       icon: Database,
