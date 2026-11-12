@@ -186,6 +186,8 @@ export default function Login() {
       if (res.data?.access_token) {
         sessionStorage.setItem('bloodmatch_auth', 'true');
         sessionStorage.setItem('bloodmatch_auth_token', res.data.access_token);
+        localStorage.setItem('bloodmatch_auth', 'true');
+        localStorage.setItem('bloodmatch_auth_token', res.data.access_token);
         sessionStorage.setItem('bloodmatch_user_email', res.data.user?.email || email.trim());
         sessionStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
         const memberId = res.data.user?.member_id || ('BM-' + (res.data.user?.id || '9481NX01').replace(/-/g, '').slice(0, 8).toUpperCase());
@@ -193,6 +195,10 @@ export default function Login() {
         localStorage.setItem('bloodmatch_member_id', memberId);
         localStorage.setItem('bloodmatch_user_email', res.data.user?.email || email.trim());
         localStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
+        if (typeof res.data.user?.is_2fa_enabled === 'boolean') {
+          localStorage.setItem('bloodmatch_2fa_enabled', res.data.user.is_2fa_enabled ? 'true' : 'false');
+          sessionStorage.setItem('bloodmatch_2fa_enabled', res.data.user.is_2fa_enabled ? 'true' : 'false');
+        }
 
         // Requirement 4: Cross-Device Cloud Sync Hydration on Login
         if (res.data.user?.photo_url) {
@@ -243,6 +249,8 @@ export default function Login() {
       if (res.data?.access_token) {
         sessionStorage.setItem('bloodmatch_auth', 'true');
         sessionStorage.setItem('bloodmatch_auth_token', res.data.access_token);
+        localStorage.setItem('bloodmatch_auth', 'true');
+        localStorage.setItem('bloodmatch_auth_token', res.data.access_token);
         sessionStorage.setItem('bloodmatch_user_email', res.data.user?.email || email.trim());
         sessionStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
         const memberId = res.data.user?.member_id || ('BM-' + (res.data.user?.id || '9481NX01').replace(/-/g, '').slice(0, 8).toUpperCase());
@@ -250,6 +258,8 @@ export default function Login() {
         localStorage.setItem('bloodmatch_member_id', memberId);
         localStorage.setItem('bloodmatch_user_email', res.data.user?.email || email.trim());
         localStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
+        localStorage.setItem('bloodmatch_2fa_enabled', 'true');
+        sessionStorage.setItem('bloodmatch_2fa_enabled', 'true');
 
         if (res.data.user?.photo_url) {
           const cacheBusted = `${res.data.user.photo_url}?v=${Date.now()}`;

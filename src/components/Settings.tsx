@@ -149,27 +149,35 @@ export default function Settings() {
   }, []);
 
   const handleToggle2FA = async (newVal: boolean) => {
-    setIsToggling2FA(true);
-    setTwoFactorFeedback(null);
+    // 1. Instant Optimistic UI Update (Zero Delay)
+    const prevVal = is2FAEnabled;
+    setIs2FAEnabled(newVal);
+    localStorage.setItem('bloodmatch_2fa_enabled', newVal ? 'true' : 'false');
+    sessionStorage.setItem('bloodmatch_2fa_enabled', newVal ? 'true' : 'false');
+    setTwoFactorFeedback(
+      newVal 
+        ? 'Two-Factor Authentication is now ON. Email OTP verification is automatically enforced on sign-in.' 
+        : 'Two-Factor Authentication is now OFF. Both channels disabled; direct password login active.'
+    );
+
+    // 2. Background Sync to Cloud & Database
     try {
       const res = await apiClient.put('/api/auth/2fa/toggle', {
         enable_2fa: newVal,
       });
-      setIsToggling2FA(false);
-      if (res.ok) {
-        setIs2FAEnabled(newVal);
-        localStorage.setItem('bloodmatch_2fa_enabled', newVal ? 'true' : 'false');
-        setTwoFactorFeedback(
-          newVal 
-            ? 'Two-Factor Authentication is now ON. Email OTP verification is automatically enforced on sign-in.' 
-            : 'Two-Factor Authentication is now OFF. Both channels disabled; direct password login active.'
-        );
-        setTimeout(() => setTwoFactorFeedback(null), 5000);
-      } else {
+      if (!res.ok) {
+        // Rollback state if server rejected the change
+        setIs2FAEnabled(prevVal);
+        localStorage.setItem('bloodmatch_2fa_enabled', prevVal ? 'true' : 'false');
+        sessionStorage.setItem('bloodmatch_2fa_enabled', prevVal ? 'true' : 'false');
         setTwoFactorFeedback(res.error || 'Failed to update 2FA configuration.');
+      } else {
+        setTimeout(() => setTwoFactorFeedback(null), 4500);
       }
     } catch (err: any) {
-      setIsToggling2FA(false);
+      setIs2FAEnabled(prevVal);
+      localStorage.setItem('bloodmatch_2fa_enabled', prevVal ? 'true' : 'false');
+      sessionStorage.setItem('bloodmatch_2fa_enabled', prevVal ? 'true' : 'false');
       setTwoFactorFeedback(err?.message || 'Connection failure while updating 2FA.');
     }
   };
@@ -1369,15 +1377,25 @@ export default function Settings() {
                 ================================================================= */}
             {resetChannel === 'PREVIOUS_PW' && (
               <div className="p-5 sm:p-6 rounded-2xl bg-[#F5F1EF] border border-[#D9C7C2] max-w-2xl space-y-4">
-                {/* Notice: No OTP required in this flow */}
-                <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 font-medium">
-                    <KeyRound className="w-4 h-4 text-blue-600 shrink-0" />
-                    <span>Direct Password Update: No email OTP required. Verify your current password to unlock.</span>
+                {/* Sleek, Clinical Direct Verification Notice with Redesigned No-OTP Badge */}
+                <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-blue-50/90 via-sky-50/60 to-white border border-blue-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-blue-600/10 border border-blue-300/40 text-blue-700 flex items-center justify-center shrink-0 shadow-2xs">
+                      <KeyRound className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-[#1A1D20] block">
+                        Direct Password Verification
+                      </span>
+                      <p className="text-[11px] text-slate-600 leading-tight">
+                        Instant credential update authenticated by your existing security password.
+                      </p>
+                    </div>
                   </div>
-                  <span className="px-2 py-0.5 rounded-full bg-blue-200 text-blue-900 font-bold text-[10px]">
-                    NO OTP
-                  </span>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-600/10 border border-blue-300 text-blue-800 text-[11px] font-black tracking-wider uppercase shrink-0 self-start sm:self-center shadow-2xs">
+                    <ShieldCheck className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span className="whitespace-nowrap">No OTP Required</span>
+                  </div>
                 </div>
 
                 {/* STEP 1: VERIFY CURRENT PASSWORD */}

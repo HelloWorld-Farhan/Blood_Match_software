@@ -55,11 +55,27 @@ export default function Layout() {
   const profileRef = useRef<HTMLDivElement | null>(null);
   const notifRef = useRef<HTMLDivElement | null>(null);
 
-  // Requirement: Guard against unauthenticated viewing with zero dummy logins
+  // Requirement: Guard against unauthenticated viewing with zero dummy logins & rehydrate across tab closures
   useEffect(() => {
     const isAuth = sessionStorage.getItem('bloodmatch_auth') === 'true' || localStorage.getItem('bloodmatch_auth') === 'true';
     if (!isAuth) {
       navigate('/login', { replace: true });
+      return;
+    }
+
+    // Rehydrate sessionStorage from localStorage if restoring after window/tab close
+    const token = localStorage.getItem('bloodmatch_auth_token');
+    if (token && !sessionStorage.getItem('bloodmatch_auth_token')) {
+      sessionStorage.setItem('bloodmatch_auth_token', token);
+      sessionStorage.setItem('bloodmatch_auth', 'true');
+      const email = localStorage.getItem('bloodmatch_user_email');
+      if (email) sessionStorage.setItem('bloodmatch_user_email', email);
+      const name = localStorage.getItem('bloodmatch_user_name');
+      if (name) sessionStorage.setItem('bloodmatch_user_name', name);
+      const memberId = localStorage.getItem('bloodmatch_member_id');
+      if (memberId) sessionStorage.setItem('bloodmatch_member_id', memberId);
+      const avatar = localStorage.getItem('bloodmatch_user_avatar');
+      if (avatar) sessionStorage.setItem('bloodmatch_user_avatar', avatar);
     }
   }, [navigate]);
 
@@ -301,6 +317,12 @@ export default function Layout() {
     sessionStorage.removeItem('bloodmatch_user_email');
     sessionStorage.removeItem('bloodmatch_user_role');
     sessionStorage.removeItem('bloodmatch_user_facility');
+    sessionStorage.removeItem('bloodmatch_member_id');
+    localStorage.removeItem('bloodmatch_auth');
+    localStorage.removeItem('bloodmatch_auth_token');
+    localStorage.removeItem('bloodmatch_user_name');
+    localStorage.removeItem('bloodmatch_user_email');
+    localStorage.removeItem('bloodmatch_member_id');
     navigate('/login');
   };
 
