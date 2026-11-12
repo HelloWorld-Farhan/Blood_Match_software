@@ -369,55 +369,88 @@ export default function CompatibilityMatrix() {
           <span className="text-xs font-mono text-[#7A0C17] font-semibold">Standard Red Blood Cells (RBC)</span>
         </div>
 
-        <table className="w-full min-w-[560px] text-center text-xs">
+        <table className="w-full min-w-[560px] text-center text-xs border-collapse">
           <thead>
             <tr className="border-b border-[#D9C7C2] text-[#5A626A]">
-              <th className="py-2.5 text-left font-bold pl-2 text-[#1A1D20]">Donor \ Recipient</th>
-              {bloodTypes.map(rt => (
-                <th
-                  key={rt}
-                  onClick={() => setSelectedType(rt)}
-                  className={`py-2.5 font-bold cursor-pointer transition-colors hover:text-[#D72638] ${
-                    rt === selectedType ? 'text-[#D72638] underline underline-offset-4 decoration-2' : 'text-[#1A1D20]'
-                  }`}
-                  title={`Focus Group ${rt}`}
-                >
-                  {rt}
-                </th>
-              ))}
+              <th className="py-2.5 text-left font-bold pl-3 text-[#1A1D20]">Donor \ Recipient</th>
+              {bloodTypes.map(rt => {
+                const isSelectedCol = rt === selectedType;
+                return (
+                  <th
+                    key={rt}
+                    onClick={() => setSelectedType(rt)}
+                    className={`py-2.5 px-1 font-bold cursor-pointer transition-all ${
+                      isSelectedCol
+                        ? 'text-[#D72638] bg-red-50/90 font-black border-b-2 border-[#D72638] rounded-t-lg shadow-2xs'
+                        : 'text-[#1A1D20] hover:text-[#D72638]'
+                    }`}
+                    title={`Focus Group ${rt}`}
+                  >
+                    <span>{rt}</span>
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody className="divide-y divide-[#D9C7C2]/60">
-            {bloodTypes.map(dt => (
-              <tr key={dt} className="hover:bg-[#F5F1EF]/60 transition-colors">
-                <td
-                  onClick={() => setSelectedType(dt)}
-                  className={`py-3 text-left font-black pl-2 flex items-center gap-2 cursor-pointer transition-colors hover:text-[#D72638] ${
-                    dt === selectedType ? 'text-[#D72638]' : 'text-[#1A1D20]'
+            {bloodTypes.map(dt => {
+              const isSelectedRow = dt === selectedType;
+              return (
+                <tr 
+                  key={dt} 
+                  className={`transition-colors ${
+                    isSelectedRow 
+                      ? 'bg-red-50/90 font-bold border-y-2 border-[#D72638]/40 shadow-xs' 
+                      : 'hover:bg-[#F5F1EF]/60'
                   }`}
-                  title={`Focus Group ${dt}`}
                 >
-                  <span className={`w-2 h-2 rounded-full ${dt === selectedType ? 'bg-[#D72638] ring-2 ring-[#D72638]/40' : 'bg-[#D72638]'}`}></span>
-                  <span>{dt}</span>
-                </td>
-                {bloodTypes.map(rt => {
-                  const safe = BLOOD_COMPATIBILITY_TABLE[dt].canGiveTo.includes(rt);
-                  return (
-                    <td key={rt} className="py-3">
-                      {safe ? (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 font-bold">
-                          ✓
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-slate-300">
-                          –
-                        </span>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+                  <td
+                    onClick={() => setSelectedType(dt)}
+                    className={`py-3 text-left font-black pl-3 flex items-center gap-2 cursor-pointer transition-colors ${
+                      isSelectedRow ? 'text-[#D72638]' : 'text-[#1A1D20] hover:text-[#D72638]'
+                    }`}
+                    title={`Focus Group ${dt}`}
+                  >
+                    <span className={`w-2.5 h-2.5 rounded-full ${isSelectedRow ? 'bg-[#D72638] ring-4 ring-[#D72638]/25 animate-pulse' : 'bg-[#D72638]'}`}></span>
+                    <span>{dt}</span>
+                  </td>
+                  {bloodTypes.map(rt => {
+                    const safe = BLOOD_COMPATIBILITY_TABLE[dt].canGiveTo.includes(rt);
+                    const isSelectedCol = rt === selectedType;
+                    const isIntersection = isSelectedRow && isSelectedCol;
+
+                    return (
+                      <td 
+                        key={rt} 
+                        className={`py-3 transition-colors ${
+                          isIntersection
+                            ? 'bg-red-100/90 ring-2 ring-inset ring-[#D72638]/50'
+                            : isSelectedCol
+                              ? 'bg-red-50/50'
+                              : ''
+                        }`}
+                      >
+                        {safe ? (
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-bold shadow-2xs transition-transform ${
+                            isIntersection
+                              ? 'bg-emerald-200 text-emerald-950 ring-2 ring-emerald-500 scale-110'
+                              : 'bg-emerald-100 text-emerald-800'
+                          }`}>
+                            ✓
+                          </span>
+                        ) : (
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-medium ${
+                            isSelectedRow || isSelectedCol ? 'text-red-300' : 'text-slate-300'
+                          }`}>
+                            –
+                          </span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </motion.div>

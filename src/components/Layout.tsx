@@ -737,7 +737,8 @@ export default function Layout() {
               }}
               onFocus={() => setSearchOpen(true)}
               placeholder="Search donor, group, locality..."
-              className="w-full bg-transparent text-xs text-[#1A1D20] placeholder-slate-400 outline-hidden font-medium min-w-0"
+              className="w-full bg-transparent text-xs text-[#1A1D20] placeholder-slate-400 outline-none focus:outline-none focus:ring-0 border-none ring-0 shadow-none font-medium min-w-0"
+              style={{ outline: 'none', boxShadow: 'none' }}
             />
             {searchQuery ? (
               <button
