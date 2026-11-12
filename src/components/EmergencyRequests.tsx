@@ -446,7 +446,7 @@ export default function EmergencyRequests() {
     }
   };
 
-  // Email Top Donors Roster to Clinician
+  // Email Top Donors Roster to Clinician along with the Attached Minimal PDF Docket
   const handleEmailRoster = async () => {
     if (rankedDonors.length === 0) {
       setModalNotification({ message: 'No compatible donors available to email.', type: 'error' });
@@ -455,7 +455,7 @@ export default function EmergencyRequests() {
     setIsEmailingRoster(true);
     setModalNotification(null);
 
-    const rosterItems = rankedDonors.slice(0, 10).map((d, index) => ({
+    const rosterItems = rankedDonors.slice(0, 18).map((d, index) => ({
       rank: index + 1,
       fullName: d.fullName,
       bloodType: d.bloodType,
@@ -464,7 +464,35 @@ export default function EmergencyRequests() {
       phone: d.phone
     }));
 
+    const donorItems: RankedDonorItem[] = rankedDonors.map((d, index) => ({
+      rank: index + 1,
+      id: d.id,
+      fullName: d.fullName,
+      bloodType: d.bloodType,
+      distanceKm: d.distanceKm,
+      location: d.location || d.city || 'Delhi NCR',
+      phone: d.phone,
+      matchScore: Math.max(70, Math.round(100 - d.distanceKm * 2))
+    }));
+
     try {
+      // 1. Generate minimal UI-aligned PDF docket with unique ID (autoDownload: false for email)
+      const pdfResult = generateEmergencyDonorDocketPdf(
+        {
+          recipientBloodType: bloodType,
+          patientName,
+          patientAge,
+          unitsNeeded,
+          urgency,
+          hospitalLocality: customLocalityInput.trim() || selectedLocality,
+          searchCoordinates: userCoords,
+          timestamp: new Date().toISOString(),
+          autoDownload: false
+        },
+        donorItems
+      );
+
+      // 2. Dispatch email to user/clinician with Base64 PDF attachment
       const res = await emailEmergencyRosterApi({
         clinician_email: currentUserEmail,
         clinician_name: currentUserName,
@@ -475,12 +503,15 @@ export default function EmergencyRequests() {
         locality: customLocalityInput.trim() || selectedLocality,
         urgency: urgency,
         emergency_phone: `${countryDialCode} ${contactPhone.trim()}`,
-        roster_items: rosterItems
+        roster_items: rosterItems,
+        pdf_base64: pdfResult.base64,
+        pdf_filename: pdfResult.filename,
+        dispatch_id: pdfResult.uniqueId
       });
 
       if (res.ok) {
         setModalNotification({
-          message: `Ranked donor roster briefing transmitted to ${currentUserEmail}!`,
+          message: `Ranked donor roster & PDF docket #${pdfResult.uniqueId} dispatched to ${currentUserEmail} with attachment!`,
           type: 'success'
         });
       } else {
@@ -518,21 +549,24 @@ export default function EmergencyRequests() {
         matchScore: Math.max(70, Math.round(100 - d.distanceKm * 2))
       }));
 
-      generateEmergencyDonorDocketPdf(
+      const pdfResult = generateEmergencyDonorDocketPdf(
         {
-          dispatchId: `DISPATCH-${Date.now().toString(36).toUpperCase()}`,
           recipientBloodType: bloodType,
           patientName,
+          patientAge,
+          unitsNeeded,
+          urgency,
           hospitalName: 'Emergency Trauma Network',
           hospitalLocality: customLocalityInput.trim() || selectedLocality,
           searchCoordinates: userCoords,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          autoDownload: true
         },
         donorItems
       );
 
       setModalNotification({
-        message: 'Clinical Emergency Donor Mobilization Docket PDF downloaded successfully!',
+        message: `Clinical Emergency Docket #${pdfResult.uniqueId} downloaded successfully!`,
         type: 'success'
       });
     } catch (err: any) {
@@ -1187,18 +1221,20 @@ export default function EmergencyRequests() {
                       onClick={handleEmailRoster}
                       disabled={isEmailingRoster || rankedDonors.length === 0}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#4A5568] bg-[#F5F1EF] border border-[#D9C7C2] hover:bg-slate-200 transition-all cursor-pointer"
+                      title="Transmit ranked roster with attached PDF docket to your email"
                     >
                       {isEmailingRoster ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5 text-[#D72638]" />}
-                      <span>Email Roster</span>
+                      <span>Email Roster & PDF</span>
                     </button>
 
                     <button
                       onClick={handleDownloadPdf}
                       disabled={isGeneratingPdf || rankedDonors.length === 0}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-[#D72638] hover:bg-[#b51d2c] shadow-xs transition-all cursor-pointer"
+                      title="Download clinical emergency mobilization docket PDF"
                     >
                       {isGeneratingPdf ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
-                      <span>Download PDF</span>
+                      <span>Download PDF Docket</span>
                     </button>
                   </div>
                 </div>

@@ -316,6 +316,9 @@ export async function emailEmergencyRosterApi(payload: {
   urgency?: string;
   emergency_phone?: string;
   roster_items: any[];
+  pdf_base64?: string;
+  pdf_filename?: string;
+  dispatch_id?: string;
 }) {
-  return apiClient.post<{ message: string; success: boolean }>('/api/emergency/email-roster', payload);
+  return apiClient.post<{ message: string; success: boolean; has_attachment?: boolean }>('/api/emergency/email-roster', payload);
 }
