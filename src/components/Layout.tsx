@@ -668,136 +668,133 @@ export default function Layout() {
       </aside>
 
       {/* =========================================================================
-          TOP HEADER BAR (Permanently Fixed / Sticky, Never Scrolls on any device)
+          TOP HEADER BAR (Permanently Fixed / Sticky, Universal Search Bar On All Screens)
           ========================================================================= */}
-      <header className="shrink-0 sticky top-0 z-30 w-full h-14 sm:h-16 bg-white/95 backdrop-blur-md border-b border-[#D9C7C2] flex items-center justify-between px-3 sm:px-6 shadow-xs">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+      <header className="shrink-0 sticky top-0 z-30 w-full h-14 sm:h-16 bg-white/95 backdrop-blur-md border-b border-[#D9C7C2] flex items-center justify-between px-2.5 sm:px-6 shadow-xs gap-2">
+        {/* Left: Mobile Hamburger & Home Droplet Logo (BloodMatch text removed per UI spec) */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
           {/* Mobile Hamburger Trigger */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-[#4A5568] hover:text-[#1A1D20] active:scale-95 lg:hidden cursor-pointer shrink-0"
-            aria-label="Open navigation"
+            className="p-1.5 sm:p-2 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-[#4A5568] hover:text-[#1A1D20] active:scale-95 lg:hidden cursor-pointer shrink-0"
+            aria-label="Open navigation drawer"
           >
-            <Menu className="w-5 h-5 text-[#1A1D20]" />
+            <Menu className="w-4 h-4 sm:w-5 sm:h-5 text-[#1A1D20]" />
           </button>
 
-          <Link to="/dashboard" className="flex items-center gap-2 sm:gap-2.5 group min-w-0">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] border border-[#D72638]/40 text-white flex items-center justify-center shadow-md shadow-[#D72638]/20 group-hover:scale-105 transition-transform shrink-0">
-              <Droplet className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
-            </div>
-            <div className="min-w-0">
-              <span className="font-black text-base sm:text-lg tracking-tight text-[#1A1D20] block leading-tight">
-                Blood<span className="text-[#D72638]">Match</span>
-              </span>
-              <span className="hidden sm:block text-[9px] uppercase tracking-wider text-[#7A0C17] font-bold truncate">
-                Clinical Operations Hub
-              </span>
-            </div>
+          {/* Droplet Home Icon Link */}
+          <Link 
+            to="/dashboard" 
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] border border-[#D72638]/40 text-white flex items-center justify-center shadow-md shadow-[#D72638]/20 hover:scale-105 transition-transform shrink-0"
+            title="BloodMatch Clinical Operations Dashboard"
+          >
+            <Droplet className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
           </Link>
         </div>
 
-        {/* Topbar Search & Actions */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Global Multi-Field Search Bar (Interactive Dropdown & Direct Donor Highlight) */}
-          <div className="relative" ref={searchRef}>
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus-within:border-[#D72638] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#D72638]/15 transition-all w-56 lg:w-72">
-              <Search className="w-4 h-4 text-[#7A0C17]/60 shrink-0" />
-              <input
-                ref={searchInputRef}
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setSearchOpen(true);
+        {/* Center: Global Multi-Field Search Bar (Active & Prominently Visible on All Screen Sizes) */}
+        <div className="relative flex-1 min-w-0 max-w-xl mx-1 sm:mx-3" ref={searchRef}>
+          <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus-within:border-[#D72638] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#D72638]/15 transition-all w-full">
+            <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#7A0C17]/60 shrink-0" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setSearchOpen(true);
+              }}
+              onFocus={() => setSearchOpen(true)}
+              placeholder="Search donor, group, locality..."
+              className="w-full bg-transparent text-xs text-[#1A1D20] placeholder-slate-400 outline-hidden font-medium min-w-0"
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSearchOpen(false);
                 }}
-                onFocus={() => setSearchOpen(true)}
-                placeholder="Search donor, group, locality..."
-                className="w-full bg-transparent text-xs text-[#1A1D20] placeholder-slate-400 outline-hidden font-medium"
-              />
-              {searchQuery ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSearchOpen(false);
-                  }}
-                  className="p-0.5 rounded text-slate-400 hover:text-[#1A1D20] cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              ) : (
-                <span className="text-[10px] text-slate-500 font-mono px-1.5 py-0.5 rounded bg-white border border-[#D9C7C2] shrink-0 select-none">
-                  ⌘K
-                </span>
-              )}
-            </div>
-
-            {/* Floating Live Search Dropdown */}
-            {searchOpen && searchQuery.trim().length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 w-72 lg:w-96 rounded-2xl bg-white shadow-2xl p-3 border border-[#D9C7C2] z-50 animate-slide-up text-[#1A1D20]">
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#D9C7C2]/60 px-1">
-                  <span className="text-[10px] font-bold text-[#7A0C17] uppercase tracking-wider">
-                    Donor Directory Matches ({searchResults.length})
-                  </span>
-                  <span className="text-[10px] font-mono text-slate-400">Esc to close</span>
-                </div>
-
-                <div className="space-y-2 max-h-72 overflow-y-auto no-scrollbar">
-                  {searchResults.length === 0 ? (
-                    <div className="py-4 text-center text-xs text-[#5A626A]">
-                      <Search className="w-5 h-5 mx-auto mb-1 text-slate-300" />
-                      <p className="font-semibold text-[#1A1D20]">No donors match "{searchQuery}"</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Search by blood group (e.g. O-, A+), locality, or name</p>
-                    </div>
-                  ) : (
-                    searchResults.map((donor) => (
-                      <div
-                        key={donor.id}
-                        onClick={() => handleSelectDonor(donor.id)}
-                        className="p-2.5 rounded-xl bg-[#F5F1EF] hover:bg-red-50/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/50 transition-all cursor-pointer group flex items-center justify-between gap-3"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] text-white font-black text-xs flex flex-col items-center justify-center shrink-0 shadow-xs">
-                            <span className="text-[8px] font-bold text-red-200 uppercase leading-none">Type</span>
-                            <span className="leading-none mt-0.5">{donor.bloodType}</span>
-                          </div>
-                          <div className="min-w-0">
-                            <h4 className="text-xs font-bold text-[#1A1D20] truncate group-hover:text-[#D72638] transition-colors">
-                              {donor.fullName}
-                            </h4>
-                            <div className="text-[10px] text-[#5A626A] flex items-center gap-1 truncate mt-0.5">
-                              <MapPin className="w-3 h-3 text-[#D72638] shrink-0" />
-                              <span className="truncate">{donor.location || donor.city}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectDonor(donor.id);
-                          }}
-                          className="px-2.5 py-1 rounded-lg bg-[#D72638] hover:bg-[#b51d2c] text-white text-[10px] font-bold shrink-0 transition-colors flex items-center gap-1 shadow-2xs"
-                        >
-                          <span>View</span>
-                          <ArrowRight className="w-2.5 h-2.5" />
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
+                className="p-0.5 rounded text-slate-400 hover:text-[#1A1D20] cursor-pointer shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            ) : (
+              <span className="hidden sm:inline-block text-[10px] text-slate-500 font-mono px-1.5 py-0.5 rounded bg-white border border-[#D9C7C2] shrink-0 select-none">
+                ⌘K
+              </span>
             )}
           </div>
 
-          {/* Quick Emergency Broadcast */}
+          {/* Floating Live Search Dropdown (Mobile Full-Width Optimized) */}
+          {searchOpen && searchQuery.trim().length > 0 && (
+            <div className="fixed sm:absolute top-16 sm:top-full left-3 sm:left-0 right-3 sm:right-auto sm:w-88 md:w-96 rounded-2xl bg-white shadow-2xl p-3 border border-[#D9C7C2] z-50 animate-slide-up text-[#1A1D20]">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-[#D9C7C2]/60 px-1">
+                <span className="text-[10px] font-bold text-[#7A0C17] uppercase tracking-wider">
+                  Donor Directory Matches ({searchResults.length})
+                </span>
+                <span className="text-[10px] font-mono text-slate-400">Esc to close</span>
+              </div>
+
+              <div className="space-y-2 max-h-72 overflow-y-auto no-scrollbar">
+                {searchResults.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-[#5A626A]">
+                    <Search className="w-5 h-5 mx-auto mb-1 text-slate-300" />
+                    <p className="font-semibold text-[#1A1D20]">No donors match "{searchQuery}"</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Search by blood group (e.g. O-, A+), locality, or name</p>
+                  </div>
+                ) : (
+                  searchResults.map((donor) => (
+                    <div
+                      key={donor.id}
+                      onClick={() => handleSelectDonor(donor.id)}
+                      className="p-2.5 rounded-xl bg-[#F5F1EF] hover:bg-red-50/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/50 transition-all cursor-pointer group flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] text-white font-black text-xs flex flex-col items-center justify-center shrink-0 shadow-xs">
+                          <span className="text-[8px] font-bold text-red-200 uppercase leading-none">Type</span>
+                          <span className="leading-none mt-0.5">{donor.bloodType}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-bold text-[#1A1D20] truncate group-hover:text-[#D72638] transition-colors">
+                            {donor.fullName}
+                          </h4>
+                          <div className="text-[10px] text-[#5A626A] flex items-center gap-1 truncate mt-0.5">
+                            <MapPin className="w-3 h-3 text-[#D72638] shrink-0" />
+                            <span className="truncate">{donor.location || donor.city}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectDonor(donor.id);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-[#D72638] hover:bg-[#b51d2c] text-white text-[10px] font-bold shrink-0 transition-colors flex items-center gap-1 shadow-2xs"
+                      >
+                        <span>View</span>
+                        <ArrowRight className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Actions Cluster (Quick Broadcast, Notifications, Profile) */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          {/* Quick Emergency Broadcast Button */}
           <Link
             to="/dashboard/emergency?action=broadcast"
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] active:scale-95 text-white text-xs font-bold shadow-md shadow-[#D72638]/30 transition-all cursor-pointer shrink-0"
+            className="flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] active:scale-95 text-white text-xs font-bold shadow-md shadow-[#D72638]/30 transition-all cursor-pointer shrink-0"
+            title="Launch Emergency Transfusion Request Broadcast"
           >
-            <PlusCircle className="w-4 h-4" />
-            <span className="hidden sm:inline">Dispatch Request</span>
+            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden md:inline">Dispatch Request</span>
           </Link>
 
           {/* Notifications Dropdown with Animated Red Blinking Beacon */}

@@ -671,12 +671,12 @@ export default function DonorRegistry() {
           />
         </div>
 
-        <div className="flex flex-wrap gap-1.5 w-full md:w-auto">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full md:w-auto py-1">
           {['ALL', ...bloodTypes].map(bt => (
             <button
               key={bt}
               onClick={() => setSelectedFilter(bt)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                 selectedFilter === bt
                   ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/30 scale-105'
                   : 'bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
@@ -699,16 +699,16 @@ export default function DonorRegistry() {
           viewport={{ once: true, amount: 0.1 }}
           className="space-y-3"
         >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-[#D72638] text-white shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="p-1.5 rounded-lg bg-[#D72638] text-white shadow-xs shrink-0">
                 <Star className="w-4 h-4 fill-white" />
               </div>
-              <h2 className="text-base sm:text-lg font-black text-[#1A1D20] tracking-tight">
+              <h2 className="text-base sm:text-lg font-black text-[#1A1D20] tracking-tight truncate">
                 Your Registered Blood Pledges ({myPledges.length})
               </h2>
             </div>
-            <span className="text-[11px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] border border-[#D72638]/20">
+            <span className="text-[10px] sm:text-[11px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] border border-[#D72638]/20 truncate self-start sm:self-auto max-w-full">
               Active Account: {currentUserEmail}
             </span>
           </div>
