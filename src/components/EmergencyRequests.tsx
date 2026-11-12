@@ -117,7 +117,7 @@ export default function EmergencyRequests() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   // Geolocation & Locality
-  const [selectedLocality, setSelectedLocality] = useState<string>('Connaught Place, Central Delhi');
+  const [selectedLocality, setSelectedLocality] = useState<string>('');
   const [customLocalityInput, setCustomLocalityInput] = useState<string>('');
   const [userCoords, setUserCoords] = useState<Coordinates>({ latitude: 28.6315, longitude: 77.2167 });
   const [isDetectingGps, setIsDetectingGps] = useState<boolean>(false);
@@ -328,6 +328,10 @@ export default function EmergencyRequests() {
     setModalPhase('INPUT');
     setFormErrors({});
     setModalNotification(null);
+    setSelectedLocality('');
+    setCustomLocalityInput('');
+    setDetectedPills([]);
+    setGpsMessage(null);
   };
 
   const validateForm = (): boolean => {
@@ -343,6 +347,11 @@ export default function EmergencyRequests() {
 
     if (!unitsNeeded || unitsNeeded < 1 || unitsNeeded > 50) {
       errors.unitsNeeded = 'Units needed must be at least 1 pint';
+    }
+
+    const loc = (customLocalityInput.trim() || selectedLocality.trim());
+    if (!loc) {
+      errors.locality = 'Target locality or triage area is required. Type an area or click Detect My Location.';
     }
 
     const phoneVal = validatePhoneNumber(countryDialCode, contactPhone);
@@ -1091,9 +1100,14 @@ export default function EmergencyRequests() {
                                 const val = e.target.value;
                                 setCustomLocalityInput(val);
                                 setSelectedLocality(val);
+                                if (formErrors.locality) {
+                                  setFormErrors(prev => ({ ...prev, locality: '' }));
+                                }
                               }}
-                              placeholder="Type or select locality (e.g. Connaught Place, Mumbai, London, New York...)"
-                              className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9C7C2] text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638]"
+                              placeholder="Type locality or click Detect My Location..."
+                              className={`w-full px-3 py-2 rounded-xl bg-white border ${
+                                formErrors.locality ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                              } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638]`}
                             />
                             <datalist id="global-locality-datalist">
                               {GLOBAL_LOCALITY_NAMES.map((name: string) => (
@@ -1101,33 +1115,43 @@ export default function EmergencyRequests() {
                               ))}
                             </datalist>
                           </div>
+                          {formErrors.locality && (
+                            <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.locality}</p>
+                          )}
 
-                          {/* Quick Dynamic Locality Pills */}
-                          <div className="flex flex-wrap gap-1.5 pt-2">
-                            {(detectedPills.length > 0
-                              ? detectedPills
-                              : ['Connaught Place', 'South Extension', 'Mumbai', 'London', 'New York', 'Rohini Sector 7']
-                            ).map((pill: string) => {
-                              const active = (customLocalityInput || selectedLocality).toLowerCase().includes(pill.toLowerCase());
-                              return (
-                                <button
-                                  key={pill}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedLocality(pill);
-                                    setCustomLocalityInput(pill);
-                                  }}
-                                  className={`text-2xs font-semibold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
-                                    active
-                                      ? 'bg-[#D72638] text-white border-[#D72638]'
-                                      : 'bg-white text-[#4A5568] border-[#D9C7C2] hover:bg-slate-100'
-                                  }`}
-                                >
-                                  {pill}
-                                </button>
-                              );
-                            })}
-                          </div>
+                          {/* Quick Dynamic Locality Pills (Shown ONLY after detecting location) */}
+                          {detectedPills.length > 0 && (
+                            <div className="pt-2">
+                              <span className="text-[10px] font-bold text-[#7A0C17] uppercase tracking-wider block mb-1">
+                                Detected Area Suggestions:
+                              </span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {detectedPills.map((pill: string) => {
+                                  const active = (customLocalityInput || selectedLocality).toLowerCase().includes(pill.toLowerCase());
+                                  return (
+                                    <button
+                                      key={pill}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedLocality(pill);
+                                        setCustomLocalityInput(pill);
+                                        if (formErrors.locality) {
+                                          setFormErrors(prev => ({ ...prev, locality: '' }));
+                                        }
+                                      }}
+                                      className={`text-2xs font-semibold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                                        active
+                                          ? 'bg-[#D72638] text-white border-[#D72638]'
+                                          : 'bg-white text-[#4A5568] border-[#D9C7C2] hover:bg-slate-100'
+                                      }`}
+                                    >
+                                      {pill}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Contact Person & Emergency Number */}

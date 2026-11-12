@@ -32,6 +32,7 @@ import { getDonors, saveDonors, deleteDonor as deleteDonorStorage } from '../ser
 import { fetchDonorsApi, sendDonorOtpApi, registerDonorApi, deleteDonorApi } from '../services/api';
 import { COUNTRY_CODES, validatePhoneNumber, validateEmail } from '../utils/countryCodes';
 import { BLOOD_COMPATIBILITY_TABLE } from '../utils/bloodCompatibility';
+import { reverseGeocodeCoordinates } from '../utils/geolocation';
 
 const scrollBlurVariants: Variants = {
   hidden: { 
@@ -106,9 +107,10 @@ export default function DonorRegistry() {
   const [countryDialCode, setCountryDialCode] = useState<string>('+91');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [city, setCity] = useState('Delhi');
-  const [state, setState] = useState('Delhi');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
   const [location, setLocation] = useState('');
+  const [detectedSuggestions, setDetectedSuggestions] = useState<string[]>([]);
   const [consentChecked, setConsentChecked] = useState<boolean>(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
@@ -225,12 +227,12 @@ export default function DonorRegistry() {
     return () => clearInterval(timer);
   }, [isOpenModal, modalStep]);
 
-  // Browser Geolocation Detector for Delhi & nearby regions
+  // Browser Geolocation Detector (Worldwide with Reverse Geocoding)
   const handleDetectLocation = () => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
       setFormErrors(prev => ({
         ...prev,
-        location: 'Geolocation is not supported by your browser. Please select a locality below.',
+        location: 'Geolocation is not supported by your browser. Please enter your locality manually.',
       }));
       return;
     }
@@ -242,33 +244,16 @@ export default function DonorRegistry() {
       async (pos) => {
         const { latitude, longitude } = pos.coords;
         try {
-          // Reverse-geocode via standard OpenStreetMap Nominatim
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-            { headers: { Accept: 'application/json' } }
-          );
-          if (res.ok) {
-            const data = await res.json();
-            const addr = data.address || {};
-            const suburb = addr.suburb || addr.neighbourhood || addr.residential || addr.road || addr.quarter || addr.subdistrict;
-            const cityFound = addr.city || addr.state_district || addr.state || 'Delhi';
-            const detectedArea = suburb ? `${suburb}, ${cityFound}` : `Area near ${latitude.toFixed(3)}N, ${longitude.toFixed(3)}E, ${cityFound}`;
-            
-            setLocation(detectedArea);
-            setCity(cityFound);
-            setState(addr.state || 'Delhi');
-            setLocationDetectionSuccess(true);
-            setFormErrors(prev => ({ ...prev, location: '' }));
-          } else {
-            throw new Error('Reverse geocode failed');
-          }
+          const geo = await reverseGeocodeCoordinates(latitude, longitude);
+          setLocation(geo.primaryLocality);
+          setCity(geo.city || (geo.primaryLocality.split(',')[1]?.trim()) || '');
+          setState(geo.state || (geo.primaryLocality.split(',')[2]?.trim()) || '');
+          setDetectedSuggestions(geo.nearestPills || []);
+          setLocationDetectionSuccess(true);
+          setFormErrors(prev => ({ ...prev, location: '', city: '' }));
         } catch {
-          // Robust local coordinate matcher fallback
-          const isDelhiBox = latitude >= 28.3 && latitude <= 28.9 && longitude >= 76.8 && longitude <= 77.5;
-          const fallbackLoc = isDelhiBox ? 'Connaught Place, Central Delhi' : `GPS (${latitude.toFixed(3)}, ${longitude.toFixed(3)})`;
+          const fallbackLoc = `GPS Area (${latitude.toFixed(4)}°, ${longitude.toFixed(4)}°)`;
           setLocation(fallbackLoc);
-          setCity('Delhi');
-          setState('Delhi');
           setLocationDetectionSuccess(true);
           setFormErrors(prev => ({ ...prev, location: '' }));
         } finally {
@@ -279,7 +264,7 @@ export default function DonorRegistry() {
         setIsDetectingLocation(false);
         setFormErrors(prev => ({
           ...prev,
-          location: 'Location access was blocked or timed out. Please select from prominent Delhi localities below.',
+          location: 'Location access was blocked or timed out. Please enter your locality or area manually.',
         }));
       },
       { enableHighAccuracy: true, timeout: 9000, maximumAge: 60000 }
@@ -292,6 +277,11 @@ export default function DonorRegistry() {
     setFormErrors({});
     setOtpDigits(['', '', '', '', '', '']);
     setOtpError('');
+    setLocation('');
+    setCity('');
+    setState('');
+    setDetectedSuggestions([]);
+    setLocationDetectionSuccess(false);
   };
 
   const validateForm = (): boolean => {
@@ -316,7 +306,7 @@ export default function DonorRegistry() {
     }
 
     if (!location.trim()) {
-      errors.location = 'Specific locality or area is required (e.g. Rohini, Connaught Place)';
+      errors.location = 'Specific locality or area is required (e.g. Area, Suburb, or City)';
     }
 
     if (!city.trim()) {
@@ -620,7 +610,7 @@ export default function DonorRegistry() {
                 Live Geocoded Donor Directory
               </h2>
               <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
-                Autonomous cross-device synchronization indexes verified donors by exact Delhi locality, blood antibodies, and contact readiness for rapid trauma triage.
+                Autonomous cross-device synchronization indexes verified donors by exact locality, blood antibodies, and contact readiness for rapid trauma triage.
               </p>
             </div>
 
@@ -666,7 +656,7 @@ export default function DonorRegistry() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, Delhi locality, phone, blood group..."
+            placeholder="Search by name, locality, phone, blood group..."
             className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-[#D9C7C2] focus:border-[#D72638] text-xs text-[#1A1D20] placeholder-slate-400 outline-hidden shadow-xs"
           />
         </div>
@@ -819,7 +809,7 @@ export default function DonorRegistry() {
                         Register Voluntary Blood Donor
                       </h2>
                       <p className="text-xs text-[#5A626A] mt-0.5">
-                        Enroll prospective donor with verified Delhi locality, contact channels, and secure email OTP verification.
+                        Enroll prospective donor with verified contact channels, geolocation, and secure email OTP verification.
                       </p>
                     </div>
                   </div>
@@ -977,14 +967,14 @@ export default function DonorRegistry() {
                       <div className="space-y-3.5">
                         <div className="text-[11px] font-black text-[#7A0C17] uppercase tracking-wider flex items-center gap-1.5 pb-2 border-b border-[#D9C7C2]/60">
                           <MapPin className="w-3.5 h-3.5 text-[#D72638]" />
-                          <span>2. Delhi Locality & Geolocation Verification</span>
+                          <span>2. Geolocation & Area Verification</span>
                         </div>
 
                         {/* Geolocation Input & Popular Localities */}
                         <div className="p-3.5 rounded-2xl bg-white border border-[#D9C7C2] space-y-2.5 shadow-2xs">
                           <div className="flex items-center justify-between">
                             <label className="block text-xs font-bold text-[#1A1D20] flex items-center gap-1.5">
-                              <span>Exact Locality / Area in Delhi <span className="text-[#D72638]">*</span></span>
+                              <span>Exact Locality / Area <span className="text-[#D72638]">*</span></span>
                             </label>
 
                             <button
@@ -1009,7 +999,7 @@ export default function DonorRegistry() {
                               setLocation(e.target.value);
                               if (formErrors.location) setFormErrors(prev => ({ ...prev, location: '' }));
                             }}
-                            placeholder="e.g. Rohini Sector 7, North West Delhi / Connaught Place"
+                            placeholder="e.g. Area, Suburb, District (or click Detect My Location)"
                             className={`w-full px-3 py-2 rounded-xl bg-[#F5F1EF] border ${
                               formErrors.location ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
                             } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
@@ -1024,33 +1014,33 @@ export default function DonorRegistry() {
                             </p>
                           )}
 
-                          {/* Quick Select Popular Delhi Localities */}
-                          <div>
-                            <span className="text-[10px] font-bold text-[#7A0C17] uppercase tracking-wider block mb-1">
-                              Or Pick Delhi Locality:
-                            </span>
-                            <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto no-scrollbar py-0.5">
-                              {POPULAR_DELHI_LOCALITIES.map((loc) => (
-                                <button
-                                  key={loc}
-                                  type="button"
-                                  onClick={() => {
-                                    setLocation(loc);
-                                    setCity('Delhi');
-                                    setState('Delhi');
-                                    if (formErrors.location) setFormErrors(prev => ({ ...prev, location: '' }));
-                                  }}
-                                  className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors cursor-pointer ${
-                                    location === loc
-                                      ? 'bg-[#D72638] text-white shadow-2xs'
-                                      : 'bg-[#F5F1EF] hover:bg-red-50 text-[#5A626A] border border-[#D9C7C2]'
-                                  }`}
-                                >
-                                  {loc.split(',')[0]}
-                                </button>
-                              ))}
+                          {/* Dynamic Nearby Locality Suggestions (Shown ONLY after detecting location) */}
+                          {detectedSuggestions.length > 0 && (
+                            <div className="pt-1">
+                              <span className="text-[10px] font-bold text-[#7A0C17] uppercase tracking-wider block mb-1">
+                                Nearby Locality Suggestions:
+                              </span>
+                              <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto no-scrollbar py-0.5">
+                                {detectedSuggestions.map((loc) => (
+                                  <button
+                                    key={loc}
+                                    type="button"
+                                    onClick={() => {
+                                      setLocation(loc);
+                                      if (formErrors.location) setFormErrors(prev => ({ ...prev, location: '' }));
+                                    }}
+                                    className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors cursor-pointer ${
+                                      location.toLowerCase().includes(loc.toLowerCase())
+                                        ? 'bg-[#D72638] text-white shadow-2xs'
+                                        : 'bg-[#F5F1EF] hover:bg-red-50 text-[#5A626A] border border-[#D9C7C2]'
+                                    }`}
+                                  >
+                                    {loc}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
 
                         {/* City & State (Synced with location) */}
@@ -1066,7 +1056,7 @@ export default function DonorRegistry() {
                                 setCity(e.target.value);
                                 if (formErrors.city) setFormErrors(prev => ({ ...prev, city: '' }));
                               }}
-                              placeholder="Delhi"
+                              placeholder="e.g. New Delhi, Mumbai, London"
                               className={`w-full px-3 py-2 rounded-xl bg-white border ${
                                 formErrors.city ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
                               } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
@@ -1082,7 +1072,7 @@ export default function DonorRegistry() {
                               type="text"
                               value={state}
                               onChange={(e) => setState(e.target.value)}
-                              placeholder="Delhi"
+                              placeholder="e.g. Delhi, Maharashtra, England"
                               className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9C7C2] text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638]"
                             />
                           </div>
@@ -1482,7 +1472,7 @@ export default function DonorRegistry() {
               {/* Exact Locality & City */}
               <div className="p-2.5 rounded-xl bg-white border border-[#D9C7C2] space-y-1">
                 <span className="text-[10px] text-[#7A0C17] font-bold uppercase tracking-wider block">
-                  Registered Delhi Locality / Area
+                  Registered Locality / Area
                 </span>
                 <p className="text-xs font-semibold text-[#1A1D20]">
                   {donor.location || `${donor.city}, ${donor.state}`}

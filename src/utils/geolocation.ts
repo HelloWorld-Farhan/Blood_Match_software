@@ -141,6 +141,8 @@ export async function reverseGeocodeCoordinates(
   displayName?: string;
   country?: string;
   city?: string;
+  state?: string;
+  suburb?: string;
 }> {
   // 1. Attempt OpenStreetMap Nominatim reverse geocode (with 3.5s timeout)
   try {
@@ -188,6 +190,8 @@ export async function reverseGeocodeCoordinates(
             displayName: data.display_name || primaryLocality,
             country,
             city,
+            state,
+            suburb: sub,
           };
         }
       }
@@ -214,10 +218,13 @@ export async function reverseGeocodeCoordinates(
     return shortName;
   });
 
+  const closestCity = closest.name.split(',')[1]?.trim() || closest.name.split(',')[0]?.trim();
+
   return {
     primaryLocality,
     nearestPills,
     displayName: primaryLocality,
+    city: closestCity,
   };
 }
 
