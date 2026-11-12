@@ -364,7 +364,7 @@ export default function Layout() {
   };
 
   const navItems = [
-    { name: 'Power BI Executive Hub', path: '/dashboard', icon: LayoutDashboard, exact: true },
+    { name: 'Main Operations Dashboard', path: '/dashboard', icon: LayoutDashboard, exact: true },
     { name: '8x8 Compatibility Matrix', path: '/dashboard/matrix', icon: Grid },
     { 
       name: 'Emergency Requests', 
@@ -671,9 +671,9 @@ export default function Layout() {
           TOP HEADER BAR (Permanently Fixed / Sticky, Universal Search Bar On All Screens)
           ========================================================================= */}
       <header className="shrink-0 sticky top-0 z-30 w-full h-14 sm:h-16 bg-white/95 backdrop-blur-md border-b border-[#D9C7C2] flex items-center justify-between px-2.5 sm:px-6 shadow-xs gap-2">
-        {/* Left: Mobile Hamburger & Home Droplet Logo (BloodMatch text removed per UI spec) */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          {/* Mobile Hamburger Trigger */}
+        {/* Left: Mobile Hamburger & Desktop Brand Identity */}
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          {/* Mobile Hamburger Trigger (Logo removed on mobile top bar; accessible in drawer) */}
           <button
             onClick={() => setSidebarOpen(true)}
             className="p-1.5 sm:p-2 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-[#4A5568] hover:text-[#1A1D20] active:scale-95 lg:hidden cursor-pointer shrink-0"
@@ -682,13 +682,23 @@ export default function Layout() {
             <Menu className="w-4 h-4 sm:w-5 sm:h-5 text-[#1A1D20]" />
           </button>
 
-          {/* Droplet Home Icon Link */}
+          {/* Desktop/Laptop Brand Identity: Droplet Logo & Full BloodMatch Name */}
           <Link 
             to="/dashboard" 
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] border border-[#D72638]/40 text-white flex items-center justify-center shadow-md shadow-[#D72638]/20 hover:scale-105 transition-transform shrink-0"
-            title="BloodMatch Clinical Operations Dashboard"
+            className="hidden lg:flex items-center gap-2.5 group shrink-0"
+            title="BloodMatch Clinical Operations Hub"
           >
-            <Droplet className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] border border-[#D72638]/40 text-white flex items-center justify-center shadow-md shadow-[#D72638]/20 group-hover:scale-105 transition-transform shrink-0">
+              <Droplet className="w-5 h-5 fill-current" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-base font-black tracking-tight text-[#1A1D20] leading-none">
+                Blood<span className="text-[#D72638]">Match</span>
+              </span>
+              <span className="text-[9px] uppercase font-bold tracking-widest text-[#7A0C17] mt-0.5">
+                Clinical Operations Hub
+              </span>
+            </div>
           </Link>
         </div>
 
@@ -787,14 +797,14 @@ export default function Layout() {
 
         {/* Right: Actions Cluster (Quick Broadcast, Notifications, Profile) */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          {/* Quick Emergency Broadcast Button */}
+          {/* Quick Emergency Broadcast / Check Redirection Button */}
           <Link
-            to="/dashboard/emergency?action=broadcast"
-            className="flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] active:scale-95 text-white text-xs font-bold shadow-md shadow-[#D72638]/30 transition-all cursor-pointer shrink-0"
-            title="Launch Emergency Transfusion Request Broadcast"
+            to="/dashboard/emergency"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] active:scale-95 text-white text-[11px] sm:text-xs font-bold shadow-md shadow-[#D72638]/30 transition-all cursor-pointer shrink-0"
+            title="Navigate to Emergency Requests & Triage Check"
           >
-            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden md:inline">Dispatch Request</span>
+            <PlusCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+            <span className="font-bold whitespace-nowrap">Dispatch Request</span>
           </Link>
 
           {/* Notifications Dropdown with Animated Red Blinking Beacon */}

@@ -547,10 +547,18 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                     </span>
                   </div>
 
-                  <div className="flex justify-center gap-2 sm:gap-3">
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.96, filter: 'blur(8px)' }}
+                    animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex justify-center gap-2 sm:gap-3"
+                  >
                     {otp.map((digit, idx) => (
-                      <input
+                      <motion.input
                         key={idx}
+                        initial={{ opacity: 0, y: 6, filter: 'blur(4px)' }}
+                        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                        transition={{ duration: 0.25, delay: idx * 0.04 }}
                         ref={(el) => { otpInputRefs.current[idx] = el; }}
                         type="text"
                         inputMode="numeric"
@@ -567,7 +575,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                         }`}
                       />
                     ))}
-                  </div>
+                  </motion.div>
 
                   {/* Inline Error Below OTP */}
                   {otpError && (

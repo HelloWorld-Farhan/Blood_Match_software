@@ -715,10 +715,18 @@ export default function Login() {
                             )}
                           </span>
                         </div>
-                        <div className="flex items-center justify-center gap-2 sm:gap-3">
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.96, filter: 'blur(8px)' }}
+                          animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                          className="flex items-center justify-center gap-2 sm:gap-3"
+                        >
                           {twoFactorOtp.map((digit, idx) => (
-                            <input
+                            <motion.input
                               key={idx}
+                              initial={{ opacity: 0, y: 6, filter: 'blur(4px)' }}
+                              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                              transition={{ duration: 0.25, delay: idx * 0.04 }}
                               ref={(el) => { otpInputRefs.current[idx] = el; }}
                               type="text"
                               inputMode="numeric"
@@ -729,7 +737,7 @@ export default function Login() {
                               className="w-11 h-12 text-center text-lg font-bold rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white outline-hidden transition-all text-[#1A1D20]"
                             />
                           ))}
-                        </div>
+                        </motion.div>
 
                         {/* Resend 2FA Action */}
                         <div className="flex items-center justify-between text-xs text-[#5A626A] pt-3 max-w-xs mx-auto">

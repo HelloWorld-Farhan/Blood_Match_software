@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { BloodPreloader } from './components/BloodPreloader';
 
 import Login from './pages/Login';
@@ -11,6 +11,26 @@ import EmergencyRequests from './components/EmergencyRequests';
 import DonorRegistry from './components/DonorRegistry';
 import InventoryManager from './components/InventoryManager';
 import Settings from './components/Settings';
+
+/**
+ * Universal ScrollToTop: Automatically scrolls viewport and main content containers
+ * to the very top whenever the route or search parameter changes.
+ */
+function ScrollToTop() {
+  const { pathname, search } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    const mainEl = document.querySelector('main');
+    if (mainEl) {
+      mainEl.scrollTop = 0;
+    }
+  }, [pathname, search]);
+
+  return null;
+}
 
 function AppRoutes() {
   return (
@@ -72,6 +92,7 @@ export default function App() {
 
   return (
     <Router>
+      <ScrollToTop />
       {showPreloader && (
         <BloodPreloader 
           onOpeningChange={handleOpeningChange}

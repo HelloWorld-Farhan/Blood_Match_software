@@ -283,7 +283,7 @@ export const Dashboard: React.FC = () => {
               <span>Hemodynamic Intelligence Active</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-[#1A1D20] tracking-tight flex items-center gap-2">
-              <span>Power BI Executive Hub</span>
+              <span>Main Operations Dashboard</span>
             </h1>
             <p className="text-xs text-[#5A626A]">
               Real-time ABO/Rh cross-matching analytics, blood bank reserve volume, and emergency trauma triage.
@@ -767,7 +767,7 @@ export const Dashboard: React.FC = () => {
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-[#D72638]" />
                 <h2 className="text-sm font-bold text-[#1A1D20] uppercase tracking-wider">
-                  7-Day Transfusion Velocity & Mobilization
+                  7-Day Blood Requests &amp; Donor Activity
                 </h2>
               </div>
               <div className="flex items-center gap-3 text-[11px]">
@@ -780,7 +780,7 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
             <p className="text-xs text-[#5A626A] mb-4">
-              Real-time trend analysis tracking emergency intake spikes against voluntary donor mobilization.
+              Real-time weekly tracking of patient transfusion requests against voluntary donor mobilization.
             </p>
 
             {/* SVG Wave Chart with Interactive Power BI Hover Animation */}
@@ -888,23 +888,23 @@ export const Dashboard: React.FC = () => {
                 })}
               </svg>
 
-              {/* Animated Power BI Floating Telemetry Tooltip Card */}
-              <AnimatePresence>
-                {hoveredTrendIndex !== null && trendData[hoveredTrendIndex] && (
+              {/* Stable Zero-Layout-Shift Telemetry Container (Permanent Fixed-Height Slot) */}
+              <div className="mt-3 min-h-[50px] p-2.5 sm:p-3 rounded-xl bg-white border border-[#D9C7C2]/80 shadow-xs flex items-center justify-between transition-all">
+                {hoveredTrendIndex !== null && trendData[hoveredTrendIndex] ? (
                   <motion.div
-                    initial={{ opacity: 0, y: 8, scale: 0.97 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 4, scale: 0.97 }}
-                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                    className="mt-3 p-3 rounded-xl bg-white border border-[#D72638]/40 shadow-lg shadow-[#D72638]/10 flex flex-wrap items-center justify-between gap-2.5 text-xs"
+                    key={`telemetry-${hoveredTrendIndex}`}
+                    initial={{ opacity: 0, y: 3 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="flex flex-wrap items-center justify-between gap-2.5 w-full text-xs"
                   >
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#D72638] animate-ping" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#D72638] animate-ping shrink-0" />
                       <span className="font-bold text-[#1A1D20]">
                         {trendData[hoveredTrendIndex].day} Telemetry Stream
                       </span>
                     </div>
-                    <div className="flex items-center gap-3.5 text-[11px]">
+                    <div className="flex flex-wrap items-center gap-3.5 text-[11px]">
                       <span className="flex items-center gap-1 font-bold text-[#D72638]">
                         <AlertTriangle className="w-3.5 h-3.5" />
                         {trendData[hoveredTrendIndex].requests} Emergency Requests
@@ -919,8 +919,20 @@ export const Dashboard: React.FC = () => {
                       </span>
                     </div>
                   </motion.div>
+                ) : (
+                  <div className="flex flex-wrap items-center justify-between gap-2 w-full text-[11px] text-[#5A626A]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                      <span className="font-medium text-[#1A1D20]">
+                        Hover over any weekday data point to inspect live clinical telemetry
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      7-Day Activity Stream
+                    </span>
+                  </div>
                 )}
-              </AnimatePresence>
+              </div>
             </div>
 
             {/* Dynamic Trend Indicators without hardcoded mock numbers */}
