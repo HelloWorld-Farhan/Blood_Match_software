@@ -135,3 +135,4 @@ export function useNetworkHealth(): NetworkHealthState {
     checkHealth,
   };
 }
+

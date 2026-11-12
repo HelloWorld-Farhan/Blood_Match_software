@@ -23,6 +23,7 @@ import {
   RefreshCw,
   Star,
   Sparkles,
+  Droplet,
   ArrowRight,
   Trash2
 } from 'lucide-react';
@@ -769,7 +770,7 @@ export default function DonorRegistry() {
       </motion.div>
 
       {/* =========================================================================
-          REGISTER DONOR MODAL WITH GPS DELHI LOCATOR & EMAIL OTP
+          REGISTER DONOR MODAL WITH GPS DELHI LOCATOR & EMAIL OTP (HORIZONTAL TWO-COLUMN LAYOUT)
           ========================================================================= */}
       {isOpenModal && typeof document !== 'undefined' && createPortal(
         <div 
@@ -777,417 +778,481 @@ export default function DonorRegistry() {
           onClick={handleCloseModal}
         >
           <div 
-            className="relative w-full max-w-xl max-h-[92vh] overflow-y-auto no-scrollbar rounded-2xl bg-white border border-[#D9C7C2] p-5 sm:p-7 md:p-8 shadow-2xl text-[#1A1D20]"
+            className="relative w-full max-w-4xl lg:max-w-5xl max-h-[94vh] overflow-y-auto no-scrollbar rounded-3xl bg-white border border-[#D9C7C2] p-5 sm:p-7 md:p-8 shadow-2xl text-[#1A1D20]"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={handleCloseModal}
-              className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-[#1A1D20] hover:bg-[#F5F1EF] transition-colors cursor-pointer"
+              className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-400 hover:text-[#1A1D20] hover:bg-[#F5F1EF] transition-colors cursor-pointer z-10"
               aria-label="Close dialog"
             >
               <X className="w-5 h-5" />
             </button>
 
-            {/* STEP 1: REGISTRATION FORM */}
+            {/* STEP 1: REGISTRATION FORM (HORIZONTAL 2-COLUMN SPLIT) */}
             {modalStep === 'FORM' && (
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <div className="w-8 h-8 rounded-xl bg-[#7A0C17]/10 flex items-center justify-center text-[#D72638]">
-                    <Users className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-black text-[#1A1D20]">
-                      Register Voluntary Blood Donor
-                    </h2>
+                <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-[#D9C7C2]/60 pr-8">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-[#7A0C17]/10 border border-[#D72638]/20 flex items-center justify-center text-[#D72638] shadow-xs shrink-0">
+                      <Users className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-black text-[#1A1D20] tracking-tight">
+                        Register Voluntary Blood Donor
+                      </h2>
+                      <p className="text-xs text-[#5A626A] mt-0.5">
+                        Enroll prospective donor with verified Delhi locality, contact channels, and secure email OTP verification.
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <p className="text-xs text-[#5A626A] mb-4">
-                  Enroll prospective donor with verified Delhi locality, contact channels, and secure email OTP verification.
-                </p>
 
-                <form onSubmit={handleProceedToOtp} className="space-y-3.5">
-                  {/* Name & Blood Group */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-[#1A1D20] mb-1">
-                        Full Legal Name <span className="text-[#D72638]">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={fullName}
-                        onChange={(e) => {
-                          setFullName(e.target.value);
-                          if (formErrors.fullName) setFormErrors(prev => ({ ...prev, fullName: '' }));
-                        }}
-                        placeholder="e.g. Farhan Khalid"
-                        className={`w-full px-3 py-2 rounded-xl bg-[#F5F1EF] border ${
-                          formErrors.fullName ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                        } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
-                      />
-                      {formErrors.fullName && (
-                        <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.fullName}</p>
-                      )}
-                    </div>
+                <form onSubmit={handleProceedToOtp} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 lg:gap-6">
+                    {/* LEFT COLUMN: DONOR IDENTITY & CLINICAL CONTACT */}
+                    <div className="space-y-3.5 bg-[#F5F1EF]/40 p-4 sm:p-5 rounded-2xl border border-[#D9C7C2]/70">
+                      <div className="text-[11px] font-black text-[#7A0C17] uppercase tracking-wider flex items-center gap-1.5 pb-2 border-b border-[#D9C7C2]/60">
+                        <Droplet className="w-3.5 h-3.5 text-[#D72638] fill-current" />
+                        <span>1. Donor Identity & Clinical Contact</span>
+                      </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-[#1A1D20] mb-1">
-                        Blood Group <span className="text-[#D72638]">*</span>
-                      </label>
-                      <select
-                        value={bloodType}
-                        onChange={(e) => setBloodType(e.target.value as BloodType)}
-                        className="w-full px-3 py-2 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-xs text-[#1A1D20] font-bold outline-hidden focus:border-[#D72638] cursor-pointer"
-                      >
-                        {bloodTypes.map(t => (
-                          <option key={t} value={t}>{t}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Age & Biological Gender */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-[#1A1D20] mb-1">
-                        Age (18 - 65) <span className="text-[#D72638]">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        min="18"
-                        max="65"
-                        value={age}
-                        onChange={(e) => {
-                          setAge(Number(e.target.value));
-                          if (formErrors.age) setFormErrors(prev => ({ ...prev, age: '' }));
-                        }}
-                        className={`w-full px-3 py-2 rounded-xl bg-[#F5F1EF] border ${
-                          formErrors.age ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                        } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
-                      />
-                      {formErrors.age && (
-                        <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.age}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-[#1A1D20] mb-1">Biological Gender</label>
-                      <select
-                        value={gender}
-                        onChange={(e) => setGender(e.target.value as Donor['gender'])}
-                        className="w-full px-3 py-2 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] cursor-pointer"
-                      >
-                        <option value="MALE">Male</option>
-                        <option value="FEMALE">Female</option>
-                        <option value="OTHER">Other</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Phone & Email */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-[#1A1D20] mb-1">
-                        Phone Number <span className="text-[#D72638]">*</span>
-                      </label>
-                      <div className="flex gap-1.5">
-                        <select
-                          value={countryDialCode}
-                          onChange={(e) => {
-                            setCountryDialCode(e.target.value);
-                            if (formErrors.phone) setFormErrors(prev => ({ ...prev, phone: '' }));
-                          }}
-                          className="px-2 py-2 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-xs font-bold text-[#1A1D20] outline-hidden focus:border-[#D72638] shrink-0 cursor-pointer max-w-[105px]"
-                        >
-                          {COUNTRY_CODES.map((c) => (
-                            <option key={c.code} value={c.dialCode}>
-                              {c.flag} {c.dialCode}
-                            </option>
-                          ))}
-                        </select>
-
+                      {/* Full Name */}
+                      <div>
+                        <label className="block text-xs font-semibold text-[#1A1D20] mb-1">
+                          Full Legal Name <span className="text-[#D72638]">*</span>
+                        </label>
                         <input
-                          type="tel"
-                          value={phone}
+                          type="text"
+                          value={fullName}
                           onChange={(e) => {
-                            setPhone(e.target.value);
-                            if (formErrors.phone) setFormErrors(prev => ({ ...prev, phone: '' }));
+                            setFullName(e.target.value);
+                            if (formErrors.fullName) setFormErrors(prev => ({ ...prev, fullName: '' }));
                           }}
-                          placeholder={countryDialCode === '+91' ? '98765 43210' : 'Mobile number'}
-                          className={`w-full px-3 py-2 rounded-xl bg-[#F5F1EF] border ${
-                            formErrors.phone ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                          placeholder="e.g. Farhan Khalid"
+                          className={`w-full px-3 py-2 rounded-xl bg-white border ${
+                            formErrors.fullName ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
                           } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
                         />
-                      </div>
-                      {formErrors.phone && (
-                        <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.phone}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-[#1A1D20] mb-1">
-                        Email Address (Requires OTP) <span className="text-[#D72638]">*</span>
-                      </label>
-                      <input
-                        type="email"
-                        value={email}
-                        onChange={(e) => {
-                          setEmail(e.target.value);
-                          if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
-                        }}
-                        placeholder="donor@example.com"
-                        className={`w-full px-3 py-2 rounded-xl bg-[#F5F1EF] border ${
-                          formErrors.email ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                        } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
-                      />
-                      {formErrors.email && (
-                        <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.email}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* GEOLOCATION: EXACT DELHI LOCALITY / AREA (MUST FIELD) */}
-                  <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#F5F1EF] to-white border border-[#D9C7C2] space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-xs font-bold text-[#1A1D20] flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-[#D72638]" />
-                        <span>Exact Locality / Area in Delhi <span className="text-[#D72638]">*</span></span>
-                      </label>
-
-                      <button
-                        type="button"
-                        onClick={handleDetectLocation}
-                        disabled={isDetectingLocation}
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-[#D9C7C2] hover:border-[#D72638] text-[11px] font-bold text-[#D72638] shadow-2xs transition-all cursor-pointer disabled:opacity-50"
-                      >
-                        {isDetectingLocation ? (
-                          <RefreshCw className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Navigation className="w-3 h-3 text-[#D72638]" />
+                        {formErrors.fullName && (
+                          <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.fullName}</p>
                         )}
-                        <span>{isDetectingLocation ? 'Detecting GPS...' : 'Detect My Location'}</span>
-                      </button>
+                      </div>
+
+                      {/* Blood Group & Biological Gender */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-[#1A1D20] mb-1">
+                            Blood Group <span className="text-[#D72638]">*</span>
+                          </label>
+                          <select
+                            value={bloodType}
+                            onChange={(e) => setBloodType(e.target.value as BloodType)}
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9C7C2] text-xs text-[#1A1D20] font-bold outline-hidden focus:border-[#D72638] cursor-pointer"
+                          >
+                            {bloodTypes.map(t => (
+                              <option key={t} value={t}>{t}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-semibold text-[#1A1D20] mb-1">Biological Gender</label>
+                          <select
+                            value={gender}
+                            onChange={(e) => setGender(e.target.value as Donor['gender'])}
+                            className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9C7C2] text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] cursor-pointer"
+                          >
+                            <option value="MALE">Male</option>
+                            <option value="FEMALE">Female</option>
+                            <option value="OTHER">Other</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Age */}
+                      <div>
+                        <label className="block text-xs font-semibold text-[#1A1D20] mb-1">
+                          Age (18 - 65) <span className="text-[#D72638]">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="18"
+                          max="65"
+                          value={age}
+                          onChange={(e) => {
+                            setAge(Number(e.target.value));
+                            if (formErrors.age) setFormErrors(prev => ({ ...prev, age: '' }));
+                          }}
+                          className={`w-full px-3 py-2 rounded-xl bg-white border ${
+                            formErrors.age ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                          } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                        />
+                        {formErrors.age && (
+                          <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.age}</p>
+                        )}
+                      </div>
+
+                      {/* Phone Number */}
+                      <div>
+                        <label className="block text-xs font-semibold text-[#1A1D20] mb-1">
+                          Phone Number <span className="text-[#D72638]">*</span>
+                        </label>
+                        <div className="flex gap-1.5">
+                          <select
+                            value={countryDialCode}
+                            onChange={(e) => {
+                              setCountryDialCode(e.target.value);
+                              if (formErrors.phone) setFormErrors(prev => ({ ...prev, phone: '' }));
+                            }}
+                            className="px-2 py-2 rounded-xl bg-white border border-[#D9C7C2] text-xs font-bold text-[#1A1D20] outline-hidden focus:border-[#D72638] shrink-0 cursor-pointer max-w-[105px]"
+                          >
+                            {COUNTRY_CODES.map((c) => (
+                              <option key={c.code} value={c.dialCode}>
+                                {c.flag} {c.dialCode}
+                              </option>
+                            ))}
+                          </select>
+
+                          <input
+                            type="tel"
+                            value={phone}
+                            onChange={(e) => {
+                              setPhone(e.target.value);
+                              if (formErrors.phone) setFormErrors(prev => ({ ...prev, phone: '' }));
+                            }}
+                            placeholder={countryDialCode === '+91' ? '98765 43210' : 'Mobile number'}
+                            className={`w-full px-3 py-2 rounded-xl bg-white border ${
+                              formErrors.phone ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                            } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                          />
+                        </div>
+                        {formErrors.phone && (
+                          <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.phone}</p>
+                        )}
+                      </div>
+
+                      {/* Email Address */}
+                      <div>
+                        <label className="block text-xs font-semibold text-[#1A1D20] mb-1">
+                          Email Address (Requires OTP) <span className="text-[#D72638]">*</span>
+                        </label>
+                        <input
+                          type="email"
+                          value={email}
+                          onChange={(e) => {
+                            setEmail(e.target.value);
+                            if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
+                          }}
+                          placeholder="donor@example.com"
+                          className={`w-full px-3 py-2 rounded-xl bg-white border ${
+                            formErrors.email ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                          } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                        />
+                        {formErrors.email && (
+                          <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.email}</p>
+                        )}
+                      </div>
                     </div>
 
-                    <input
-                      type="text"
-                      value={location}
-                      onChange={(e) => {
-                        setLocation(e.target.value);
-                        if (formErrors.location) setFormErrors(prev => ({ ...prev, location: '' }));
-                      }}
-                      placeholder="e.g. Rohini Sector 7, North West Delhi / Connaught Place"
-                      className={`w-full px-3 py-2 rounded-xl bg-white border ${
-                        formErrors.location ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                      } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
-                    />
-                    {formErrors.location && (
-                      <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.location}</p>
-                    )}
-                    {locationDetectionSuccess && (
-                      <p className="text-emerald-700 text-[11px] font-semibold flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Location successfully detected via browser GPS.</span>
-                      </p>
-                    )}
+                    {/* RIGHT COLUMN: GEOLOCATION, CONSENT & ACTION PLEDGE */}
+                    <div className="space-y-3.5 bg-[#F5F1EF]/40 p-4 sm:p-5 rounded-2xl border border-[#D9C7C2]/70 flex flex-col justify-between">
+                      <div className="space-y-3.5">
+                        <div className="text-[11px] font-black text-[#7A0C17] uppercase tracking-wider flex items-center gap-1.5 pb-2 border-b border-[#D9C7C2]/60">
+                          <MapPin className="w-3.5 h-3.5 text-[#D72638]" />
+                          <span>2. Delhi Locality & Geolocation Verification</span>
+                        </div>
 
-                    {/* Quick Select Popular Delhi Localities */}
-                    <div>
-                      <span className="text-[10px] font-bold text-[#7A0C17] uppercase tracking-wider block mb-1">
-                        Or Pick Delhi Locality:
-                      </span>
-                      <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto no-scrollbar py-0.5">
-                        {POPULAR_DELHI_LOCALITIES.map((loc) => (
-                          <button
-                            key={loc}
-                            type="button"
-                            onClick={() => {
-                              setLocation(loc);
-                              setCity('Delhi');
-                              setState('Delhi');
+                        {/* Geolocation Input & Popular Localities */}
+                        <div className="p-3.5 rounded-2xl bg-white border border-[#D9C7C2] space-y-2.5 shadow-2xs">
+                          <div className="flex items-center justify-between">
+                            <label className="block text-xs font-bold text-[#1A1D20] flex items-center gap-1.5">
+                              <span>Exact Locality / Area in Delhi <span className="text-[#D72638]">*</span></span>
+                            </label>
+
+                            <button
+                              type="button"
+                              onClick={handleDetectLocation}
+                              disabled={isDetectingLocation}
+                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F5F1EF] border border-[#D9C7C2] hover:border-[#D72638] text-[11px] font-bold text-[#D72638] shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+                            >
+                              {isDetectingLocation ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Navigation className="w-3 h-3 text-[#D72638]" />
+                              )}
+                              <span>{isDetectingLocation ? 'Detecting GPS...' : 'Detect My Location'}</span>
+                            </button>
+                          </div>
+
+                          <input
+                            type="text"
+                            value={location}
+                            onChange={(e) => {
+                              setLocation(e.target.value);
                               if (formErrors.location) setFormErrors(prev => ({ ...prev, location: '' }));
                             }}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors cursor-pointer ${
-                              location === loc
-                                ? 'bg-[#D72638] text-white'
-                                : 'bg-white hover:bg-red-50 text-[#5A626A] border border-[#D9C7C2]'
-                            }`}
-                          >
-                            {loc.split(',')[0]}
-                          </button>
-                        ))}
+                            placeholder="e.g. Rohini Sector 7, North West Delhi / Connaught Place"
+                            className={`w-full px-3 py-2 rounded-xl bg-[#F5F1EF] border ${
+                              formErrors.location ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                            } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                          />
+                          {formErrors.location && (
+                            <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.location}</p>
+                          )}
+                          {locationDetectionSuccess && (
+                            <p className="text-emerald-700 text-[11px] font-semibold flex items-center gap-1">
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Location successfully detected via browser GPS.</span>
+                            </p>
+                          )}
+
+                          {/* Quick Select Popular Delhi Localities */}
+                          <div>
+                            <span className="text-[10px] font-bold text-[#7A0C17] uppercase tracking-wider block mb-1">
+                              Or Pick Delhi Locality:
+                            </span>
+                            <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto no-scrollbar py-0.5">
+                              {POPULAR_DELHI_LOCALITIES.map((loc) => (
+                                <button
+                                  key={loc}
+                                  type="button"
+                                  onClick={() => {
+                                    setLocation(loc);
+                                    setCity('Delhi');
+                                    setState('Delhi');
+                                    if (formErrors.location) setFormErrors(prev => ({ ...prev, location: '' }));
+                                  }}
+                                  className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors cursor-pointer ${
+                                    location === loc
+                                      ? 'bg-[#D72638] text-white shadow-2xs'
+                                      : 'bg-[#F5F1EF] hover:bg-red-50 text-[#5A626A] border border-[#D9C7C2]'
+                                  }`}
+                                >
+                                  {loc.split(',')[0]}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* City & State (Synced with location) */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-semibold text-[#1A1D20] mb-1">
+                              City / Metro <span className="text-[#D72638]">*</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={city}
+                              onChange={(e) => {
+                                setCity(e.target.value);
+                                if (formErrors.city) setFormErrors(prev => ({ ...prev, city: '' }));
+                              }}
+                              placeholder="Delhi"
+                              className={`w-full px-3 py-2 rounded-xl bg-white border ${
+                                formErrors.city ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                              } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                            />
+                            {formErrors.city && (
+                              <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.city}</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-[#1A1D20] mb-1">State / Region</label>
+                            <input
+                              type="text"
+                              value={state}
+                              onChange={(e) => setState(e.target.value)}
+                              placeholder="Delhi"
+                              className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9C7C2] text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638]"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Voluntary Consent Declaration Checkbox */}
+                        <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80">
+                          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={consentChecked}
+                              onChange={(e) => {
+                                setConsentChecked(e.target.checked);
+                                if (formErrors.consent) setFormErrors(prev => ({ ...prev, consent: '' }));
+                              }}
+                              className="mt-0.5 w-4 h-4 rounded-sm border-[#D9C7C2] text-[#D72638] focus:ring-[#D72638] cursor-pointer shrink-0"
+                            />
+                            <span className="text-[11px] text-[#5A626A] leading-relaxed">
+                              I certify that I am between 18–65 years of age, weigh at least 45kg, have no active transmissible illnesses or blood-borne conditions, have had no major surgery or tattoo in the past 6 months, and voluntarily consent to emergency transfusion notifications. <span className="text-[#D72638]">*</span>
+                            </span>
+                          </label>
+                          {formErrors.consent && (
+                            <p className="text-red-500 text-[11px] font-semibold mt-1.5 ml-6">{formErrors.consent}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="pt-3 border-t border-[#D9C7C2]/60 flex items-center justify-end gap-2.5 mt-auto">
+                        <button
+                          type="button"
+                          onClick={handleCloseModal}
+                          className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[#5A626A] hover:text-[#1A1D20] hover:bg-slate-100 transition-colors cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={isSendingOtp}
+                          className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold shadow-md shadow-[#D72638]/25 cursor-pointer active:scale-95 transition-all disabled:opacity-50"
+                        >
+                          {isSendingOtp && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                          <span>{isSendingOtp ? 'Sending Verification OTP...' : 'Verify Email & Pledge'}</span>
+                          {!isSendingOtp && <ArrowRight className="w-3.5 h-3.5" />}
+                        </button>
                       </div>
                     </div>
-                  </div>
-
-                  {/* City & State (Synced with location) */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-[#1A1D20] mb-1">
-                        City / Metro <span className="text-[#D72638]">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={city}
-                        onChange={(e) => {
-                          setCity(e.target.value);
-                          if (formErrors.city) setFormErrors(prev => ({ ...prev, city: '' }));
-                        }}
-                        placeholder="Delhi"
-                        className={`w-full px-3 py-2 rounded-xl bg-[#F5F1EF] border ${
-                          formErrors.city ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                        } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
-                      />
-                      {formErrors.city && (
-                        <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.city}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-[#1A1D20] mb-1">State / Region</label>
-                      <input
-                        type="text"
-                        value={state}
-                        onChange={(e) => setState(e.target.value)}
-                        placeholder="Delhi"
-                        className="w-full px-3 py-2 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638]"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Voluntary Consent Declaration Checkbox */}
-                  <div className="pt-2">
-                    <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={consentChecked}
-                        onChange={(e) => {
-                          setConsentChecked(e.target.checked);
-                          if (formErrors.consent) setFormErrors(prev => ({ ...prev, consent: '' }));
-                        }}
-                        className="mt-0.5 w-4 h-4 rounded-sm border-[#D9C7C2] text-[#D72638] focus:ring-[#D72638] cursor-pointer shrink-0"
-                      />
-                      <span className="text-xs text-[#5A626A] leading-relaxed">
-                        I certify that I am between 18–65 years of age, weigh at least 45kg, have no active transmissible illnesses or blood-borne conditions, have had no major surgery or tattoo in the past 6 months, and voluntarily consent to emergency transfusion notifications. <span className="text-[#D72638]">*</span>
-                      </span>
-                    </label>
-                    {formErrors.consent && (
-                      <p className="text-red-500 text-[11px] font-semibold mt-1.5 ml-6">{formErrors.consent}</p>
-                    )}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="pt-3 border-t border-[#D9C7C2]/60 flex items-center justify-end gap-2.5">
-                    <button
-                      type="button"
-                      onClick={handleCloseModal}
-                      className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[#5A626A] hover:text-[#1A1D20] hover:bg-[#F5F1EF] transition-colors cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSendingOtp}
-                      className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold shadow-md shadow-[#D72638]/25 cursor-pointer active:scale-95 transition-all disabled:opacity-50"
-                    >
-                      {isSendingOtp && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                      <span>{isSendingOtp ? 'Sending Verification OTP...' : 'Verify Email & Pledge'}</span>
-                      {!isSendingOtp && <ArrowRight className="w-3.5 h-3.5" />}
-                    </button>
                   </div>
                 </form>
               </div>
             )}
 
-            {/* STEP 2: EMAIL OTP VERIFICATION */}
+            {/* STEP 2: EMAIL OTP VERIFICATION (HORIZONTAL TWO-COLUMN PRESENTATION) */}
             {modalStep === 'OTP' && (
-              <div className="space-y-5 py-2">
-                <div className="flex flex-col items-center justify-center text-center">
-                  <div className="mb-2">
-                    <div className="w-12 h-12 rounded-2xl bg-[#7A0C17]/10 border border-[#D72638]/20 text-[#D72638] flex items-center justify-center mx-auto shadow-xs">
-                      <Heart className="w-6 h-6" />
+              <div>
+                <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-[#D9C7C2]/60 pr-8">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-[#7A0C17]/10 border border-[#D72638]/20 text-[#D72638] flex items-center justify-center shrink-0 shadow-xs">
+                      <Heart className="w-5 h-5 fill-current text-[#D72638]" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl sm:text-2xl font-black text-[#1A1D20] tracking-tight">
+                        Verify Voluntary Donor Email
+                      </h2>
+                      <p className="text-xs text-[#5A626A] mt-0.5">
+                        Confirm ownership of your registered clinical work email to complete voluntary donor registry.
+                      </p>
                     </div>
                   </div>
-                  <h3 className="text-xl font-black text-[#1A1D20]">
-                    Verify Voluntary Donor Email
-                  </h3>
-                  <p className="text-xs text-[#5A626A] mt-1 max-w-sm">
-                    Enter the 6-digit cryptographic verification code dispatched to: <br />
-                    <span className="font-bold text-[#1A1D20]">{email}</span>
-                  </p>
                 </div>
 
-                <form onSubmit={handleVerifyOtpAndRegister} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-2 text-center">
-                      6-Digit Single-Use Code
-                    </label>
-                    <div className="flex justify-center gap-2 sm:gap-3">
-                      {otpDigits.map((digit, idx) => (
-                        <input
-                          key={idx}
-                          ref={(el) => { otpInputRefs.current[idx] = el; }}
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={1}
-                          value={digit}
-                          onChange={(e) => handleOtpChange(idx, e.target.value)}
-                          onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                          className={`w-11 h-13 sm:w-12 sm:h-14 rounded-xl text-center text-xl font-mono font-black border transition-all duration-200 outline-hidden ${
-                            otpError 
-                              ? 'border-red-400 bg-red-50/40 text-[#D72638]' 
-                              : digit 
-                                ? 'border-[#D72638] bg-white text-[#1A1D20] shadow-sm' 
-                                : 'border-[#D9C7C2] bg-[#F5F1EF] text-[#1A1D20]'
-                          } focus:border-[#D72638] focus:bg-white`}
-                        />
-                      ))}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center py-2">
+                  {/* Left Column: Prospective Donor Summary Card */}
+                  <div className="p-5 rounded-2xl bg-[#F5F1EF]/60 border border-[#D9C7C2] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-[#7A0C17]">
+                        Prospective Voluntary Donor
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-300">
+                        Pledge Pending
+                      </span>
                     </div>
-                    {otpError && (
-                      <p className="text-red-500 text-xs font-semibold text-center mt-2 flex items-center justify-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5" />
-                        <span>{otpError}</span>
-                      </p>
-                    )}
+
+                    <div className="flex items-center gap-3 pt-1">
+                      <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#7A0C17] to-[#D72638] text-white flex items-center justify-center text-lg font-black shadow-sm">
+                        {bloodType}
+                      </div>
+                      <div>
+                        <div className="text-base font-extrabold text-[#1A1D20]">
+                          {fullName || 'Prospective Donor'}
+                        </div>
+                        <div className="text-xs text-[#5A626A]">
+                          {gender} • {age} Years • {city}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-[#D9C7C2]/50 space-y-1.5 text-xs text-[#5A626A]">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Locality:</span>
+                        <span className="font-semibold text-[#1A1D20] truncate max-w-[200px]">{location}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Contact:</span>
+                        <span className="font-semibold text-[#1A1D20]">{countryDialCode} {phone}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Code Sent To:</span>
+                        <span className="font-bold text-[#D72638] truncate max-w-[200px]">{email}</span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-xs text-[#5A626A] px-1">
-                    <button
-                      type="button"
-                      onClick={() => setModalStep('FORM')}
-                      className="hover:text-[#1A1D20] underline underline-offset-2 cursor-pointer"
-                    >
-                      ← Edit Registration Details
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleResendOtp}
-                      disabled={resendCooldown > 0 || isSendingOtp}
-                      className={`font-semibold cursor-pointer ${
-                        resendCooldown > 0 ? 'text-slate-400 cursor-not-allowed' : 'text-[#D72638] hover:underline'
-                      }`}
-                    >
-                      {resendCooldown > 0 ? `Resend Code (${resendCooldown}s)` : 'Resend Code'}
-                    </button>
-                  </div>
+                  {/* Right Column: 6-Digit Code Input & Verification Action */}
+                  <form onSubmit={handleVerifyOtpAndRegister} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-2 text-center">
+                        6-Digit Single-Use Code
+                      </label>
+                      <div className="flex justify-center gap-2 sm:gap-3">
+                        {otpDigits.map((digit, idx) => (
+                          <input
+                            key={idx}
+                            ref={(el) => { otpInputRefs.current[idx] = el; }}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={digit}
+                            onChange={(e) => handleOtpChange(idx, e.target.value)}
+                            onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                            className={`w-11 h-13 sm:w-12 sm:h-14 rounded-xl text-center text-xl font-mono font-black border transition-all duration-200 outline-hidden ${
+                              otpError 
+                                ? 'border-red-400 bg-red-50/40 text-[#D72638]' 
+                                : digit 
+                                  ? 'border-[#D72638] bg-white text-[#1A1D20] shadow-sm' 
+                                  : 'border-[#D9C7C2] bg-[#F5F1EF] text-[#1A1D20]'
+                            } focus:border-[#D72638] focus:bg-white`}
+                          />
+                        ))}
+                      </div>
+                      {otpError && (
+                        <p className="text-red-500 text-xs font-semibold text-center mt-2 flex items-center justify-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5" />
+                          <span>{otpError}</span>
+                        </p>
+                      )}
+                    </div>
 
-                  <div className="pt-3 border-t border-[#D9C7C2]/60 flex items-center justify-end gap-2.5">
-                    <button
-                      type="button"
-                      onClick={handleCloseModal}
-                      className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[#5A626A] hover:text-[#1A1D20] hover:bg-[#F5F1EF] transition-colors cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSubmittingOtp || otpDigits.join('').length < 6}
-                      className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold shadow-md shadow-[#D72638]/25 cursor-pointer active:scale-95 transition-all disabled:opacity-50"
-                    >
-                      {isSubmittingOtp && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                      <span>{isSubmittingOtp ? 'Verifying...' : 'Confirm Registration'}</span>
-                    </button>
-                  </div>
-                </form>
+                    <div className="flex items-center justify-between text-xs text-[#5A626A] px-1">
+                      <button
+                        type="button"
+                        onClick={() => setModalStep('FORM')}
+                        className="hover:text-[#1A1D20] underline underline-offset-2 cursor-pointer"
+                      >
+                        ← Edit Details
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleResendOtp}
+                        disabled={resendCooldown > 0 || isSendingOtp}
+                        className={`font-semibold cursor-pointer ${
+                          resendCooldown > 0 ? 'text-slate-400 cursor-not-allowed' : 'text-[#D72638] hover:underline'
+                        }`}
+                      >
+                        {resendCooldown > 0 ? `Resend Code (${resendCooldown}s)` : 'Resend Code'}
+                      </button>
+                    </div>
+
+                    <div className="pt-3 border-t border-[#D9C7C2]/60 flex items-center justify-end gap-2.5">
+                      <button
+                        type="button"
+                        onClick={handleCloseModal}
+                        className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[#5A626A] hover:text-[#1A1D20] hover:bg-slate-100 transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSubmittingOtp || otpDigits.join('').length < 6}
+                        className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold shadow-md shadow-[#D72638]/25 cursor-pointer active:scale-95 transition-all disabled:opacity-50"
+                      >
+                        {isSubmittingOtp && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                        <span>{isSubmittingOtp ? 'Verifying...' : 'Confirm Registration'}</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
             )}
 

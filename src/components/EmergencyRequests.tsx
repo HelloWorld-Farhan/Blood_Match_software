@@ -453,7 +453,7 @@ export default function EmergencyRequests() {
           onClick={handleCloseModal}
         >
           <div 
-            className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto no-scrollbar rounded-2xl bg-white border border-[#D9C7C2] p-4 sm:p-6 md:p-8 shadow-2xl text-[#1A1D20]"
+            className="relative w-full max-w-2xl lg:max-w-3xl max-h-[92vh] overflow-y-auto no-scrollbar rounded-3xl bg-white border border-[#D9C7C2] p-5 sm:p-7 md:p-8 shadow-2xl text-[#1A1D20]"
             onClick={(e) => e.stopPropagation()}
           >
             <button
