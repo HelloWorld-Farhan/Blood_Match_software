@@ -262,7 +262,7 @@ export default function Signup() {
       setIsLoading(false);
 
       if (!res.ok) {
-        setOtpError(res.error || 'Invalid or expired OTP token.');
+        setOtpError(res.error || 'Invalid verification code. Please check your email and enter the correct 6-digit code.');
         return;
       }
 
@@ -458,21 +458,27 @@ export default function Signup() {
                         : 'Register as a voluntary donor or clinical emergency officer'}
                     </p>
                   </div>
-                  <DrippingBloodBadge />
+                  {step === 'OTP_VERIFY' ? (
+                    <div className="w-10 h-10 rounded-xl bg-[#7A0C17]/10 border border-[#D72638]/20 flex items-center justify-center text-[#D72638]">
+                      <KeyRound className="w-5 h-5" />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl bg-[#7A0C17]/10 border border-[#D72638]/20 flex items-center justify-center text-[#D72638]">
+                      <User className="w-5 h-5" />
+                    </div>
+                  )}
                 </div>
 
                 {step === 'OTP_VERIFY' ? (
                   /* =================================================================
-                      STEP 2: EMAIL OTP VERIFICATION WITH ANIMATED BLOOD DROPLET
+                      STEP 2: EMAIL OTP VERIFICATION WITH CLEAN GREETING HEADER
                       ================================================================= */
                   <form onSubmit={handleVerifyOtp} className="space-y-5">
-                    {/* Clean Liquid Blood Droplet Animation on Pure White UI Background */}
+                    {/* Clean Header Greeting Matching App UI - Strictly Text, No Distracting Animations */}
                     <div className="flex flex-col items-center justify-center py-2">
-                      <div className="relative flex items-center justify-center mb-3">
-                        <DrippingBloodBadge 
-                          size="xl" 
-                          className="relative z-10" 
-                        />
+                      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-[#7A0C17]/10 border border-[#D72638]/20 text-[#7A0C17] text-sm font-bold mb-2">
+                        <span className="text-base">👋</span>
+                        <span>Hello, {name.trim().split(' ')[0] || 'Clinician'}</span>
                       </div>
 
                       <p className="text-xs text-[#5A626A] text-center">
