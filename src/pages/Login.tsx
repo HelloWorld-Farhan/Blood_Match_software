@@ -119,6 +119,17 @@ export default function Login() {
     };
   }, []);
 
+  // Performance optimization: Pause background page video while ForgotPasswordModal is open to eliminate GPU lag
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (isForgotModalOpen) {
+      video.pause();
+    } else {
+      video.play().catch(() => {});
+    }
+  }, [isForgotModalOpen]);
+
   const handleLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setLoginError(null);

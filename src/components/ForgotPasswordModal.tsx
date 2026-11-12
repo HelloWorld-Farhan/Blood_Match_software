@@ -64,10 +64,11 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   const passwordCriteria = useMemo(() => checkPasswordCriteria(newPassword), [newPassword]);
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
 
-  // Lock body scroll when modal is open
+  // Strict dual-tier background screen scroll lock
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
       // Reset flow
       setStep('CHANNEL_OR_EMAIL');
       setEmail(defaultEmail);
@@ -81,10 +82,12 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
       setResendTimer(30);
       setCanResend(false);
     } else {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
     }
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
     };
   }, [isOpen, defaultEmail]);
 
@@ -101,13 +104,20 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     return () => clearInterval(interval);
   }, [step, resendTimer]);
 
-  // Auto-play video on modal mount
+  // High-performance video lifecycle: play on open, strictly pause on close/unmount
   useEffect(() => {
-    if (isOpen && videoRef.current) {
-      videoRef.current.defaultMuted = true;
-      videoRef.current.muted = true;
-      videoRef.current.play().catch(() => {});
+    const video = videoRef.current;
+    if (isOpen && video) {
+      video.defaultMuted = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.play().catch(() => {});
+    } else if (video) {
+      video.pause();
     }
+    return () => {
+      if (video) video.pause();
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -261,9 +271,8 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
+      className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
       onClick={onClose}
-      style={{ contain: 'paint' }}
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.98, y: 10 }}
@@ -296,9 +305,9 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
               loop
               muted
               playsInline
-              preload="auto"
+              preload="metadata"
               className="w-full h-full object-cover object-center pointer-events-none"
-              style={{ transform: 'translateZ(0)' }}
+              style={{ transform: 'translateZ(0)', willChange: 'transform' }}
             />
             {/* Cinematic Gradient Overlays */}
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-[#7A0C17]/40 pointer-events-none" />

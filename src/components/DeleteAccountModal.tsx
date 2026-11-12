@@ -37,12 +37,21 @@ export function DeleteAccountModal({
 
   useEffect(() => {
     if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
       setStep('CONFIRM_TEXT');
       setConfirmText('');
       setOtpDigits(['', '', '', '', '', '']);
       setErrorMessage(null);
       setIsLoading(false);
+    } else {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
     }
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -126,7 +135,7 @@ export function DeleteAccountModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
       <div className="relative w-full max-w-lg rounded-3xl bg-white border border-red-200 shadow-2xl p-6 sm:p-8 overflow-hidden">
         {/* Header Ribbon */}
         <div className="flex items-center justify-between pb-4 border-b border-red-100">
@@ -308,3 +317,4 @@ export function DeleteAccountModal({
     </div>
   );
 }
+

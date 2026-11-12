@@ -65,11 +65,14 @@ export default function EmergencyRequests() {
   useEffect(() => {
     if (isOpenModal) {
       document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
     }
     return () => {
       document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
     };
   }, [isOpenModal]);
 
@@ -446,7 +449,7 @@ export default function EmergencyRequests() {
       {/* Broadcast Request Modal - Rendered via React Portal with Full Website Blur */}
       {isOpenModal && typeof document !== 'undefined' && createPortal(
         <div 
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 md:p-6 bg-black/65 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 md:p-6 bg-black/75 backdrop-blur-md animate-fade-in"
           onClick={handleCloseModal}
         >
           <div 

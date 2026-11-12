@@ -53,6 +53,7 @@ export function AvatarUploadModal({
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
       setSelectedImage(null);
       setZoom(1);
       setRotation(0);
@@ -60,10 +61,12 @@ export function AvatarUploadModal({
       setCropCircleSize(220);
       setErrorMessage(null);
     } else {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
     }
     return () => {
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
     };
   }, [isOpen]);
 
