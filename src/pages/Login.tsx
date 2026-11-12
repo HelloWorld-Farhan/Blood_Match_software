@@ -394,6 +394,7 @@ export default function Login() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, ease: 'easeOut', delay: 0.05 }}
               className="w-full lg:w-1/2 flex flex-col justify-between p-5 sm:p-8 lg:p-12 xl:p-14 bg-white"
+              style={{ contain: 'content' }}
             >
               <div>
                 {step === 'LOGIN' ? (

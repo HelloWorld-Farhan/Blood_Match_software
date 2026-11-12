@@ -51,57 +51,42 @@ export const BloodDropsCanvas: React.FC = () => {
       });
     }
 
-    // Fast vector renderers without expensive shadowBlur
+    // Fast lightweight renderers without save/restore or gradient allocations
     const drawDroplet = (c: CanvasRenderingContext2D, d: Drop) => {
-      c.save();
-      c.translate(d.x, d.y);
       c.fillStyle = `rgba(215, 38, 56, ${d.opacity})`;
-
       c.beginPath();
-      c.arc(0, 0, d.radius, 0, Math.PI, false);
+      c.arc(d.x, d.y, d.radius, 0, Math.PI, false);
       c.bezierCurveTo(
-        -d.radius,
-        -d.radius * 1.5,
-        0,
-        -d.radius * 2.5,
-        0,
-        -d.radius * 2.8
+        d.x - d.radius,
+        d.y - d.radius * 1.5,
+        d.x,
+        d.y - d.radius * 2.5,
+        d.x,
+        d.y - d.radius * 2.8
       );
       c.bezierCurveTo(
-        0,
-        -d.radius * 2.5,
-        d.radius,
-        -d.radius * 1.5,
-        d.radius,
-        0
+        d.x,
+        d.y - d.radius * 2.5,
+        d.x + d.radius,
+        d.y - d.radius * 1.5,
+        d.x + d.radius,
+        d.y
       );
       c.fill();
-      c.restore();
     };
 
     const drawCell = (c: CanvasRenderingContext2D, d: Drop) => {
-      c.save();
-      c.translate(d.x, d.y);
-      const grad = c.createRadialGradient(0, 0, d.radius * 0.2, 0, 0, d.radius);
-      grad.addColorStop(0, `rgba(122, 12, 23, ${d.opacity * 0.9})`);
-      grad.addColorStop(0.7, `rgba(215, 38, 56, ${d.opacity})`);
-      grad.addColorStop(1, `rgba(185, 28, 28, ${d.opacity * 0.2})`);
-
-      c.fillStyle = grad;
+      c.fillStyle = `rgba(215, 38, 56, ${d.opacity * 0.85})`;
       c.beginPath();
-      c.ellipse(0, 0, d.radius * 1.2, d.radius * 0.85, d.wobble, 0, Math.PI * 2);
+      c.ellipse(d.x, d.y, d.radius * 1.2, d.radius * 0.85, d.wobble, 0, Math.PI * 2);
       c.fill();
-      c.restore();
     };
 
     const drawParticle = (c: CanvasRenderingContext2D, d: Drop) => {
-      c.save();
-      c.translate(d.x, d.y);
       c.fillStyle = `rgba(215, 38, 56, ${d.opacity * 0.5})`;
       c.beginPath();
-      c.arc(0, 0, d.radius * 0.6, 0, Math.PI * 2);
+      c.arc(d.x, d.y, d.radius * 0.6, 0, Math.PI * 2);
       c.fill();
-      c.restore();
     };
 
     const animate = () => {

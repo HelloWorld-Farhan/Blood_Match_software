@@ -261,16 +261,18 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
+      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
       onClick={onClose}
+      style={{ contain: 'paint' }}
     >
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+        initial={{ opacity: 0, scale: 0.98, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 15 }}
-        transition={{ duration: 0.3, ease: 'easeOut' }}
+        exit={{ opacity: 0, scale: 0.98, y: 10 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
         onClick={(e) => e.stopPropagation()}
         className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-[#D9C7C2] flex flex-col md:flex-row overflow-hidden my-auto"
+        style={{ transform: 'translateZ(0)', willChange: 'transform' }}
       >
         {/* Close Button */}
         <button
@@ -344,7 +346,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
         {/* =========================================================================
             RIGHT PANEL: Interactive Recovery Flow
             ========================================================================= */}
-        <div className="w-full md:w-7/12 p-6 sm:p-8 lg:p-10 flex flex-col justify-between bg-white text-[#1A1D20]">
+        <div className="w-full md:w-7/12 p-6 sm:p-8 lg:p-10 flex flex-col justify-between bg-white text-[#1A1D20]" style={{ contain: 'content' }}>
           <div>
             {/* Modal Header */}
             <div className="mb-6">
@@ -635,13 +637,11 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                     </button>
                   </div>
 
-                  {/* Liquid Blood Strength Meter */}
+                  {/* Liquid Blood Strength Meter (Fast GPU CSS Transition) */}
                   <div className="w-full bg-[#F5F1EF] border border-[#D9C7C2]/70 h-2 rounded-full overflow-hidden mt-1.5 relative">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${passwordCriteria.strengthPercent}%` }}
-                      transition={{ duration: 0.35, ease: 'easeOut' }}
-                      className={`h-full rounded-full transition-all duration-300 ${
+                    <div
+                      style={{ width: `${passwordCriteria.strengthPercent}%` }}
+                      className={`h-full rounded-full transition-all duration-200 ease-out ${
                         passwordCriteria.strengthPercent === 100
                           ? 'bg-gradient-to-r from-[#D72638] to-emerald-500 shadow-[0_0_8px_rgba(215,38,56,0.5)]'
                           : passwordCriteria.strengthPercent >= 50

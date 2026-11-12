@@ -1148,13 +1148,11 @@ export default function Settings() {
                         </button>
                       </div>
 
-                      {/* Liquid Blood Strength Bar */}
+                      {/* Liquid Blood Strength Bar (Fast GPU CSS Transition) */}
                       <div className="w-full bg-[#E8DFDC] h-2 rounded-full overflow-hidden mt-1.5 relative">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${emailPwCriteria.strengthPercent}%` }}
-                          transition={{ duration: 0.35, ease: 'easeOut' }}
-                          className={`h-full rounded-full transition-all duration-300 ${
+                        <div
+                          style={{ width: `${emailPwCriteria.strengthPercent}%` }}
+                          className={`h-full rounded-full transition-all duration-200 ease-out ${
                             emailPwCriteria.strengthPercent === 100
                               ? 'bg-gradient-to-r from-[#D72638] to-emerald-500 shadow-[0_0_8px_rgba(215,38,56,0.5)]'
                               : emailPwCriteria.strengthPercent >= 50
@@ -1429,13 +1427,11 @@ export default function Settings() {
                         </button>
                       </div>
 
-                      {/* Liquid Blood Strength Bar */}
+                      {/* Liquid Blood Strength Bar (Fast GPU CSS Transition) */}
                       <div className="w-full bg-[#E8DFDC] h-2 rounded-full overflow-hidden mt-1.5 relative">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${prevPwCriteria.strengthPercent}%` }}
-                          transition={{ duration: 0.35, ease: 'easeOut' }}
-                          className={`h-full rounded-full transition-all duration-300 ${
+                        <div
+                          style={{ width: `${prevPwCriteria.strengthPercent}%` }}
+                          className={`h-full rounded-full transition-all duration-200 ease-out ${
                             prevPwCriteria.strengthPercent === 100
                               ? 'bg-gradient-to-r from-[#D72638] to-emerald-500 shadow-[0_0_8px_rgba(215,38,56,0.5)]'
                               : prevPwCriteria.strengthPercent >= 50

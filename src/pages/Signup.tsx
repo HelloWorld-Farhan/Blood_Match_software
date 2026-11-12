@@ -439,6 +439,7 @@ export default function Signup() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, ease: 'easeOut', delay: 0.05 }}
               className="w-full lg:w-1/2 flex flex-col justify-between p-5 sm:p-8 lg:p-12 xl:p-14 bg-white text-[#1A1D20]"
+              style={{ contain: 'content' }}
             >
               <div>
                 {/* Dynamic Header */}
@@ -470,7 +471,7 @@ export default function Signup() {
                       <div className="relative flex items-center justify-center mb-3">
                         <DrippingBloodBadge 
                           size="xl" 
-                          className="relative z-10 shadow-sm border border-slate-200 bg-white" 
+                          className="relative z-10" 
                         />
                       </div>
 
@@ -737,13 +738,11 @@ export default function Signup() {
                       </button>
                     </div>
 
-                    {/* Animated Liquid Blood Bar */}
+                    {/* Animated Liquid Blood Bar (Fast GPU CSS Transition) */}
                     <div className="w-full bg-[#F5F1EF] border border-[#D9C7C2]/70 h-2 rounded-full overflow-hidden mt-1.5 relative">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${passwordCriteria.strengthPercent}%` }}
-                        transition={{ duration: 0.35, ease: 'easeOut' }}
-                        className={`h-full rounded-full transition-all duration-300 ${
+                      <div
+                        style={{ width: `${passwordCriteria.strengthPercent}%` }}
+                        className={`h-full rounded-full transition-all duration-200 ease-out ${
                           passwordCriteria.strengthPercent === 100
                             ? 'bg-gradient-to-r from-[#D72638] to-emerald-500 shadow-[0_0_8px_rgba(215,38,56,0.5)]'
                             : passwordCriteria.strengthPercent >= 50
