@@ -31,6 +31,7 @@ import {
 import { validateEmail, checkPasswordCriteria } from '../utils/countryCodes';
 import { apiClient } from '../services/api';
 import { AvatarUploadModal } from './AvatarUploadModal';
+import { DeleteAccountModal } from './DeleteAccountModal';
 
 const scrollBlurVariants: Variants = {
   hidden: { 
@@ -85,6 +86,7 @@ export default function Settings() {
     () => localStorage.getItem('bloodmatch_user_avatar') || null
   );
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // Requirement 3: Instant Multi-Component Re-render (Zero Page Refresh)
   useEffect(() => {
@@ -1783,6 +1785,30 @@ export default function Settings() {
               </div>
             </div>
           </div>
+
+          {/* Section: Danger Zone - Permanent Account Deletion */}
+          <div className="pt-6 border-t border-red-200">
+            <div className="p-5 sm:p-6 rounded-2xl bg-red-50/40 border border-red-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-red-700">
+                  <Trash2 className="w-4 h-4 shrink-0 text-red-600" />
+                  <span className="text-sm font-bold tracking-tight">Danger Zone: Permanent Account Deletion</span>
+                </div>
+                <p className="text-xs text-[#5A626A] max-w-lg leading-relaxed">
+                  Permanently delete your account, voluntary donor registrations, clinical dispatches, and Cloudflare R2 cloud storage records. This action requires typing DELETE and entering an email OTP code.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsDeleteModalOpen(true)}
+                className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md shadow-red-600/20 transition-all cursor-pointer shrink-0 flex items-center justify-center gap-2 active:scale-95"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete My Account</span>
+              </button>
+            </div>
+          </div>
         </motion.div>
       )}
 
@@ -1896,6 +1922,19 @@ export default function Settings() {
         userEmail={email}
         userName={name}
         onAvatarUpdated={(newUrl) => setAvatar(newUrl)}
+      />
+
+      {/* Permanent Account Deletion Modal */}
+      <DeleteAccountModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        userEmail={email}
+        userName={name}
+        onDeleted={() => {
+          sessionStorage.clear();
+          localStorage.clear();
+          window.location.href = '/login';
+        }}
       />
     </div>
   );
