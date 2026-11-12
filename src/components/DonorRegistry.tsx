@@ -524,7 +524,7 @@ export default function DonorRegistry() {
   );
 
   return (
-    <div className="space-y-6 sm:space-y-8 pb-12 relative z-10">
+    <div className="space-y-6 sm:space-y-8 pb-2 sm:pb-3 relative z-10">
       {/* Header */}
       <motion.div 
         variants={scrollBlurVariants}

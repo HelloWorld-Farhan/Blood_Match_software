@@ -266,7 +266,7 @@ export const Dashboard: React.FC = () => {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="space-y-4 pb-12"
+      className="space-y-4 pb-2 sm:pb-3"
     >
       {/* Power BI Top Navigation & Slicer Bar */}
       <motion.div 

@@ -416,37 +416,37 @@ export default function Layout() {
 
   // Reusable Sidebar Content Component (shared between Mobile Drawer and Desktop Sidebar)
   const renderSidebarContent = (isMobileDrawer: boolean) => (
-    <div className={`flex flex-col justify-between h-full ${isMobileDrawer ? 'space-y-2' : 'space-y-4'}`}>
+    <div className={`flex flex-col justify-between h-full ${isMobileDrawer ? 'space-y-2' : 'space-y-3'}`}>
       {/* Top Section */}
       <div className={isMobileDrawer ? 'space-y-2' : 'space-y-3'}>
         {/* Mobile-Only Drawer Header with touch-friendly close button */}
         {isMobileDrawer ? (
-          <div className="pb-2.5 border-b border-[#D9C7C2] flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] text-white flex items-center justify-center shadow-xs">
-                <Droplet className="w-4 h-4 fill-current" />
+          <div className="pb-2 border-b border-[#D9C7C2] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] text-white flex items-center justify-center shadow-xs">
+                <Droplet className="w-3.5 h-3.5 fill-current" />
               </div>
               <div>
-                <span className="font-black text-sm tracking-tight text-[#1A1D20] block leading-tight">
+                <span className="font-black text-xs tracking-tight text-[#1A1D20] block leading-tight">
                   Blood<span className="text-[#D72638]">Match</span>
                 </span>
-                <span className="text-[9px] uppercase tracking-wider text-[#7A0C17] font-bold block">
+                <span className="text-[8px] uppercase tracking-wider text-[#7A0C17] font-bold block">
                   Operations Suite
                 </span>
               </div>
             </div>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="p-1.5 rounded-xl bg-[#F5F1EF] hover:bg-red-50 border border-[#D9C7C2] text-[#4A5568] hover:text-[#D72638] active:scale-95 cursor-pointer transition-colors"
+              className="p-1 rounded-lg bg-[#F5F1EF] hover:bg-red-50 border border-[#D9C7C2] text-[#4A5568] hover:text-[#D72638] active:scale-95 cursor-pointer transition-colors"
               aria-label="Close navigation"
             >
-              <X className="w-4 h-4 text-[#D72638]" />
+              <X className="w-3.5 h-3.5 text-[#D72638]" />
             </button>
           </div>
         ) : (
-          <div className="px-3 py-2 mb-1 text-xs uppercase tracking-wider text-[#7A0C17] font-black flex items-center justify-between border-b border-[#D9C7C2]/60 pb-2">
-            <span className="flex items-center gap-2">
-              <Layers className="w-4 h-4 text-[#D72638]" />
+          <div className="px-3 py-1.5 mb-1 text-[10px] uppercase tracking-wider text-[#7A0C17] font-black flex items-center justify-between border-b border-[#D9C7C2]/60 pb-2">
+            <span className="flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-[#D72638]" />
               <span>Operations Suite</span>
             </span>
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="System Online" />
@@ -454,7 +454,7 @@ export default function Layout() {
         )}
 
         {/* Navigation Items with Framer Motion Sliding Active Pill */}
-        <div className={`${isMobileDrawer ? 'space-y-1.5' : 'space-y-2'} relative`}>
+        <div className={`${isMobileDrawer ? 'space-y-1' : 'space-y-1.5'} relative`}>
           {navItems.map((item) => {
             const active = isActive(item.path, item.exact);
             const Icon = item.icon;
@@ -464,7 +464,7 @@ export default function Layout() {
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
                 className={`
-                  relative w-full flex items-center justify-between ${isMobileDrawer ? 'px-3.5 py-2.5 text-sm' : 'px-4 py-3 text-sm'} rounded-xl font-semibold
+                  relative w-full flex items-center justify-between ${isMobileDrawer ? 'px-3 py-1.5 text-xs' : 'px-3.5 py-2.5 text-xs'} rounded-xl font-semibold
                   transition-colors duration-200 group cursor-pointer
                   ${active ? 'text-white font-bold' : 'text-[#4A5568] hover:text-[#1A1D20]'}
                 `}
@@ -497,9 +497,9 @@ export default function Layout() {
                     animate={active ? { scale: [1, 1.15, 1] } : { scale: 1 }}
                     transition={{ duration: 0.25 }}
                   >
-                    <Icon className={`${isMobileDrawer ? 'w-4 h-4' : 'w-4.5 h-4.5'} transition-transform group-hover:scale-110 ${active ? 'text-white' : 'text-[#7A0C17] group-hover:text-[#D72638]'}`} />
+                    <Icon className={`${isMobileDrawer ? 'w-3.5 h-3.5' : 'w-4 h-4'} transition-transform group-hover:scale-110 ${active ? 'text-white' : 'text-[#7A0C17] group-hover:text-[#D72638]'}`} />
                   </motion.div>
-                  <span className="tracking-tight text-sm font-semibold">{item.name}</span>
+                  <span className="tracking-tight text-xs font-semibold">{item.name}</span>
                 </div>
 
                 {/* Redesigned Modern Sleek Badge (Work 1) */}
@@ -550,7 +550,7 @@ export default function Layout() {
       </div>
 
       {/* Bottom Section: Telemetry & Full Clinician Profile Card */}
-      <div className={`${isMobileDrawer ? 'pt-2 space-y-2' : 'pt-3 space-y-3'} border-t border-[#D9C7C2] shrink-0`}>
+      <div className={`${isMobileDrawer ? 'pt-2 space-y-1.5' : 'pt-2.5 space-y-2'} border-t border-[#D9C7C2] shrink-0`}>
         {/* Work 2: Power BI Blood Bank Capacity Visual */}
         <Link
           to="/dashboard/inventory"
@@ -563,14 +563,14 @@ export default function Layout() {
               <Database className="w-3.5 h-3.5 text-[#D72638]" />
               <span>Blood Bank Reserve</span>
             </span>
-            <span className="text-emerald-700 font-bold text-[11px] sm:text-xs">4.0°C Optimal</span>
+            <span className="text-emerald-700 font-bold text-[10px] sm:text-xs">4.0°C Optimal</span>
           </div>
 
           <div className="flex items-baseline justify-between mb-1">
-            <span className="text-sm sm:text-base font-black text-[#1A1D20]">
-              {totalUnits} <span className="text-[11px] font-medium text-[#5A626A]">/ 160 Pts</span>
+            <span className="text-xs sm:text-sm font-black text-[#1A1D20]">
+              {totalUnits} <span className="text-[10px] font-medium text-[#5A626A]">/ 160 Pts</span>
             </span>
-            <span className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-md bg-[#D72638]/10 text-[#D72638] border border-[#D72638]/20">
+            <span className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[#D72638]/10 text-[#D72638] border border-[#D72638]/20">
               {Math.min(100, Math.round((totalUnits / 160) * 100))}% Cap
             </span>
           </div>
@@ -591,26 +591,26 @@ export default function Layout() {
           </div>
 
           {!isMobileDrawer && (
-            <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#D9C7C2]/40 text-xs text-[#4A5568]">
-              <span className="flex items-center gap-1.5 font-medium text-[#7A0C17]">
-                <PhoneCall className="w-3.5 h-3.5 text-[#D72638]" />
+            <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#D9C7C2]/40 text-[10px] text-[#4A5568]">
+              <span className="flex items-center gap-1 font-medium text-[#7A0C17]">
+                <PhoneCall className="w-3 h-3 text-[#D72638]" />
                 <span>Trauma Ext 911</span>
               </span>
-              <span className="text-xs font-bold text-[#D72638] group-hover:underline flex items-center gap-0.5">
+              <span className="text-[9px] font-bold text-[#D72638] group-hover:underline flex items-center gap-0.5">
                 <span>Inspect</span>
-                <span className="text-sm">&rarr;</span>
+                <span className="text-xs">&rarr;</span>
               </span>
             </div>
           )}
         </Link>
 
         {/* Dedicated Clinician Profile Card */}
-        <div className={`${isMobileDrawer ? 'p-2.5 space-y-2' : 'p-3 space-y-2.5'} rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]`}>
-          <div className="flex items-center gap-2.5">
+        <div className={`${isMobileDrawer ? 'p-2 space-y-1.5' : 'p-2.5 space-y-2'} rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]`}>
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => setIsAvatarModalOpen(true)}
-              className="relative group w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-xs sm:text-sm font-bold shadow-2xs shrink-0 cursor-pointer border border-[#D9C7C2] hover:border-[#D72638] transition-all"
+              className="relative group w-7 h-7 sm:w-8 sm:h-8 rounded-lg overflow-hidden bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-[11px] sm:text-xs font-bold shadow-2xs shrink-0 cursor-pointer border border-[#D9C7C2] hover:border-[#D72638] transition-all"
               title="Click to change profile picture"
             >
               {avatar ? (
@@ -619,19 +619,19 @@ export default function Layout() {
                 <span>{userName ? userName.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'FK' : 'FK'}</span>
               )}
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                <Camera className="w-4 h-4 text-white" />
+                <Camera className="w-3.5 h-3.5 text-white" />
               </div>
             </button>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-bold text-[#1A1D20] truncate leading-tight">
+              <div className="text-xs font-bold text-[#1A1D20] truncate leading-tight">
                 {userName}
               </div>
-              <div className="text-[11px] text-[#7A0C17] font-semibold font-mono truncate">
+              <div className="text-[9px] text-[#7A0C17] font-semibold font-mono truncate">
                 ID: {userMemberId}
               </div>
               {!isMobileDrawer && (
-                <div className="flex items-center gap-1 text-[11px] font-semibold text-emerald-700 mt-0.5">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                <div className="flex items-center gap-1 text-[9px] font-semibold text-emerald-700 mt-0.5">
+                  <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
                   <span>Verified Account</span>
                 </div>
               )}
@@ -640,9 +640,9 @@ export default function Layout() {
 
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl bg-white hover:bg-red-50 border border-[#D9C7C2] hover:border-[#D72638] text-[#D72638] text-xs font-bold shadow-2xs transition-colors cursor-pointer active:scale-95"
+            className="w-full flex items-center justify-center gap-1.5 px-2.5 py-1 sm:py-1.5 rounded-lg bg-white hover:bg-red-50 border border-[#D9C7C2] hover:border-[#D72638] text-[#D72638] text-[11px] font-bold shadow-2xs transition-colors cursor-pointer active:scale-95"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out & Lock</span>
           </button>
         </div>
@@ -1049,7 +1049,7 @@ export default function Layout() {
         </aside>
 
         {/* Center Content Router Outlet: Scrollable with ambient video visible in background */}
-        <main className="flex-1 h-full min-w-0 overflow-y-auto overscroll-contain no-scrollbar px-3 sm:px-6 lg:px-8 py-3.5 lg:py-6 pb-20 relative z-10">
+        <main className="flex-1 h-full min-w-0 overflow-y-auto overscroll-contain no-scrollbar px-3 sm:px-6 lg:px-8 py-3.5 lg:py-5 pb-3 sm:pb-4 relative z-10">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}

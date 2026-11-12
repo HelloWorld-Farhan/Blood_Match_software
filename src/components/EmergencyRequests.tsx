@@ -597,7 +597,7 @@ export default function EmergencyRequests() {
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 pb-12 relative z-10">
+    <div className="space-y-6 sm:space-y-8 pb-2 sm:pb-3 relative z-10">
       {/* Header with Scroll Blur-In */}
       <motion.div 
         variants={scrollBlurVariants}
