@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   AlertTriangle, 
@@ -176,7 +177,9 @@ export function DeleteAccountModal({
     }
   };
 
-  return (
+  if (!isOpen) return null;
+
+  const modalContent = (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
       <div className="relative w-full max-w-lg rounded-3xl bg-white border border-red-200 shadow-2xl p-6 sm:p-8 overflow-hidden">
         {/* Header Ribbon */}
@@ -399,5 +402,7 @@ export function DeleteAccountModal({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }
 

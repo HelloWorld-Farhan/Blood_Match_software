@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, Variants, AnimatePresence } from 'framer-motion';
 import { 
   User, 
@@ -2427,180 +2428,186 @@ export default function Settings() {
         </motion.div>
       )}
 
-      {/* Terminate Session Confirmation Modal with 'Terminate' word confirmation */}
-      <AnimatePresence>
-        {sessionToTerminate && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-red-200 overflow-hidden"
-            >
-              {/* Modal Header */}
-              <div className="p-5 bg-gradient-to-r from-red-600 to-[#7A0C17] text-white flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                    <Shield className="w-5 h-5 text-white" />
+      {/* Terminate Session Confirmation Modal with 'Terminate' word confirmation - Full Viewport Portal */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {sessionToTerminate && (
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-red-200 overflow-hidden"
+              >
+                {/* Modal Header */}
+                <div className="p-5 bg-gradient-to-r from-red-600 to-[#7A0C17] text-white flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                      <Shield className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-black tracking-tight leading-tight">Terminate Remote Session</h3>
+                      <p className="text-[11px] text-red-100 font-medium">Real-Time Terminal Disconnection</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-base font-black tracking-tight leading-tight">Terminate Remote Session</h3>
-                    <p className="text-[11px] text-red-100 font-medium">Real-Time Terminal Disconnection</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSessionToTerminate(null)}
-                  className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Modal Body */}
-              <div className="p-6 space-y-4">
-                <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900 space-y-1.5">
-                  <div className="flex items-center gap-2 font-bold text-red-800">
-                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-                    <span>Confirm Remote Session Invalidation</span>
-                  </div>
-                  <p className="leading-relaxed">
-                    You are terminating the session for <strong>{sessionToTerminate.device}</strong> ({sessionToTerminate.browser}).
-                  </p>
-                  <p className="text-[11px] text-red-700 leading-relaxed">
-                    This will instantly log out that device in real-time, revoke its security token, and remove it from trusted devices. Next time someone signs in from that device, <strong>email OTP verification will be required</strong>.
-                  </p>
-                </div>
-
-                <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-xs space-y-1 text-[#5A626A]">
-                  <div className="flex justify-between">
-                    <span>IP Address:</span>
-                    <span className="font-mono font-bold text-[#1A1D20]">{sessionToTerminate.ip}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Location:</span>
-                    <span className="font-medium text-[#1A1D20]">{sessionToTerminate.location}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Last Open:</span>
-                    <span className="font-medium text-[#1A1D20]">{sessionToTerminate.lastActive}</span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[#1A1D20] mb-1.5">
-                    To confirm termination, type <span className="text-[#D72638] font-mono font-black">Terminate</span> below:
-                  </label>
-                  <input
-                    type="text"
-                    value={terminateInput}
-                    onChange={(e) => setTerminateInput(e.target.value)}
-                    placeholder="Type Terminate"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 text-sm font-semibold outline-none transition-all"
-                  />
-                  {terminateError && (
-                    <p className="text-xs text-red-600 mt-1.5 font-medium flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      <span>{terminateError}</span>
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-end gap-3 pt-2">
                   <button
                     type="button"
                     onClick={() => setSessionToTerminate(null)}
-                    disabled={isTerminating}
-                    className="px-4 py-2.5 rounded-xl border border-[#D9C7C2] text-xs font-bold text-[#5A626A] hover:bg-slate-100 transition-colors cursor-pointer"
+                    className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-6 space-y-4">
+                  <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs text-red-900 space-y-1.5">
+                    <div className="flex items-center gap-2 font-bold text-red-800">
+                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                      <span>Confirm Remote Session Invalidation</span>
+                    </div>
+                    <p className="leading-relaxed">
+                      You are terminating the session for <strong>{sessionToTerminate.device}</strong> ({sessionToTerminate.browser}).
+                    </p>
+                    <p className="text-[11px] text-red-700 leading-relaxed">
+                      This will instantly log out that device in real-time, revoke its security token, and remove it from trusted devices. Next time someone signs in from that device, <strong>email OTP verification will be required</strong>.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-xs space-y-1 text-[#5A626A]">
+                    <div className="flex justify-between">
+                      <span>IP Address:</span>
+                      <span className="font-mono font-bold text-[#1A1D20]">{sessionToTerminate.ip}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Location:</span>
+                      <span className="font-medium text-[#1A1D20]">{sessionToTerminate.location}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Last Open:</span>
+                      <span className="font-medium text-[#1A1D20]">{sessionToTerminate.lastActive}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#1A1D20] mb-1.5">
+                      To confirm termination, type <span className="text-[#D72638] font-mono font-black">Terminate</span> below:
+                    </label>
+                    <input
+                      type="text"
+                      value={terminateInput}
+                      onChange={(e) => setTerminateInput(e.target.value)}
+                      placeholder="Type Terminate"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 text-sm font-semibold outline-none transition-all"
+                    />
+                    {terminateError && (
+                      <p className="text-xs text-red-600 mt-1.5 font-medium flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                        <span>{terminateError}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setSessionToTerminate(null)}
+                      disabled={isTerminating}
+                      className="px-4 py-2.5 rounded-xl border border-[#D9C7C2] text-xs font-bold text-[#5A626A] hover:bg-slate-100 transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmTerminate}
+                      disabled={terminateInput.trim().toLowerCase() !== 'terminate' || isTerminating}
+                      className="px-5 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#B31D2C] disabled:bg-slate-300 text-white text-xs font-bold shadow-md shadow-[#D72638]/20 transition-all cursor-pointer disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                      {isTerminating ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Terminating...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Confirm Terminate</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      {/* Remove Avatar Confirmation Modal - Full Viewport Edge-to-Edge Backdrop Blur Portal */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isRemoveAvatarModalOpen && (
+            <div className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-md flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                transition={{ duration: 0.2 }}
+                className="w-full max-w-md bg-white rounded-3xl border border-[#D9C7C2] shadow-2xl p-6 space-y-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
+                    <Trash2 className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-[#1A1D20]">
+                      Remove Profile Photo?
+                    </h3>
+                    <p className="text-xs text-[#5A626A]">
+                      Delete image permanently from Cloudflare R2
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-[#5A626A] leading-relaxed">
+                  Are you sure you want to remove your profile photo? This will completely delete the image from cloud storage and revert your avatar to your clinician initials (<strong>{getInitials(name)}</strong>).
+                </p>
+
+                <div className="flex items-center justify-end gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    disabled={isRemovingAvatar}
+                    onClick={() => setIsRemoveAvatarModalOpen(false)}
+                    className="px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-[#D9C7C2] text-xs font-bold transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="button"
-                    onClick={handleConfirmTerminate}
-                    disabled={terminateInput.trim().toLowerCase() !== 'terminate' || isTerminating}
-                    className="px-5 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#B31D2C] disabled:bg-slate-300 text-white text-xs font-bold shadow-md shadow-[#D72638]/20 transition-all cursor-pointer disabled:cursor-not-allowed flex items-center gap-2"
+                    disabled={isRemovingAvatar}
+                    onClick={handleConfirmRemoveAvatar}
+                    className="px-4 py-2 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold shadow-sm transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50 active:scale-95"
                   >
-                    {isTerminating ? (
+                    {isRemovingAvatar ? (
                       <>
                         <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Terminating...</span>
+                        <span>Deleting from R2...</span>
                       </>
                     ) : (
                       <>
                         <Trash2 className="w-3.5 h-3.5" />
-                        <span>Confirm Terminate</span>
+                        <span>Yes, Remove Photo</span>
                       </>
                     )}
                   </button>
                 </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Remove Avatar Confirmation Modal */}
-      <AnimatePresence>
-        {isRemoveAvatarModalOpen && (
-          <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.2 }}
-              className="w-full max-w-md bg-white rounded-3xl border border-[#D9C7C2] shadow-2xl p-6 space-y-4"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
-                  <Trash2 className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-[#1A1D20]">
-                    Remove Profile Photo?
-                  </h3>
-                  <p className="text-xs text-[#5A626A]">
-                    Delete image permanently from Cloudflare R2
-                  </p>
-                </div>
-              </div>
-
-              <p className="text-xs text-[#5A626A] leading-relaxed">
-                Are you sure you want to remove your profile photo? This will completely delete the image from cloud storage and revert your avatar to your clinician initials (<strong>{getInitials(name)}</strong>).
-              </p>
-
-              <div className="flex items-center justify-end gap-2.5 pt-2">
-                <button
-                  type="button"
-                  disabled={isRemovingAvatar}
-                  onClick={() => setIsRemoveAvatarModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-[#D9C7C2] text-xs font-bold transition-colors cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={isRemovingAvatar}
-                  onClick={handleConfirmRemoveAvatar}
-                  className="px-4 py-2 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold shadow-sm transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50 active:scale-95"
-                >
-                  {isRemovingAvatar ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Deleting from R2...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Yes, Remove Photo</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* Universal Profile Picture Upload & Crop Modal */}
       <AvatarUploadModal

@@ -44,6 +44,7 @@ export function AvatarUploadModal({
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [isLoadingAvatar, setIsLoadingAvatar] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDragOverZone, setIsDragOverZone] = useState<boolean>(false);
 
@@ -57,9 +58,30 @@ export function AvatarUploadModal({
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
       if (initialMode === 'MANAGE' && currentAvatarUrl) {
-        setSelectedImage(currentAvatarUrl);
+        if (currentAvatarUrl.startsWith('data:')) {
+          setSelectedImage(currentAvatarUrl);
+          setIsLoadingAvatar(false);
+        } else {
+          // Fetch raw Base64 data from R2 through backend to eliminate CORS & tainted canvas
+          setIsLoadingAvatar(true);
+          const email = userEmail || sessionStorage.getItem('bloodmatch_user_email') || localStorage.getItem('bloodmatch_user_email') || '';
+          apiClient.get(`/api/v1/auth/avatar/data?user_email=${encodeURIComponent(email)}`)
+            .then((res) => {
+              setIsLoadingAvatar(false);
+              if (res.ok && res.data?.dataUrl) {
+                setSelectedImage(res.data.dataUrl);
+              } else {
+                setSelectedImage(currentAvatarUrl);
+              }
+            })
+            .catch(() => {
+              setIsLoadingAvatar(false);
+              setSelectedImage(currentAvatarUrl);
+            });
+        }
       } else {
         setSelectedImage(null);
+        setIsLoadingAvatar(false);
       }
       setZoom(1);
       setRotation(0);
@@ -69,12 +91,13 @@ export function AvatarUploadModal({
     } else {
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
+      setIsLoadingAvatar(false);
     }
     return () => {
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
     };
-  }, [isOpen, initialMode, currentAvatarUrl]);
+  }, [isOpen, initialMode, currentAvatarUrl, userEmail]);
 
   const handleFile = (file: File) => {
     setErrorMessage(null);
@@ -432,20 +455,34 @@ export function AvatarUploadModal({
                     <div />
                   </div>
 
-                  {/* Transformed Image ("Whole Image Mode") */}
-                  <img
-                    ref={previewImageRef}
-                    crossOrigin="anonymous"
-                    src={selectedImage}
-                    alt="Preview"
-                    draggable={false}
-                    className="max-w-none transition-transform duration-75 object-contain pointer-events-none"
-                    style={{
-                      transform: `scale(${zoom}) rotate(${rotation}deg) translate(${pan.x}px, ${pan.y}px)`,
-                      maxHeight: '100%',
-                      maxWidth: '100%'
-                    }}
-                  />
+                  {/* Transformed Image ("Whole Image Mode") or Loading Indicator */}
+                  {isLoadingAvatar ? (
+                    <div className="flex flex-col items-center justify-center p-8 text-white space-y-3 z-30 pointer-events-none">
+                      <RefreshCw className="w-8 h-8 animate-spin text-[#D72638]" />
+                      <span className="text-xs font-bold tracking-wide">Loading Portrait for Framing...</span>
+                    </div>
+                  ) : (
+                    <img
+                      ref={previewImageRef}
+                      crossOrigin={selectedImage?.startsWith('data:') ? undefined : 'anonymous'}
+                      src={selectedImage || ''}
+                      alt="Portrait Framing Preview"
+                      draggable={false}
+                      className="max-w-none transition-transform duration-75 object-contain pointer-events-none"
+                      style={{
+                        transform: `scale(${zoom}) rotate(${rotation}deg) translate(${pan.x}px, ${pan.y}px)`,
+                        maxHeight: '100%',
+                        maxWidth: '100%'
+                      }}
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (target.crossOrigin) {
+                          target.removeAttribute('crossorigin');
+                          target.src = selectedImage || '';
+                        }
+                      }}
+                    />
+                  )}
                 </div>
 
                 <p className="text-[11px] text-[#5A626A] mt-2 font-medium text-center">
