@@ -15,7 +15,8 @@ import {
   EyeOff, 
   RefreshCw, 
   KeyRound,
-  Check
+  Check,
+  Clock
 } from 'lucide-react';
 import { validateEmail, checkPasswordCriteria } from '../utils/countryCodes';
 import { apiClient } from '../services/api';
@@ -43,6 +44,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [resendTimer, setResendTimer] = useState(30);
+  const [otpExpirySeconds, setOtpExpirySeconds] = useState(600); // 10 minutes exact
   const [canResend, setCanResend] = useState(false);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -91,18 +93,30 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     };
   }, [isOpen, defaultEmail]);
 
-  // Resend countdown timer
+  // Resend cooldown timer (30s) + strict token expiry (10 minutes)
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (step === 'OTP_VERIFICATION' && resendTimer > 0) {
+    if (step === 'OTP_VERIFICATION') {
       interval = setInterval(() => {
-        setResendTimer(prev => prev - 1);
+        setResendTimer(prev => {
+          if (prev <= 1) {
+            setCanResend(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+
+        setOtpExpirySeconds(prev => {
+          if (prev <= 1) {
+            setOtpError('Verification code has expired (strictly valid for 10 minutes). Please click Resend Token.');
+            return 0;
+          }
+          return prev - 1;
+        });
       }, 1000);
-    } else if (resendTimer === 0) {
-      setCanResend(true);
     }
     return () => clearInterval(interval);
-  }, [step, resendTimer]);
+  }, [step]);
 
   // High-performance video lifecycle: play on open, strictly pause on close/unmount
   useEffect(() => {
@@ -146,6 +160,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 
       setStep('OTP_VERIFICATION');
       setResendTimer(30);
+      setOtpExpirySeconds(600);
       setCanResend(false);
       setTimeout(() => otpInputRefs.current[0]?.focus(), 150);
     } catch (err: any) {
@@ -177,6 +192,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     if (!canResend) return;
     setOtp(['', '', '', '', '', '']);
     setResendTimer(30);
+    setOtpExpirySeconds(600);
     setCanResend(false);
     setOtpError(null);
     otpInputRefs.current[0]?.focus();
@@ -519,6 +535,18 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 
                 {/* 6-Digit OTP Inputs */}
                 <div>
+                  <div className="flex items-center justify-between text-xs text-[#5A626A] mb-2 px-1 max-w-xs mx-auto">
+                    <span className="font-semibold text-slate-600">6-Digit Code</span>
+                    <span className="text-[11px] font-mono font-bold text-[#D72638] flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" />
+                      {otpExpirySeconds > 0 ? (
+                        <span>Expires in {Math.floor(otpExpirySeconds / 60)}:{(otpExpirySeconds % 60).toString().padStart(2, '0')}</span>
+                      ) : (
+                        <span className="text-red-600 font-extrabold">Expired (10m Limit)</span>
+                      )}
+                    </span>
+                  </div>
+
                   <div className="flex justify-center gap-2 sm:gap-3">
                     {otp.map((digit, idx) => (
                       <input

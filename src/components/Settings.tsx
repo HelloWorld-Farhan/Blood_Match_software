@@ -137,7 +137,8 @@ export default function Settings() {
   const [emailOtpDigits, setEmailOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
   const [emailOtpError, setEmailOtpError] = useState<string | null>(null);
   const [emailResetToken, setEmailResetToken] = useState<string>('');
-  const [emailOtpCountdown, setEmailOtpCountdown] = useState<number>(30);
+  const [emailOtpCountdown, setEmailOtpCountdown] = useState<number>(30); // 30s resend cooldown
+  const [emailOtpExpirySeconds, setEmailOtpExpirySeconds] = useState<number>(600); // Strict 10-minute validity
   const [emailOtpCanResend, setEmailOtpCanResend] = useState<boolean>(false);
   const [isSendingEmailOtp, setIsSendingEmailOtp] = useState<boolean>(false);
   const [isVerifyingEmailOtp, setIsVerifyingEmailOtp] = useState<boolean>(false);
@@ -203,18 +204,30 @@ export default function Settings() {
     }
   };
 
-  // Email OTP countdown timer
+  // Email OTP countdown timer (30s resend cooldown + strict 10-minute validity expiry)
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (emailOtpStep === 'OTP' && emailOtpCountdown > 0) {
+    if (emailOtpStep === 'OTP') {
       interval = setInterval(() => {
-        setEmailOtpCountdown((prev) => prev - 1);
+        setEmailOtpCountdown((prev) => {
+          if (prev <= 1) {
+            setEmailOtpCanResend(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+
+        setEmailOtpExpirySeconds((prev) => {
+          if (prev <= 1) {
+            setEmailOtpError('Verification code has expired (strictly valid for 10 minutes). Please request a fresh code.');
+            return 0;
+          }
+          return prev - 1;
+        });
       }, 1000);
-    } else if (emailOtpCountdown === 0) {
-      setEmailOtpCanResend(true);
     }
     return () => clearInterval(interval);
-  }, [emailOtpStep, emailOtpCountdown]);
+  }, [emailOtpStep]);
 
   const emailPwCriteria = useMemo(() => checkPasswordCriteria(emailNewPassword), [emailNewPassword]);
   const emailPwMatch = emailNewPassword.length > 0 && emailNewPassword === emailConfirmPassword;
@@ -389,6 +402,7 @@ export default function Settings() {
       }
       setEmailOtpStep('OTP');
       setEmailOtpCountdown(30);
+      setEmailOtpExpirySeconds(600);
       setEmailOtpCanResend(false);
       setTimeout(() => emailOtpInputRefs.current[0]?.focus(), 150);
     } catch (err: any) {
@@ -1251,12 +1265,17 @@ export default function Settings() {
                         <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
                           Enter 6-Digit Email Code
                         </label>
-                        <span className="text-[11px] font-mono font-bold text-[#D72638]">
-                          {emailOtpCountdown > 0 ? `Expires in ${emailOtpCountdown}s` : 'Code Expired'}
+                        <span className="text-[11px] font-mono font-bold text-[#D72638] flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-[#D72638]" />
+                          {emailOtpExpirySeconds > 0 ? (
+                            <span>Expires in {Math.floor(emailOtpExpirySeconds / 60)}:{(emailOtpExpirySeconds % 60).toString().padStart(2, '0')}</span>
+                          ) : (
+                            <span className="text-red-600 font-extrabold">Code Expired (10m Limit)</span>
+                          )}
                         </span>
                       </div>
                       <p className="text-xs text-[#5A626A] mb-3">
-                        We sent a 6-digit cryptographic verification code to <strong className="text-[#1A1D20]">{email}</strong>.
+                        We sent a 6-digit cryptographic verification code to <strong className="text-[#1A1D20]">{email}</strong>. Valid for strictly 10 minutes.
                       </p>
 
                       {/* 6-Box OTP Input Grid */}
@@ -1302,7 +1321,7 @@ export default function Settings() {
                           disabled={!emailOtpCanResend || isSendingEmailOtp}
                           className="text-xs font-bold text-[#D72638] hover:underline disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                         >
-                          {isSendingEmailOtp ? 'Sending...' : 'Resend Code'}
+                          {isSendingEmailOtp ? 'Sending...' : !emailOtpCanResend ? `Resend Code (${emailOtpCountdown}s)` : 'Resend Code'}
                         </button>
                       </div>
                     </div>

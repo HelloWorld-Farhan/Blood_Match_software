@@ -25,7 +25,8 @@ import {
   Sparkles,
   Droplet,
   ArrowRight,
-  Trash2
+  Trash2,
+  Clock
 } from 'lucide-react';
 import { getDonors, saveDonors, deleteDonor as deleteDonorStorage } from '../services/storage';
 import { fetchDonorsApi, sendDonorOtpApi, registerDonorApi, deleteDonorApi } from '../services/api';
@@ -121,6 +122,7 @@ export default function DonorRegistry() {
   const [isSendingOtp, setIsSendingOtp] = useState<boolean>(false);
   const [isSubmittingOtp, setIsSubmittingOtp] = useState<boolean>(false);
   const [resendCooldown, setResendCooldown] = useState<number>(0);
+  const [donorOtpExpirySeconds, setDonorOtpExpirySeconds] = useState<number>(600); // 10 minutes exact
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Current logged in clinician / account email
@@ -201,14 +203,23 @@ export default function DonorRegistry() {
     };
   }, [isOpenModal]);
 
-  // Resend cooldown timer
+  // Resend cooldown timer (30s) + strict token expiry (10 minutes)
   useEffect(() => {
-    if (resendCooldown <= 0) return;
-    const timer = setInterval(() => {
-      setResendCooldown(prev => Math.max(0, prev - 1));
-    }, 1000);
+    let timer: NodeJS.Timeout;
+    if (isOpenModal && modalStep === 'OTP') {
+      timer = setInterval(() => {
+        setResendCooldown(prev => Math.max(0, prev - 1));
+        setDonorOtpExpirySeconds(prev => {
+          if (prev <= 1) {
+            setOtpError('Verification code has expired (strictly valid for 10 minutes). Please click Resend Code.');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
     return () => clearInterval(timer);
-  }, [resendCooldown]);
+  }, [isOpenModal, modalStep]);
 
   // Browser Geolocation Detector for Delhi & nearby regions
   const handleDetectLocation = () => {
@@ -329,6 +340,7 @@ export default function DonorRegistry() {
       if (res.ok) {
         setModalStep('OTP');
         setResendCooldown(res.data?.cooldown_seconds || 30);
+        setDonorOtpExpirySeconds(600);
         setTimeout(() => {
           otpInputRefs.current[0]?.focus();
         }, 150);
@@ -387,6 +399,7 @@ export default function DonorRegistry() {
       const res = await sendDonorOtpApi(email.trim().toLowerCase(), fullName.trim());
       if (res.ok) {
         setResendCooldown(30);
+        setDonorOtpExpirySeconds(600);
       } else {
         setOtpError(res.error || 'Could not resend code. Please try again in a moment.');
       }
@@ -1182,9 +1195,19 @@ export default function DonorRegistry() {
                   {/* Right Column: 6-Digit Code Input & Verification Action */}
                   <form onSubmit={handleVerifyOtpAndRegister} className="space-y-4">
                     <div>
-                      <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-2 text-center">
-                        6-Digit Single-Use Code
-                      </label>
+                      <div className="flex items-center justify-between text-xs text-[#5A626A] mb-2 px-1">
+                        <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
+                          6-Digit Code
+                        </label>
+                        <span className="text-[11px] font-mono font-bold text-[#D72638] flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" />
+                          {donorOtpExpirySeconds > 0 ? (
+                            <span>Expires in {Math.floor(donorOtpExpirySeconds / 60)}:{(donorOtpExpirySeconds % 60).toString().padStart(2, '0')}</span>
+                          ) : (
+                            <span className="text-red-600 font-extrabold">Expired (10m Limit)</span>
+                          )}
+                        </span>
+                      </div>
                       <div className="flex justify-center gap-2 sm:gap-3">
                         {otpDigits.map((digit, idx) => (
                           <input

@@ -12,7 +12,9 @@ import {
   Sparkles,
   AlertCircle,
   KeyRound,
-  ArrowLeft
+  ArrowLeft,
+  Clock,
+  RefreshCw
 } from 'lucide-react';
 import { BloodDropsCanvas } from '../components/BloodDropsCanvas';
 import { AmbientBackgroundVideo } from '../components/AmbientBackgroundVideo';
@@ -46,7 +48,36 @@ export default function Login() {
   const [step, setStep] = useState<'LOGIN' | 'TWO_FACTOR'>('LOGIN');
   const [twoFactorOtp, setTwoFactorOtp] = useState(['', '', '', '', '', '']);
   const [twoFactorError, setTwoFactorError] = useState<string | null>(null);
+  const [twoFactorExpirySeconds, setTwoFactorExpirySeconds] = useState(600); // 10 minutes exact
+  const [twoFactorResendTimer, setTwoFactorResendTimer] = useState(30); // 30s rate-limit cooldown
+  const [canResend2FA, setCanResend2FA] = useState(false);
+  const [isResending2FA, setIsResending2FA] = useState(false);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // 2FA Expiry (10m) and Resend Cooldown (30s) timer
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (step === 'TWO_FACTOR') {
+      interval = setInterval(() => {
+        setTwoFactorResendTimer(prev => {
+          if (prev <= 1) {
+            setCanResend2FA(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+
+        setTwoFactorExpirySeconds(prev => {
+          if (prev <= 1) {
+            setTwoFactorError('Two-factor verification code has expired (strictly valid for 10 minutes). Please click Resend Code.');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [step]);
 
   // Guard against browser Back button navigating back to logged out dashboard sessions
   useEffect(() => {
@@ -198,6 +229,9 @@ export default function Login() {
       if (res.data?.two_factor_required) {
         setStep('TWO_FACTOR');
         setTwoFactorOtp(['', '', '', '', '', '']);
+        setTwoFactorExpirySeconds(600);
+        setTwoFactorResendTimer(30);
+        setCanResend2FA(false);
         setTimeout(() => otpInputRefs.current[0]?.focus(), 150);
         return;
       }
@@ -294,6 +328,27 @@ export default function Login() {
     } catch (err: any) {
       setIsLoading(false);
       setTwoFactorError(err?.message || 'Connection failure during 2FA verification.');
+    }
+  };
+
+  const handleResend2FA = async () => {
+    if (!canResend2FA || isResending2FA) return;
+    setIsResending2FA(true);
+    setTwoFactorError(null);
+    setTwoFactorOtp(['', '', '', '', '', '']);
+    setTwoFactorResendTimer(30);
+    setTwoFactorExpirySeconds(600);
+    setCanResend2FA(false);
+
+    try {
+      const res = await apiClient.post('/api/auth/2fa/resend', { email: email.trim() });
+      setIsResending2FA(false);
+      if (!res.ok) {
+        setTwoFactorError(res.error || 'Failed to resend two-factor code.');
+      }
+    } catch (err: any) {
+      setIsResending2FA(false);
+      setTwoFactorError(err?.message || 'Connection failure while resending 2FA code.');
     }
   };
 
@@ -647,9 +702,19 @@ export default function Login() {
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-2 text-center">
-                          Enter 6-Digit Verification Code
-                        </label>
+                        <div className="flex items-center justify-between text-xs text-[#5A626A] mb-2 px-1 max-w-xs mx-auto">
+                          <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
+                            Enter 6-Digit Code
+                          </label>
+                          <span className="text-[11px] font-mono font-bold text-[#D72638] flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" />
+                            {twoFactorExpirySeconds > 0 ? (
+                              <span>Expires in {Math.floor(twoFactorExpirySeconds / 60)}:{(twoFactorExpirySeconds % 60).toString().padStart(2, '0')}</span>
+                            ) : (
+                              <span className="text-red-600 font-extrabold">Expired (10m Limit)</span>
+                            )}
+                          </span>
+                        </div>
                         <div className="flex items-center justify-center gap-2 sm:gap-3">
                           {twoFactorOtp.map((digit, idx) => (
                             <input
@@ -664,6 +729,20 @@ export default function Login() {
                               className="w-11 h-12 text-center text-lg font-bold rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white outline-hidden transition-all text-[#1A1D20]"
                             />
                           ))}
+                        </div>
+
+                        {/* Resend 2FA Action */}
+                        <div className="flex items-center justify-between text-xs text-[#5A626A] pt-3 max-w-xs mx-auto">
+                          <span>Didn't receive code?</span>
+                          <button
+                            type="button"
+                            onClick={handleResend2FA}
+                            disabled={!canResend2FA || isResending2FA}
+                            className="font-bold text-[#D72638] hover:underline disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed flex items-center gap-1"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${isResending2FA ? 'animate-spin' : ''}`} />
+                            <span>{isResending2FA ? 'Sending...' : !canResend2FA ? `Resend Code (${twoFactorResendTimer}s)` : 'Resend Code'}</span>
+                          </button>
                         </div>
                       </div>
 

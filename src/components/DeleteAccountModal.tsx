@@ -9,7 +9,8 @@ import {
   ArrowRight, 
   RefreshCw, 
   CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  Clock 
 } from 'lucide-react';
 import { apiClient } from '../services/api';
 
@@ -33,7 +34,23 @@ export function DeleteAccountModal({
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [otpExpirySeconds, setOtpExpirySeconds] = useState(600);
+  const [resendTimer, setResendTimer] = useState(30);
+  const [isResending, setIsResending] = useState(false);
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout | null = null;
+    if (step === 'ENTER_OTP') {
+      timer = setInterval(() => {
+        setOtpExpirySeconds((prev) => (prev > 0 ? prev - 1 : 0));
+        setResendTimer((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [step]);
 
   useEffect(() => {
     if (isOpen) {
@@ -44,6 +61,8 @@ export function DeleteAccountModal({
       setOtpDigits(['', '', '', '', '', '']);
       setErrorMessage(null);
       setIsLoading(false);
+      setOtpExpirySeconds(600);
+      setResendTimer(30);
     } else {
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
@@ -76,10 +95,33 @@ export function DeleteAccountModal({
       }
 
       setStep('ENTER_OTP');
+      setOtpExpirySeconds(600);
+      setResendTimer(30);
       setTimeout(() => otpRefs.current[0]?.focus(), 150);
     } catch (err: any) {
       setIsLoading(false);
       setErrorMessage(err?.message || 'Connection failure. Please check server connectivity.');
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendTimer > 0 || isResending) return;
+    setErrorMessage(null);
+    setIsResending(true);
+    try {
+      const res = await apiClient.post('/api/auth/account-deletion/request-otp', {});
+      setIsResending(false);
+      if (!res.ok) {
+        setErrorMessage(res.error || 'Failed to dispatch new deletion code.');
+        return;
+      }
+      setOtpExpirySeconds(600);
+      setResendTimer(30);
+      setOtpDigits(['', '', '', '', '', '']);
+      otpRefs.current[0]?.focus();
+    } catch (err: any) {
+      setIsResending(false);
+      setErrorMessage(err?.message || 'Failed to resend deletion authorization code.');
     }
   };
 
@@ -249,9 +291,20 @@ export function DeleteAccountModal({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-2 text-center">
-                Enter 6-Digit Deletion Authorization Code
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
+                  Enter 6-Digit Deletion Authorization Code
+                </label>
+                <div className={`flex items-center gap-1.5 text-xs font-semibold ${otpExpirySeconds > 60 ? 'text-slate-500' : otpExpirySeconds > 0 ? 'text-amber-600' : 'text-red-600 font-bold'}`}>
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>
+                    {otpExpirySeconds > 0
+                      ? `Expires in ${Math.floor(otpExpirySeconds / 60)}:${(otpExpirySeconds % 60).toString().padStart(2, '0')}`
+                      : 'Code Expired'}
+                  </span>
+                </div>
+              </div>
+
               <div className="flex items-center justify-center gap-2 sm:gap-3">
                 {otpDigits.map((digit, idx) => (
                   <input
@@ -263,9 +316,31 @@ export function DeleteAccountModal({
                     value={digit}
                     onChange={(e) => handleOtpChange(idx, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    className="w-11 h-12 text-center text-lg font-bold rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus:border-red-600 focus:ring-2 focus:ring-red-600/20 focus:bg-white outline-hidden transition-all text-[#1A1D20]"
+                    disabled={otpExpirySeconds <= 0}
+                    className="w-11 h-12 text-center text-lg font-bold rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] focus:border-red-600 focus:ring-2 focus:ring-red-600/20 focus:bg-white outline-hidden transition-all text-[#1A1D20] disabled:opacity-40"
                   />
                 ))}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between text-xs px-1">
+                <span className="text-[#5A626A]">Didn't receive the email code?</span>
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  disabled={resendTimer > 0 || isResending}
+                  className="text-xs font-bold text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1"
+                >
+                  {isResending ? (
+                    <>
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      <span>Sending...</span>
+                    </>
+                  ) : resendTimer > 0 ? (
+                    `Resend Code (${resendTimer}s)`
+                  ) : (
+                    'Resend Code'
+                  )}
+                </button>
               </div>
             </div>
 
@@ -280,7 +355,7 @@ export function DeleteAccountModal({
               </button>
               <button
                 type="submit"
-                disabled={otpDigits.join('').length < 6 || isLoading}
+                disabled={otpDigits.join('').length < 6 || isLoading || otpExpirySeconds <= 0}
                 className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-md shadow-red-600/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
               >
                 {isLoading ? (
