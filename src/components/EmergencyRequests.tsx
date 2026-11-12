@@ -44,8 +44,10 @@ import { COUNTRY_CODES, validatePhoneNumber } from '../utils/countryCodes';
 import { 
   Coordinates, 
   DELHI_LOCALITY_NAMES, 
+  GLOBAL_LOCALITY_NAMES,
   calculateHaversineDistance, 
   resolveCoordinatesForLocation, 
+  reverseGeocodeCoordinates,
   getCompatibleDonorTypes, 
   getProximityTier 
 } from '../utils/geolocation';
@@ -114,12 +116,13 @@ export default function EmergencyRequests() {
   const [emergencyConfirmed, setEmergencyConfirmed] = useState<boolean>(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // Geolocation & Delhi Locality
+  // Geolocation & Locality
   const [selectedLocality, setSelectedLocality] = useState<string>('Connaught Place, Central Delhi');
   const [customLocalityInput, setCustomLocalityInput] = useState<string>('');
   const [userCoords, setUserCoords] = useState<Coordinates>({ latitude: 28.6315, longitude: 77.2167 });
   const [isDetectingGps, setIsDetectingGps] = useState<boolean>(false);
   const [gpsMessage, setGpsMessage] = useState<string | null>(null);
+  const [detectedPills, setDetectedPills] = useState<string[]>([]);
 
   // In-modal actions & feedback
   const [dispatchingDonorId, setDispatchingDonorId] = useState<string | null>(null);
@@ -131,7 +134,7 @@ export default function EmergencyRequests() {
   const bloodTypes: BloodType[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
   const scanSteps = [
     'Triaging 8-Group ABO/Rh Matrix...',
-    'Scanning Delhi Locality GPS Radius...',
+    'Scanning Locality GPS Radius Worldwide...',
     'Calculating Spherical Haversine Distances...',
     'Sorting Nearest Compatible Donors...'
   ];
@@ -231,21 +234,35 @@ export default function EmergencyRequests() {
       return;
     }
     setIsDetectingGps(true);
-    setGpsMessage(null);
+    setGpsMessage('Detecting browser GPS coordinates...');
 
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setIsDetectingGps(false);
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
         setUserCoords({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude
+          latitude: lat,
+          longitude: lon
         });
-        setSelectedLocality('GPS Live Coordinates');
-        setGpsMessage(`Live GPS Pinpointed: (${pos.coords.latitude.toFixed(4)}°, ${pos.coords.longitude.toFixed(4)}°)`);
+
+        try {
+          const geo = await reverseGeocodeCoordinates(lat, lon);
+          setSelectedLocality(geo.primaryLocality);
+          setCustomLocalityInput(geo.primaryLocality);
+          setDetectedPills(geo.nearestPills);
+          setGpsMessage(`Live GPS Pinpointed: ${geo.displayName} (${lat.toFixed(4)}°, ${lon.toFixed(4)}°)`);
+        } catch {
+          const gpsLabel = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+          setSelectedLocality(gpsLabel);
+          setCustomLocalityInput(gpsLabel);
+          setGpsMessage(`Live GPS Pinpointed: (${lat.toFixed(4)}°, ${lon.toFixed(4)}°)`);
+        } finally {
+          setIsDetectingGps(false);
+        }
       },
       (err) => {
         setIsDetectingGps(false);
-        setGpsMessage(err.message || 'GPS location denied. Falling back to Delhi locality map.');
+        setGpsMessage(err.message || 'GPS location permission denied. You can select or search any locality worldwide.');
       },
       { enableHighAccuracy: true, timeout: 8000 }
     );
@@ -894,6 +911,26 @@ export default function EmergencyRequests() {
                         </h3>
                       </div>
 
+                      {/* Authorized Clinician Account Preview */}
+                      <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                            <Mail className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">
+                              Authorized Clinician Account
+                            </div>
+                            <div className="text-xs font-mono font-bold text-emerald-950 truncate">
+                              {currentUserEmail}
+                            </div>
+                          </div>
+                        </div>
+                        <span className="hidden sm:inline-block px-2 py-0.5 rounded-md bg-emerald-200/60 text-emerald-900 text-[10px] font-bold shrink-0">
+                          Active Account
+                        </span>
+                      </div>
+
                       {/* Patient Name & Age Row */}
                       <div className="grid grid-cols-3 gap-2.5">
                         <div className="col-span-2">
@@ -1049,44 +1086,62 @@ export default function EmergencyRequests() {
                           </div>
                         )}
 
-                        {/* Locality Selector */}
+                        {/* Worldwide Locality Selector & Search */}
                         <div>
-                          <label className="block text-xs font-bold text-[#1A1D20] mb-1">
-                            Exact Delhi NCR Area / Locality <span className="text-[#D72638]">*</span>
-                          </label>
-                          <select
-                            value={selectedLocality}
-                            onChange={(e) => {
-                              setSelectedLocality(e.target.value);
-                              setCustomLocalityInput('');
-                            }}
-                            className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9C7C2] text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] cursor-pointer"
-                          >
-                            {DELHI_LOCALITY_NAMES.map((name: string) => (
-                              <option key={name} value={name}>{name}</option>
-                            ))}
-                          </select>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-bold text-[#1A1D20]">
+                              Target Locality / Nearest Area (Worldwide) <span className="text-[#D72638]">*</span>
+                            </label>
+                            <span className="text-[10px] text-[#5A626A] font-semibold">
+                              Worldwide Match
+                            </span>
+                          </div>
 
-                          {/* Quick Locality Pills */}
+                          <div className="relative">
+                            <input
+                              type="text"
+                              list="global-locality-datalist"
+                              value={customLocalityInput || selectedLocality}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setCustomLocalityInput(val);
+                                setSelectedLocality(val);
+                              }}
+                              placeholder="Type or select locality (e.g. Connaught Place, Mumbai, London, New York...)"
+                              className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9C7C2] text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638]"
+                            />
+                            <datalist id="global-locality-datalist">
+                              {GLOBAL_LOCALITY_NAMES.map((name: string) => (
+                                <option key={name} value={name} />
+                              ))}
+                            </datalist>
+                          </div>
+
+                          {/* Quick Dynamic Locality Pills */}
                           <div className="flex flex-wrap gap-1.5 pt-2">
-                            {['Connaught Place', 'South Extension', 'Rohini Sector 7', 'Dwarka Sector 10', 'Karol Bagh', 'Saket'].map((pill: string) => (
-                              <button
-                                key={pill}
-                                type="button"
-                                onClick={() => {
-                                  const matched = DELHI_LOCALITY_NAMES.find((l: string) => l.toLowerCase().includes(pill.toLowerCase())) || pill;
-                                  setSelectedLocality(matched);
-                                  setCustomLocalityInput('');
-                                }}
-                                className={`text-2xs font-semibold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
-                                  selectedLocality.toLowerCase().includes(pill.toLowerCase())
-                                    ? 'bg-[#D72638] text-white border-[#D72638]'
-                                    : 'bg-white text-[#4A5568] border-[#D9C7C2] hover:bg-slate-100'
-                                }`}
-                              >
-                                {pill}
-                              </button>
-                            ))}
+                            {(detectedPills.length > 0
+                              ? detectedPills
+                              : ['Connaught Place', 'South Extension', 'Mumbai', 'London', 'New York', 'Rohini Sector 7']
+                            ).map((pill: string) => {
+                              const active = (customLocalityInput || selectedLocality).toLowerCase().includes(pill.toLowerCase());
+                              return (
+                                <button
+                                  key={pill}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedLocality(pill);
+                                    setCustomLocalityInput(pill);
+                                  }}
+                                  className={`text-2xs font-semibold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
+                                    active
+                                      ? 'bg-[#D72638] text-white border-[#D72638]'
+                                      : 'bg-white text-[#4A5568] border-[#D9C7C2] hover:bg-slate-100'
+                                  }`}
+                                >
+                                  {pill}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
 

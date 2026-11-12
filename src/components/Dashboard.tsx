@@ -283,7 +283,7 @@ export const Dashboard: React.FC = () => {
               <span>Hemodynamic Intelligence Active</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-[#1A1D20] tracking-tight flex items-center gap-2">
-              <span>Executive Transfusion Intelligence Hub</span>
+              <span>Power BI Executive Hub</span>
             </h1>
             <p className="text-xs text-[#5A626A]">
               Real-time ABO/Rh cross-matching analytics, blood bank reserve volume, and emergency trauma triage.
@@ -311,16 +311,6 @@ export const Dashboard: React.FC = () => {
 
           {/* Silent, Real-Time Network Sync Status with Dynamic Speed Telemetry Colors */}
           <NetworkHealthPill onRefresh={handleManualSync} />
-
-          {/* Rapid Emergency Transfusion Request Broadcast Button */}
-          <button
-            onClick={() => navigate('/dashboard/emergency?action=broadcast')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 text-white text-xs font-bold shadow-sm hover:from-red-700 hover:to-rose-700 transition-all cursor-pointer"
-            title="Launch Emergency Transfusion Request Broadcast"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Broadcast Request</span>
-          </button>
         </div>
       </motion.div>
 
