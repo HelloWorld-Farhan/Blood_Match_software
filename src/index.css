@@ -79,10 +79,10 @@ body {
   width: 100% !important;
   max-width: 100% !important;
   overflow-x: hidden !important;
-  opacity: 0;
+  opacity: 1;
   transform: translateZ(0) !important;
   backface-visibility: hidden;
-  transition: opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition: opacity 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
   will-change: opacity;
 }
 

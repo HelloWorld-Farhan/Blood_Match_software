@@ -57,7 +57,7 @@ export default function Layout() {
 
   // Requirement: Guard against unauthenticated viewing with zero dummy logins
   useEffect(() => {
-    const isAuth = sessionStorage.getItem('bloodmatch_auth') === 'true';
+    const isAuth = sessionStorage.getItem('bloodmatch_auth') === 'true' || localStorage.getItem('bloodmatch_auth') === 'true';
     if (!isAuth) {
       navigate('/login', { replace: true });
     }
@@ -195,15 +195,26 @@ export default function Layout() {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return [];
     const allDonors = getDonors();
-    return allDonors.filter(d => 
-      d.fullName.toLowerCase().includes(q) ||
-      d.bloodType.toLowerCase().includes(q) ||
-      d.city.toLowerCase().includes(q) ||
-      (d.location && d.location.toLowerCase().includes(q)) ||
-      d.phone.includes(q) ||
-      d.email.toLowerCase().includes(q) ||
-      d.id.toLowerCase().includes(q)
-    ).slice(0, 8);
+    if (!Array.isArray(allDonors)) return [];
+    return allDonors.filter(d => {
+      if (!d) return false;
+      const fn = (d.fullName || (d as any).full_name || '').toLowerCase();
+      const bt = (d.bloodType || (d as any).blood_type || '').toLowerCase();
+      const ct = (d.city || '').toLowerCase();
+      const loc = (d.location || '').toLowerCase();
+      const ph = (d.phone || '');
+      const em = (d.email || '').toLowerCase();
+      const did = (d.id || '').toLowerCase();
+      return (
+        fn.includes(q) ||
+        bt.includes(q) ||
+        ct.includes(q) ||
+        loc.includes(q) ||
+        ph.includes(q) ||
+        em.includes(q) ||
+        did.includes(q)
+      );
+    }).slice(0, 8);
   }, [searchQuery]);
 
   const handleSelectDonor = (donorId: string) => {

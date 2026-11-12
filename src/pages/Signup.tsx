@@ -271,8 +271,10 @@ export default function Signup() {
       const registeredPhone = `${countryDialCode} ${phone.trim()}`;
 
       sessionStorage.setItem('bloodmatch_auth', 'true');
+      localStorage.setItem('bloodmatch_auth', 'true');
       if (res.data?.access_token) {
         sessionStorage.setItem('bloodmatch_auth_token', res.data.access_token);
+        localStorage.setItem('bloodmatch_auth_token', res.data.access_token);
       }
       sessionStorage.setItem('bloodmatch_user_email', registeredEmail);
       sessionStorage.setItem('bloodmatch_user_name', registeredName);

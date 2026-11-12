@@ -38,6 +38,7 @@ export function AvatarUploadModal({
   const [zoom, setZoom] = useState<number>(1);
   const [rotation, setRotation] = useState<number>(0);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [cropCircleSize, setCropCircleSize] = useState<number>(220); // Manual circle adjustment (130px to 260px)
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const dragStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [isUploading, setIsUploading] = useState<boolean>(false);
@@ -56,6 +57,7 @@ export function AvatarUploadModal({
       setZoom(1);
       setRotation(0);
       setPan({ x: 0, y: 0 });
+      setCropCircleSize(220);
       setErrorMessage(null);
     } else {
       document.body.style.overflow = 'unset';
@@ -85,6 +87,7 @@ export function AvatarUploadModal({
       setZoom(1);
       setRotation(0);
       setPan({ x: 0, y: 0 });
+      setCropCircleSize(220);
     };
     reader.readAsDataURL(file);
   };
@@ -97,7 +100,7 @@ export function AvatarUploadModal({
     }
   };
 
-  // Mouse / Touch Drag to Reposition (Pan)
+  // Mouse & Touch Drag to Reposition (Pan) with Mobile Touch Support
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!selectedImage) return;
     setIsDragging(true);
@@ -114,6 +117,25 @@ export function AvatarUploadModal({
 
   const handleMouseUp = () => setIsDragging(false);
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!selectedImage || !e.touches[0]) return;
+    setIsDragging(true);
+    dragStartRef.current = {
+      x: e.touches[0].clientX - pan.x,
+      y: e.touches[0].clientY - pan.y
+    };
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || !e.touches[0]) return;
+    setPan({
+      x: e.touches[0].clientX - dragStartRef.current.x,
+      y: e.touches[0].clientY - dragStartRef.current.y
+    });
+  };
+
+  const handleTouchEnd = () => setIsDragging(false);
+
   const rotate90 = () => {
     setRotation((prev) => (prev + 90) % 360);
   };
@@ -122,9 +144,10 @@ export function AvatarUploadModal({
     setZoom(1);
     setRotation(0);
     setPan({ x: 0, y: 0 });
+    setCropCircleSize(220);
   };
 
-  // Requirement 1: Compress on hidden canvas (max 800x800px, WebP at 0.88 quality, under 500KB)
+  // Requirement 1: Compress on hidden canvas with user-adjusted circle crop scaling (600x600px WebP under 40KB)
   const generateOptimizedBlob = (): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const img = previewImageRef.current;
@@ -134,7 +157,7 @@ export function AvatarUploadModal({
       }
 
       const canvas = document.createElement('canvas');
-      const targetSize = 800;
+      const targetSize = 600;
       canvas.width = targetSize;
       canvas.height = targetSize;
       const ctx = canvas.getContext('2d');
@@ -144,18 +167,22 @@ export function AvatarUploadModal({
         return;
       }
 
-      // Fill background
+      // Fill neutral white background
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, targetSize, targetSize);
 
       ctx.save();
-      // Move to center of target canvas
+      // Move to center of output canvas
       ctx.translate(targetSize / 2, targetSize / 2);
+
+      // Account for circle crop size adjustment
+      const previewBoxSize = 280; // Size of display preview box
+      const cropZoomMultiplier = previewBoxSize / cropCircleSize;
+
+      ctx.scale(zoom * cropZoomMultiplier, zoom * cropZoomMultiplier);
       ctx.rotate((rotation * Math.PI) / 180);
-      ctx.scale(zoom, zoom);
 
       // Scale pan relative to target canvas size
-      const previewBoxSize = 280; // Size of display preview box
       const scaleFactor = targetSize / previewBoxSize;
       ctx.translate(pan.x * scaleFactor, pan.y * scaleFactor);
 
@@ -195,17 +222,15 @@ export function AvatarUploadModal({
 
     try {
       const blob = await generateOptimizedBlob();
-      const email = userEmail || sessionStorage.getItem('bloodmatch_user_email') || 'clinician@bloodmatch.io';
+      const email = userEmail || sessionStorage.getItem('bloodmatch_user_email') || localStorage.getItem('bloodmatch_user_email') || '';
 
       const formData = new FormData();
       formData.append('file', blob, 'avatar.webp');
-      formData.append('user_email', email);
+      if (email) {
+        formData.append('user_email', email);
+      }
 
-      const res = await apiClient.post('/api/v1/auth/avatar', formData, {
-        headers: {
-          // fetch will automatically set multipart/form-data boundary when Content-Type is omitted
-        }
-      });
+      const res = await apiClient.post('/api/v1/auth/avatar', formData);
 
       setIsUploading(false);
 
@@ -320,48 +345,64 @@ export function AvatarUploadModal({
           )}
 
           {!selectedImage ? (
-            /* Upload Drop Zone */
+            /* Upload Drop Zone - Pointer-Events Isolated to completely eliminate mobile double-click / window blinking */
             <div
               onDragOver={(e) => { e.preventDefault(); setIsDragOverZone(true); }}
               onDragLeave={() => setIsDragOverZone(false)}
               onDrop={onDrop}
-              className={`p-8 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center text-center cursor-pointer ${
+              className={`p-8 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center text-center cursor-pointer select-none ${
                 isDragOverZone 
                   ? 'border-[#D72638] bg-red-50/50 scale-[0.99]' 
                   : 'border-[#D9C7C2] hover:border-[#D72638]/60 bg-[#F5F1EF]/40 hover:bg-[#F5F1EF]'
               }`}
-              onClick={() => fileInputRef.current?.click()}
+              onClick={(e) => {
+                e.preventDefault();
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = '';
+                  fileInputRef.current.click();
+                }
+              }}
             >
-              <div className="w-14 h-14 rounded-2xl bg-[#7A0C17]/10 border border-[#D72638]/20 text-[#D72638] flex items-center justify-center mb-3 shadow-inner">
+              <div className="w-14 h-14 rounded-2xl bg-[#7A0C17]/10 border border-[#D72638]/20 text-[#D72638] flex items-center justify-center mb-3 shadow-inner pointer-events-none">
                 <UploadCloud className="w-7 h-7" />
               </div>
-              <h4 className="text-sm font-bold text-[#1A1D20] mb-1">
+              <h4 className="text-sm font-bold text-[#1A1D20] mb-1 pointer-events-none">
                 Drag & Drop Profile Picture Here
               </h4>
-              <p className="text-xs text-[#5A626A] max-w-xs mb-3 leading-relaxed">
-                Supports JPG, PNG, or WEBP under 10MB. Whole-image mode preserves all edges without clipping.
+              <p className="text-xs text-[#5A626A] max-w-xs mb-3 leading-relaxed pointer-events-none">
+                Supports JPG, PNG, or WEBP under 10MB. Adjust circle crop and position freely on phone or desktop.
               </p>
-              <button
-                type="button"
-                className="px-4 py-2 rounded-xl bg-white hover:bg-red-50 text-[#D72638] border border-[#D9C7C2] text-xs font-bold shadow-2xs transition-colors"
+              <span
+                className="px-4 py-2 rounded-xl bg-white hover:bg-red-50 text-[#D72638] border border-[#D9C7C2] text-xs font-bold shadow-2xs transition-colors pointer-events-none"
               >
                 Browse Local Storage
-              </button>
+              </span>
             </div>
           ) : (
-            /* Whole-Image Interactive Canvas & Crop Zone */
+            /* Whole-Image Interactive Canvas & Adjustable Circle Crop Zone */
             <div className="space-y-4">
               <div className="flex flex-col items-center">
-                {/* 1:1 Square & Circular Guide Container (280x280px) */}
+                {/* 1:1 Square & Circular Guide Container (280x280px) with Touch & Mouse Drag Support */}
                 <div 
                   className="relative w-[280px] h-[280px] rounded-2xl bg-slate-900 border-2 border-[#D72638] overflow-hidden flex items-center justify-center shadow-lg cursor-grab active:cursor-grabbing select-none"
+                  style={{ touchAction: 'none' }}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
                   onMouseUp={handleMouseUp}
                   onMouseLeave={handleMouseUp}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                  onTouchCancel={handleTouchEnd}
                 >
-                  {/* Circular Mask Outline Guide */}
-                  <div className="absolute inset-0 pointer-events-none rounded-full border-2 border-white/40 border-dashed z-20 m-2" />
+                  {/* Dynamic Scalable Circular Mask Outline Guide with Backdrop Shadow */}
+                  <div 
+                    className="absolute pointer-events-none rounded-full border-2 border-white/80 border-dashed z-20 shadow-[0_0_0_9999px_rgba(0,0,0,0.55)] transition-all duration-75" 
+                    style={{
+                      width: `${cropCircleSize}px`,
+                      height: `${cropCircleSize}px`,
+                    }}
+                  />
                   
                   {/* Grid Alignment Reticle */}
                   <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 z-10 opacity-20">
@@ -382,7 +423,7 @@ export function AvatarUploadModal({
                     src={selectedImage}
                     alt="Preview"
                     draggable={false}
-                    className="max-w-none transition-transform duration-75 object-contain"
+                    className="max-w-none transition-transform duration-75 object-contain pointer-events-none"
                     style={{
                       transform: `scale(${zoom}) rotate(${rotation}deg) translate(${pan.x}px, ${pan.y}px)`,
                       maxHeight: '100%',
@@ -391,25 +432,45 @@ export function AvatarUploadModal({
                   />
                 </div>
 
-                <p className="text-[11px] text-[#5A626A] mt-2 font-medium">
-                  Drag with mouse to center • Whole-image canvas fits entire image without edge clipping
+                <p className="text-[11px] text-[#5A626A] mt-2 font-medium text-center">
+                  Drag with touch or mouse to position • Adjust circle size below to frame portrait
                 </p>
               </div>
 
-              {/* Interactive Controls: Zoom & Rotate */}
+              {/* Interactive Controls: Circle Size, Zoom & Rotate */}
               <div className="p-3.5 rounded-2xl bg-[#F5F1EF] border border-[#D9C7C2] space-y-3">
+                {/* 1. Circle Crop Size Adjustment */}
                 <div className="flex items-center gap-3">
-                  <ZoomOut className="w-4 h-4 text-slate-500 shrink-0" />
+                  <span className="text-xs font-bold text-[#1A1D20] shrink-0 w-20">Circle Size</span>
                   <input
                     type="range"
-                    min="1"
-                    max="3"
+                    min="130"
+                    max="260"
+                    step="5"
+                    value={cropCircleSize}
+                    onChange={(e) => setCropCircleSize(parseInt(e.target.value))}
+                    className="w-full accent-[#D72638] cursor-pointer"
+                  />
+                  <span className="text-xs font-mono font-bold text-[#1A1D20] w-12 text-right">
+                    {cropCircleSize}px
+                  </span>
+                </div>
+
+                {/* 2. Image Zoom Adjustment */}
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-[#1A1D20] shrink-0 w-20 flex items-center gap-1">
+                    <ZoomIn className="w-3.5 h-3.5 text-[#D72638]" />
+                    <span>Zoom</span>
+                  </span>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="3.5"
                     step="0.05"
                     value={zoom}
                     onChange={(e) => setZoom(parseFloat(e.target.value))}
                     className="w-full accent-[#D72638] cursor-pointer"
                   />
-                  <ZoomIn className="w-4 h-4 text-slate-500 shrink-0" />
                   <span className="text-xs font-mono font-bold text-[#1A1D20] w-12 text-right">
                     {zoom.toFixed(2)}x
                   </span>
@@ -438,7 +499,12 @@ export function AvatarUploadModal({
 
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={() => {
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                        fileInputRef.current.click();
+                      }
+                    }}
                     className="text-xs font-bold text-[#D72638] hover:underline cursor-pointer"
                   >
                     Select Different File
