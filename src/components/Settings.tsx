@@ -126,6 +126,52 @@ export default function Settings() {
   const [emailPwErrors, setEmailPwErrors] = useState<Record<string, string>>({});
   const emailOtpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
+  // Two-Factor Authentication (2FA) State & Handlers
+  const [is2FAEnabled, setIs2FAEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('bloodmatch_2fa_enabled') === 'true';
+  });
+  const [isToggling2FA, setIsToggling2FA] = useState<boolean>(false);
+  const [twoFactorFeedback, setTwoFactorFeedback] = useState<string | null>(null);
+
+  // Synchronize 2FA state from database profile on mount
+  useEffect(() => {
+    let isMounted = true;
+    apiClient.get('/api/auth/me').then((res) => {
+      if (isMounted && res.ok && res.data?.user) {
+        const enabled = Boolean(res.data.user.is_2fa_enabled);
+        setIs2FAEnabled(enabled);
+        localStorage.setItem('bloodmatch_2fa_enabled', enabled ? 'true' : 'false');
+      }
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, []);
+
+  const handleToggle2FA = async (newVal: boolean) => {
+    setIsToggling2FA(true);
+    setTwoFactorFeedback(null);
+    try {
+      const res = await apiClient.put('/api/auth/2fa/toggle', {
+        enable_2fa: newVal,
+      });
+      setIsToggling2FA(false);
+      if (res.ok) {
+        setIs2FAEnabled(newVal);
+        localStorage.setItem('bloodmatch_2fa_enabled', newVal ? 'true' : 'false');
+        setTwoFactorFeedback(
+          newVal 
+            ? 'Two-Factor Authentication is now ON. Email OTP verification is automatically enforced on sign-in.' 
+            : 'Two-Factor Authentication is now OFF. Both channels disabled; direct password login active.'
+        );
+        setTimeout(() => setTwoFactorFeedback(null), 5000);
+      } else {
+        setTwoFactorFeedback(res.error || 'Failed to update 2FA configuration.');
+      }
+    } catch (err: any) {
+      setIsToggling2FA(false);
+      setTwoFactorFeedback(err?.message || 'Connection failure while updating 2FA.');
+    }
+  };
+
   // Email OTP countdown timer
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -548,7 +594,9 @@ export default function Settings() {
               <div className="flex items-center gap-3">
                 <div className="text-right">
                   <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">2FA Channel</span>
-                  <span className="text-sm font-black text-emerald-400 font-mono">Email Enforced</span>
+                  <span className={`text-sm font-black font-mono ${is2FAEnabled ? 'text-emerald-400' : 'text-slate-300'}`}>
+                    {is2FAEnabled ? 'Email Enforced' : 'Disabled'}
+                  </span>
                 </div>
                 <div className="text-right border-l border-white/20 pl-3">
                   <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Cipher Engine</span>
@@ -1619,52 +1667,115 @@ export default function Settings() {
 
           {/* Section: Two-Factor Authorization Channels */}
           <div className="pt-6 border-t border-[#D9C7C2]/70">
-            <div className="mb-4">
-              <h3 className="text-lg font-black text-[#1A1D20] tracking-tight">
-                Two-Factor Authorization Channels (2FA)
-              </h3>
-              <p className="text-xs text-[#5A626A] mt-0.5">
-                Multi-factor challenge rules for high-priority emergency blood dispatches.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+              <div>
+                <h3 className="text-lg font-black text-[#1A1D20] tracking-tight flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-[#D72638]" />
+                  <span>Two-Factor Authorization Channels (2FA)</span>
+                </h3>
+                <p className="text-xs text-[#5A626A] mt-0.5">
+                  Multi-factor challenge rules for high-priority emergency blood dispatches and account login.
+                </p>
+              </div>
+
+              {/* Master ON / OFF Switch */}
+              <div className="flex items-center gap-3 bg-[#F5F1EF] px-4 py-2 rounded-2xl border border-[#D9C7C2] self-start sm:self-auto shadow-xs">
+                <span className="text-xs font-black text-[#1A1D20]">
+                  {is2FAEnabled ? '2FA ACTIVE' : '2FA DISABLED'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleToggle2FA(!is2FAEnabled)}
+                  disabled={isToggling2FA}
+                  className={`relative inline-flex h-6 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden disabled:opacity-50 ${
+                    is2FAEnabled ? 'bg-[#D72638]' : 'bg-slate-300'
+                  }`}
+                  aria-label="Toggle Two-Factor Authentication"
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                      is2FAEnabled ? 'translate-x-6' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
 
+            {twoFactorFeedback && (
+              <div className={`mb-4 p-3 rounded-xl border text-xs flex items-center gap-2 font-semibold ${
+                is2FAEnabled 
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                  : 'bg-amber-50 border-amber-200 text-amber-800'
+              }`}>
+                {is2FAEnabled ? <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />}
+                <span>{twoFactorFeedback}</span>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Channel 1: Email OTP (Enforced Active) */}
-              <div className="p-4 rounded-2xl border-2 border-[#D72638] bg-red-50/40 flex items-start justify-between gap-3">
+              {/* Channel 1: Email OTP */}
+              <div className={`p-4 rounded-2xl transition-all duration-200 flex items-start justify-between gap-3 ${
+                is2FAEnabled 
+                  ? 'border-2 border-[#D72638] bg-red-50/40 shadow-xs' 
+                  : 'border border-[#D9C7C2] bg-slate-50/70 opacity-60'
+              }`}>
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#D72638] text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs transition-colors ${
+                    is2FAEnabled ? 'bg-[#D72638] text-white' : 'bg-slate-200 text-slate-400'
+                  }`}>
                     <Mail className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-[#1A1D20]">Email OTP Verification</span>
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold">
-                        Enforced
+                      <span className={`text-sm font-bold ${is2FAEnabled ? 'text-[#1A1D20]' : 'text-slate-500'}`}>
+                        Email OTP Verification
                       </span>
+                      {is2FAEnabled ? (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold flex items-center gap-1">
+                          <Check className="w-3 h-3 text-emerald-700" />
+                          <span>Enforced & Ticked</span>
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-600 border border-slate-300 text-[10px] font-bold">
+                          Disabled
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
-                      Instant 6-digit cryptographic codes sent to your registered work email ({email}) for session recovery and trauma dispatches.
+                      {is2FAEnabled ? (
+                        <>Instant 6-digit cryptographic codes sent to your registered email (<strong>{email}</strong>) on every login and sensitive operation.</>
+                      ) : (
+                        <>Channel is inactive because 2FA is turned OFF. Turn on the master switch above to activate.</>
+                      )}
                     </p>
                   </div>
                 </div>
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0 mt-1" />
+                {is2FAEnabled ? (
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0 mt-1" />
+                ) : (
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0 mt-1" />
+                )}
               </div>
 
-              {/* Channel 2: SMS Mobile OTP (Coming Soon) */}
-              <div className="p-4 rounded-2xl border border-[#D9C7C2] bg-[#F5F1EF]/60 flex items-start justify-between gap-3 opacity-80 cursor-not-allowed">
+              {/* Channel 2: SMS Mobile OTP */}
+              <div className="p-4 rounded-2xl border border-[#D9C7C2] bg-[#F5F1EF]/60 flex items-start justify-between gap-3 opacity-60 cursor-not-allowed">
                 <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-500 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-400 flex items-center justify-center shrink-0">
                     <Smartphone className="w-5 h-5" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-700">SMS Mobile OTP</span>
+                      <span className="text-sm font-bold text-slate-600">SMS Mobile OTP</span>
                       <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-black uppercase tracking-wider">
                         Coming Soon
                       </span>
                     </div>
                     <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
-                      Direct carrier SMS gateway dispatch to your verified emergency mobile number ({phone}). Currently under AABB carrier compliance review.
+                      {is2FAEnabled ? (
+                        <>Direct carrier SMS gateway dispatch to verified mobile ({phone}). Currently under AABB carrier compliance review.</>
+                      ) : (
+                        <>Channel is inactive because 2FA is turned OFF.</>
+                      )}
                     </p>
                   </div>
                 </div>
