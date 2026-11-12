@@ -298,10 +298,10 @@ export const Dashboard: React.FC = () => {
               <button
                 key={type}
                 onClick={() => setSelectedBloodFilter(type)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-95 ${
                   selectedBloodFilter === type
-                    ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/30 scale-105'
-                    : 'text-[#4A5568] hover:text-[#1A1D20] hover:bg-white'
+                    ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/30 font-black'
+                    : 'text-[#4A5568] hover:text-[#1A1D20] hover:bg-white active:bg-slate-100'
                 }`}
               >
                 {type}
@@ -325,9 +325,9 @@ export const Dashboard: React.FC = () => {
         {/* KPI 1: Cryo Volume with Power BI ABO Allele Micro Bar Chart */}
         <motion.div 
           variants={kpiCardVariants}
-          whileHover={{ y: -4, scale: 1.015 }}
+          whileTap={{ scale: 0.99 }}
           onClick={() => navigate('/dashboard/inventory')}
-          className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] hover:border-[#D72638] shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
+          className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] hover:border-[#D72638] shadow-sm hover:shadow-md active:bg-[#F5F1EF] active:border-[#D72638] transition-all duration-200 cursor-pointer flex flex-col justify-between group"
         >
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -373,7 +373,7 @@ export const Dashboard: React.FC = () => {
                           inv.unitsAvailable === 0
                             ? 'bg-[#D9C7C2]/40'
                             : isHovered
-                            ? 'bg-[#D72638] shadow-sm shadow-[#D72638]/50 scale-105'
+                            ? 'bg-[#D72638] shadow-sm shadow-[#D72638]/50 ring-1 ring-[#D72638]'
                             : 'bg-gradient-to-t from-[#7A0C17] to-[#D72638]'
                         }`}
                       />
@@ -399,9 +399,9 @@ export const Dashboard: React.FC = () => {
         {/* KPI 2: Certified Donors with Power BI Radial Micro Gauge */}
         <motion.div 
           variants={kpiCardVariants}
-          whileHover={{ y: -4, scale: 1.015 }}
+          whileTap={{ scale: 0.99 }}
           onClick={() => navigate('/dashboard/donors')}
-          className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] hover:border-[#D72638] shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
+          className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] hover:border-[#D72638] shadow-sm hover:shadow-md active:bg-[#F5F1EF] active:border-[#D72638] transition-all duration-200 cursor-pointer flex flex-col justify-between group"
         >
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -465,9 +465,9 @@ export const Dashboard: React.FC = () => {
         {/* KPI 3: Emergency Requests with Power BI Triage Sparkline Radar */}
         <motion.div 
           variants={kpiCardVariants}
-          whileHover={{ y: -4, scale: 1.015 }}
+          whileTap={{ scale: 0.99 }}
           onClick={() => navigate('/dashboard/emergency')}
-          className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] hover:border-[#D72638] shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
+          className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] hover:border-[#D72638] shadow-sm hover:shadow-md active:bg-[#F5F1EF] active:border-[#D72638] transition-all duration-200 cursor-pointer flex flex-col justify-between group"
         >
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -519,9 +519,9 @@ export const Dashboard: React.FC = () => {
         {/* KPI 4: Antigen Safety Index with Power BI Concentric Ring Gauge */}
         <motion.div 
           variants={kpiCardVariants}
-          whileHover={{ y: -4, scale: 1.015 }}
+          whileTap={{ scale: 0.99 }}
           onClick={() => navigate('/dashboard/matrix')}
-          className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] hover:border-emerald-500 shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group"
+          className="p-4 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] hover:border-emerald-500 shadow-sm hover:shadow-md active:bg-[#F5F1EF] active:border-emerald-500 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
         >
           <div>
             <div className="flex items-center justify-between mb-2">
@@ -710,7 +710,7 @@ export const Dashboard: React.FC = () => {
                 const isWarning = item.unitsAvailable >= 5 && item.unitsAvailable < 10;
 
                 return (
-                  <div key={item.bloodType} className="space-y-1">
+                  <div key={item.bloodType} className="p-1.5 rounded-xl hover:bg-[#F5F1EF]/70 active:bg-red-50/50 transition-colors space-y-1">
                     <div className="flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2">
                         <span className="w-10 font-black text-[#7A0C17] text-xs px-1.5 py-0.5 rounded bg-[#F5F1EF] border border-[#D9C7C2] text-center">
@@ -882,6 +882,7 @@ export const Dashboard: React.FC = () => {
                         className="cursor-pointer"
                         onMouseEnter={() => setHoveredTrendIndex(i)}
                         onTouchStart={() => setHoveredTrendIndex(i)}
+                        onClick={() => setHoveredTrendIndex(i)}
                       />
                     </g>
                   );

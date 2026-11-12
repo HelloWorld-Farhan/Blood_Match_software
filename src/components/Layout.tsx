@@ -493,25 +493,25 @@ export default function Layout() {
                   />
                 )}
 
-                <div className="relative z-10 flex items-center gap-3">
+                <div className="relative z-10 flex items-center gap-2.5 min-w-0 pr-2">
                   <motion.div
                     animate={active ? { scale: [1, 1.15, 1] } : { scale: 1 }}
                     transition={{ duration: 0.25 }}
                   >
                     <Icon className={`${isMobileDrawer ? 'w-3.5 h-3.5' : 'w-4 h-4'} transition-transform group-hover:scale-110 ${active ? 'text-white' : 'text-[#7A0C17] group-hover:text-[#D72638]'}`} />
                   </motion.div>
-                  <span className="tracking-tight text-xs font-semibold">{item.name}</span>
+                  <span className="tracking-tight text-xs font-semibold truncate">{item.name}</span>
                 </div>
 
-                {/* Redesigned Modern Sleek Badge (Work 1) */}
+                {/* Redesigned Modern Sleek Badge (Work 2) with zero overlap */}
                 {item.badge !== undefined && (
-                  <div className="relative z-10 shrink-0">
+                  <div className="relative z-10 shrink-0 ml-auto">
                     {item.isInventory ? (
                       <span
-                        className={`inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-mono font-bold px-2 py-0.5 rounded-full whitespace-nowrap transition-all duration-200 shadow-2xs ${
+                        className={`inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap transition-all duration-200 shadow-2xs ${
                           active
                             ? 'bg-white/20 text-white border border-white/30 backdrop-blur-xs'
-                            : 'bg-[#D72638]/10 text-[#D72638] border border-[#D72638]/25 group-hover:bg-[#D72638]/15 group-hover:border-[#D72638]/40'
+                            : 'bg-[#D72638]/10 text-[#7A0C17] border border-[#D72638]/25 group-hover:bg-[#D72638]/15 group-hover:border-[#D72638]/40'
                         }`}
                       >
                         <span
@@ -552,7 +552,7 @@ export default function Layout() {
 
       {/* Bottom Section: Telemetry & Full Clinician Profile Card */}
       <div className={`${isMobileDrawer ? 'pt-2 space-y-1.5' : 'pt-2.5 space-y-2'} border-t border-[#D9C7C2] shrink-0`}>
-        {/* Work 2: Power BI Blood Bank Capacity Visual */}
+        {/* Work 3: Power BI Blood Bank Capacity Visual - Clean Operational Status */}
         <Link
           to="/dashboard/inventory"
           onClick={() => isMobileDrawer && setSidebarOpen(false)}
@@ -564,7 +564,7 @@ export default function Layout() {
               <Database className="w-3.5 h-3.5 text-[#D72638]" />
               <span>Blood Bank Reserve</span>
             </span>
-            <span className="text-emerald-700 font-bold text-[10px] sm:text-xs">4.0°C Optimal</span>
+            <span className="text-[#7A0C17] bg-[#7A0C17]/10 border border-[#7A0C17]/20 font-bold text-[10px] sm:text-[11px] px-2 py-0.5 rounded-md">Live Stock</span>
           </div>
 
           <div className="flex items-baseline justify-between mb-1">
@@ -591,18 +591,16 @@ export default function Layout() {
             })}
           </div>
 
-          {!isMobileDrawer && (
-            <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#D9C7C2]/40 text-[10px] text-[#4A5568]">
-              <span className="flex items-center gap-1 font-medium text-[#7A0C17]">
-                <PhoneCall className="w-3 h-3 text-[#D72638]" />
-                <span>Trauma Ext 911</span>
-              </span>
-              <span className="text-[9px] font-bold text-[#D72638] group-hover:underline flex items-center gap-0.5">
-                <span>Inspect</span>
-                <span className="text-xs">&rarr;</span>
-              </span>
-            </div>
-          )}
+          <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#D9C7C2]/40 text-[10px] text-[#4A5568]">
+            <span className="flex items-center gap-1 font-semibold text-[#7A0C17]">
+              <Database className="w-3 h-3 text-[#D72638]" />
+              <span>Inspect Blood Reserves</span>
+            </span>
+            <span className="text-[10px] font-bold text-[#D72638] group-hover:underline flex items-center gap-0.5">
+              <span>View</span>
+              <span className="text-xs">&rarr;</span>
+            </span>
+          </div>
         </Link>
 
         {/* Dedicated Clinician Profile Card */}

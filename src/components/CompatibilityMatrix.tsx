@@ -381,7 +381,7 @@ export default function CompatibilityMatrix() {
                     onClick={() => setSelectedType(rt)}
                     className={`py-2.5 px-1 font-bold cursor-pointer transition-all ${
                       isSelectedCol
-                        ? 'text-[#D72638] bg-red-50/90 font-black border-b-2 border-[#D72638] rounded-t-lg shadow-2xs'
+                        ? 'text-[#D72638] font-black border-b-2 border-[#D72638]'
                         : 'text-[#1A1D20] hover:text-[#D72638]'
                     }`}
                     title={`Focus Group ${rt}`}
@@ -400,8 +400,8 @@ export default function CompatibilityMatrix() {
                   key={dt} 
                   className={`transition-colors ${
                     isSelectedRow 
-                      ? 'bg-red-50/90 font-bold border-y-2 border-[#D72638]/40 shadow-xs' 
-                      : 'hover:bg-[#F5F1EF]/60'
+                      ? 'bg-[#F5F1EF]/70 font-semibold' 
+                      : 'hover:bg-[#F5F1EF]/40'
                   }`}
                 >
                   <td
@@ -411,7 +411,7 @@ export default function CompatibilityMatrix() {
                     }`}
                     title={`Focus Group ${dt}`}
                   >
-                    <span className={`w-2.5 h-2.5 rounded-full ${isSelectedRow ? 'bg-[#D72638] ring-4 ring-[#D72638]/25 animate-pulse' : 'bg-[#D72638]'}`}></span>
+                    <span className={`w-2 h-2 rounded-full ${isSelectedRow ? 'bg-[#D72638]' : 'bg-[#D72638]/50'}`}></span>
                     <span>{dt}</span>
                   </td>
                   {bloodTypes.map(rt => {
@@ -424,24 +424,20 @@ export default function CompatibilityMatrix() {
                         key={rt} 
                         className={`py-3 transition-colors ${
                           isIntersection
-                            ? 'bg-red-100/90 ring-2 ring-inset ring-[#D72638]/50'
-                            : isSelectedCol
-                              ? 'bg-red-50/50'
-                              : ''
+                            ? 'bg-emerald-50/60'
+                            : ''
                         }`}
                       >
                         {safe ? (
                           <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-bold shadow-2xs transition-transform ${
                             isIntersection
-                              ? 'bg-emerald-200 text-emerald-950 ring-2 ring-emerald-500 scale-110'
+                              ? 'bg-emerald-200 text-emerald-950 font-black'
                               : 'bg-emerald-100 text-emerald-800'
                           }`}>
                             ✓
                           </span>
                         ) : (
-                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-medium ${
-                            isSelectedRow || isSelectedCol ? 'text-red-300' : 'text-slate-300'
-                          }`}>
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full font-medium text-slate-300">
                             –
                           </span>
                         )}
