@@ -30,7 +30,6 @@ import { getDonors, saveDonors, deleteDonor as deleteDonorStorage } from '../ser
 import { fetchDonorsApi, sendDonorOtpApi, registerDonorApi, deleteDonorApi } from '../services/api';
 import { COUNTRY_CODES, validatePhoneNumber, validateEmail } from '../utils/countryCodes';
 import { BLOOD_COMPATIBILITY_TABLE } from '../utils/bloodCompatibility';
-import { DrippingBloodBadge } from './DrippingBloodBadge';
 
 const scrollBlurVariants: Variants = {
   hidden: { 
@@ -1104,7 +1103,9 @@ export default function DonorRegistry() {
               <div className="space-y-5 py-2">
                 <div className="flex flex-col items-center justify-center text-center">
                   <div className="mb-2">
-                    <DrippingBloodBadge size="lg" />
+                    <div className="w-12 h-12 rounded-2xl bg-[#7A0C17]/10 border border-[#D72638]/20 text-[#D72638] flex items-center justify-center mx-auto shadow-xs">
+                      <Heart className="w-6 h-6" />
+                    </div>
                   </div>
                   <h3 className="text-xl font-black text-[#1A1D20]">
                     Verify Voluntary Donor Email

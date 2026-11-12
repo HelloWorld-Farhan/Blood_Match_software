@@ -734,6 +734,10 @@ export default function Settings() {
                       src={avatar} 
                       alt="Clinician Avatar" 
                       className="w-full h-full object-cover" 
+                      onError={() => {
+                        setAvatar(null);
+                        localStorage.removeItem('bloodmatch_user_avatar');
+                      }}
                     />
                   ) : (
                     <span>{name ? name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'FK' : 'FK'}</span>

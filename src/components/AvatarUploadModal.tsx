@@ -238,12 +238,16 @@ export function AvatarUploadModal({
       setIsUploading(false);
 
       if (!res.ok) {
-        setErrorMessage(res.error || 'Failed to upload profile picture. Please try again.');
+        setErrorMessage(typeof res.error === 'string' ? res.error : 'Failed to upload profile picture. Please try again.');
         return;
       }
 
       // Requirement 4: Append timestamp query parameter for cache-busting
-      const rawUrl = res.data?.photoUrl || '';
+      const rawUrl = res.data?.photoUrl || res.data?.photo_url || '';
+      if (!rawUrl) {
+        setErrorMessage('Server did not return a valid photo URL. Please retry.');
+        return;
+      }
       const photoUrl = rawUrl.startsWith('data:') ? rawUrl : `${rawUrl}?v=${Date.now()}`;
 
       // Persist across local client storage
@@ -261,7 +265,7 @@ export function AvatarUploadModal({
       onClose();
     } catch (err: any) {
       setIsUploading(false);
-      setErrorMessage(err?.message || 'Avatar synchronization connection error.');
+      setErrorMessage(typeof err?.message === 'string' ? err.message : 'Avatar synchronization connection error.');
     }
   };
 
@@ -343,7 +347,7 @@ export function AvatarUploadModal({
           {errorMessage && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-[#D72638] text-xs flex items-center gap-2 font-medium">
               <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{errorMessage}</span>
+              <span>{typeof errorMessage === 'string' ? errorMessage : JSON.stringify(errorMessage)}</span>
             </div>
           )}
 

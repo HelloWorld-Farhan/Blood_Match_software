@@ -111,6 +111,20 @@ export async function fetchWithRetry(
   throw lastError || new Error(`Failed to connect to BloodMatch API after ${retries} retries.`);
 }
 
+function parseErrorMessage(data: any): string | null {
+  if (!data) return null;
+  if (typeof data.detail === 'string') return data.detail;
+  if (Array.isArray(data.detail)) {
+    return data.detail.map((d: any) => d.msg || JSON.stringify(d)).join(', ');
+  }
+  if (typeof data.detail === 'object' && data.detail !== null) {
+    return JSON.stringify(data.detail);
+  }
+  if (typeof data.message === 'string') return data.message;
+  if (typeof data.error === 'string') return data.error;
+  return null;
+}
+
 /**
  * High-level typed API service helper
  */
@@ -121,7 +135,7 @@ export const apiClient = {
       const data = await res.json().catch(() => null);
       return {
         data,
-        error: res.ok ? null : (data?.detail || data?.message || 'Request failed'),
+        error: res.ok ? null : (parseErrorMessage(data) || 'Request failed'),
         status: res.status,
         ok: res.ok
       };
@@ -137,15 +151,16 @@ export const apiClient = {
 
   async post<T = any>(endpoint: string, body?: any, options?: ApiRequestOptions): Promise<ApiResponse<T>> {
     try {
+      const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
       const res = await fetchWithRetry(endpoint, {
         ...options,
         method: 'POST',
-        body: body ? JSON.stringify(body) : undefined
+        body: isFormData ? body : (body !== undefined ? JSON.stringify(body) : undefined)
       });
       const data = await res.json().catch(() => null);
       return {
         data,
-        error: res.ok ? null : (data?.detail || data?.message || 'Request failed'),
+        error: res.ok ? null : (parseErrorMessage(data) || 'Request failed'),
         status: res.status,
         ok: res.ok
       };
@@ -161,15 +176,16 @@ export const apiClient = {
 
   async put<T = any>(endpoint: string, body?: any, options?: ApiRequestOptions): Promise<ApiResponse<T>> {
     try {
+      const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
       const res = await fetchWithRetry(endpoint, {
         ...options,
         method: 'PUT',
-        body: body ? JSON.stringify(body) : undefined
+        body: isFormData ? body : (body !== undefined ? JSON.stringify(body) : undefined)
       });
       const data = await res.json().catch(() => null);
       return {
         data,
-        error: res.ok ? null : (data?.detail || data?.message || 'Request failed'),
+        error: res.ok ? null : (parseErrorMessage(data) || 'Request failed'),
         status: res.status,
         ok: res.ok
       };
@@ -189,7 +205,7 @@ export const apiClient = {
       const data = await res.json().catch(() => null);
       return {
         data,
-        error: res.ok ? null : (data?.detail || data?.message || 'Request failed'),
+        error: res.ok ? null : (parseErrorMessage(data) || 'Request failed'),
         status: res.status,
         ok: res.ok
       };

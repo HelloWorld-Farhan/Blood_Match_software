@@ -23,7 +23,6 @@ import { BloodDropsCanvas } from '../components/BloodDropsCanvas';
 import { AmbientBackgroundVideo } from '../components/AmbientBackgroundVideo';
 import { COUNTRY_CODES, validatePhoneNumber, validateEmail, checkPasswordCriteria } from '../utils/countryCodes';
 import { apiClient } from '../services/api';
-import { DrippingBloodBadge } from '../components/DrippingBloodBadge';
 
 export default function Signup() {
   const navigate = useNavigate();
