@@ -324,7 +324,12 @@ export async function emailEmergencyRosterApi(payload: {
 }
 
 export async function fetchSessionsApi() {
-  return apiClient.get<any[]>('/api/sessions');
+  return apiClient.get<any[]>(`/api/sessions?_t=${Date.now()}`, {
+    headers: {
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+    },
+  });
 }
 
 export async function revokeSessionApi(sessionId: string) {

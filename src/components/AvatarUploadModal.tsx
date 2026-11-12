@@ -23,6 +23,7 @@ interface AvatarUploadModalProps {
   currentAvatarUrl?: string | null;
   userEmail?: string;
   userName?: string;
+  initialMode?: 'UPLOAD' | 'MANAGE';
   onAvatarUpdated?: (newUrl: string | null) => void;
 }
 
@@ -32,6 +33,7 @@ export function AvatarUploadModal({
   currentAvatarUrl,
   userEmail,
   userName = 'Clinician',
+  initialMode = 'UPLOAD',
   onAvatarUpdated
 }: AvatarUploadModalProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -54,7 +56,11 @@ export function AvatarUploadModal({
     if (isOpen) {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
-      setSelectedImage(null);
+      if (initialMode === 'MANAGE' && currentAvatarUrl) {
+        setSelectedImage(currentAvatarUrl);
+      } else {
+        setSelectedImage(null);
+      }
       setZoom(1);
       setRotation(0);
       setPan({ x: 0, y: 0 });
@@ -68,7 +74,7 @@ export function AvatarUploadModal({
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
     };
-  }, [isOpen]);
+  }, [isOpen, initialMode, currentAvatarUrl]);
 
   const handleFile = (file: File) => {
     setErrorMessage(null);
@@ -326,10 +332,12 @@ export function AvatarUploadModal({
             </div>
             <div>
               <h3 className="text-base font-black text-[#1A1D20] tracking-tight">
-                Profile Photo & User Avatar
+                {initialMode === 'MANAGE' ? 'Manage Framing & Portrait Crop' : 'Profile Photo & User Avatar'}
               </h3>
               <p className="text-[11px] text-[#5A626A]">
-                Synchronized across all clinical stations and account views
+                {initialMode === 'MANAGE' 
+                  ? 'Adjust crop zoom and portrait framing for your clinician avatar' 
+                  : 'Synchronized across all clinical stations and account views'}
               </p>
             </div>
           </div>
@@ -427,6 +435,7 @@ export function AvatarUploadModal({
                   {/* Transformed Image ("Whole Image Mode") */}
                   <img
                     ref={previewImageRef}
+                    crossOrigin="anonymous"
                     src={selectedImage}
                     alt="Preview"
                     draggable={false}

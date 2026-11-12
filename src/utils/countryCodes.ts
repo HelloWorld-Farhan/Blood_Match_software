@@ -87,3 +87,26 @@ export const checkPasswordCriteria = (password: string): PasswordCriteria => {
     strengthPercent,
   };
 };
+
+/**
+ * Calculates clinician initials according to exact institutional standard:
+ * - Multi-word name (e.g. "Farhan Khalid") -> first char of first name + first char of last name ("FK")
+ * - Single-word name (e.g. "Farhan") -> first 2 characters of the name ("FA")
+ * - Handles optional medical honorific prefixes (Dr., Prof., Mr., Ms., etc.)
+ */
+export const getInitials = (name?: string | null): string => {
+  if (!name) return 'FK';
+  const clean = name.trim().replace(/^(Dr\.|Dr|Mr\.|Mr|Ms\.|Ms|Mrs\.|Mrs|Prof\.)\s+/i, '').trim();
+  if (!clean) return 'FK';
+  const parts = clean.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    const firstInitial = parts[0].charAt(0).toUpperCase();
+    const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
+    return `${firstInitial}${lastInitial}`;
+  }
+  if (clean.length >= 2) {
+    return clean.slice(0, 2).toUpperCase();
+  }
+  return clean.toUpperCase();
+};
+
