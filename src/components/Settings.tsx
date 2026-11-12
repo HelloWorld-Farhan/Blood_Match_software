@@ -26,7 +26,9 @@ import {
   LogOut, 
   ArrowRight, 
   Save,
-  CheckCircle
+  CheckCircle,
+  Pencil,
+  X
 } from 'lucide-react';
 import { validateEmail, checkPasswordCriteria } from '../utils/countryCodes';
 import { apiClient } from '../services/api';
@@ -104,7 +106,26 @@ export default function Settings() {
     };
   }, []);
 
-  // Profile Form Feedback
+  // Profile Form Feedback & Edit Mode
+  const [isEditingProfile, setIsEditingProfile] = useState<boolean>(false);
+  const [isSavingProfile, setIsSavingProfile] = useState<boolean>(false);
+  const [originalName, setOriginalName] = useState<string>(name);
+  const [originalPhone, setOriginalPhone] = useState<string>(phone);
+
+  const handleStartEditProfile = () => {
+    setOriginalName(name);
+    setOriginalPhone(phone);
+    setProfileErrors({});
+    setIsEditingProfile(true);
+  };
+
+  const handleCancelEditProfile = () => {
+    setName(originalName);
+    setPhone(originalPhone);
+    setProfileErrors({});
+    setIsEditingProfile(false);
+  };
+
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
   const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
 
@@ -292,37 +313,60 @@ export default function Settings() {
     setTimeout(() => setProfileSuccess(null), 3500);
   };
 
-  // Handle Profile Details Save
-  const handleSaveProfile = (e: React.FormEvent) => {
+  // Handle Profile Details Save (Only Full Legal Name & Verified Phone are editable)
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isEditingProfile) return;
     setProfileErrors({});
 
     const errors: Record<string, string> = {};
 
     if (!name.trim() || name.trim().length < 2) {
-      errors.name = 'Full legal clinician name is required';
+      errors.name = 'Full legal clinician name is required (minimum 2 characters)';
     }
 
-    const emailCheck = validateEmail(email);
-    if (!emailCheck.isValid) {
-      errors.email = emailCheck.message || 'Please provide a valid clinician email';
-    }
-
-    if (!phone.trim()) {
+    if (!phone.trim() || phone.trim().length < 6) {
       errors.phone = 'Verified emergency contact phone number is required';
     }
 
-    // Persist to session and localStorage
-    sessionStorage.setItem('bloodmatch_user_name', name.trim());
-    sessionStorage.setItem('bloodmatch_user_email', email.trim());
-    sessionStorage.setItem('bloodmatch_user_phone', phone.trim());
-    localStorage.setItem('bloodmatch_user_name', name.trim());
-    localStorage.setItem('bloodmatch_user_email', email.trim());
-    localStorage.setItem('bloodmatch_user_phone', phone.trim());
+    if (Object.keys(errors).length > 0) {
+      setProfileErrors(errors);
+      return;
+    }
 
-    window.dispatchEvent(new Event('bloodmatch_profile_updated'));
-    setProfileSuccess('Profile changes saved successfully across all stations.');
-    setTimeout(() => setProfileSuccess(null), 4000);
+    setIsSavingProfile(true);
+
+    try {
+      // 1. Sync update to backend database & Cloudflare R2 backup
+      const res = await apiClient.put('/api/auth/profile', {
+        full_name: name.trim(),
+        phone: phone.trim(),
+      });
+
+      if (!res.ok) {
+        setProfileErrors({ form: res.error || 'Failed to update profile on clinical network.' });
+        setIsSavingProfile(false);
+        return;
+      }
+
+      // 2. Persist to session and localStorage
+      sessionStorage.setItem('bloodmatch_user_name', name.trim());
+      sessionStorage.setItem('bloodmatch_user_phone', phone.trim());
+      localStorage.setItem('bloodmatch_user_name', name.trim());
+      localStorage.setItem('bloodmatch_user_phone', phone.trim());
+
+      setOriginalName(name.trim());
+      setOriginalPhone(phone.trim());
+      setIsEditingProfile(false);
+      setIsSavingProfile(false);
+
+      window.dispatchEvent(new Event('bloodmatch_profile_updated'));
+      setProfileSuccess('Profile changes saved successfully across all stations and synced with cloud backup.');
+      setTimeout(() => setProfileSuccess(null), 4000);
+    } catch (err: any) {
+      setIsSavingProfile(false);
+      setProfileErrors({ form: err?.message || 'Connection failure while saving profile updates.' });
+    }
   };
 
   // ==========================================
@@ -797,21 +841,90 @@ export default function Settings() {
             </div>
           </div>
 
+          {/* Profile Details Header & Edit Mode Action */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 pb-2 border-b border-[#D9C7C2]/60">
+            <div>
+              <div className="text-sm font-bold text-[#1A1D20] flex items-center gap-2">
+                <span>Clinician Profile Credentials</span>
+                {isEditingProfile ? (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                    Edit Mode Active
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                    Verified • View Mode
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-[#5A626A] mt-0.5">
+                {isEditingProfile 
+                  ? 'Update your full legal name and contact phone number. Email address and Clinical ID remain locked.' 
+                  : 'Your clinical credentials across all stations. Click Edit Profile to modify name or phone.'}
+              </p>
+            </div>
+
+            {/* Edit / Cancel Toggle Action */}
+            {!isEditingProfile ? (
+              <button
+                type="button"
+                onClick={handleStartEditProfile}
+                className="self-start sm:self-auto px-4 py-2 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold transition-all shadow-xs flex items-center gap-2 cursor-pointer active:scale-95"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                <span>Edit Profile</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleCancelEditProfile}
+                disabled={isSavingProfile}
+                className="self-start sm:self-auto px-3.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-600 border border-[#D9C7C2] text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Cancel</span>
+              </button>
+            )}
+          </div>
+
           {/* Profile Details Form */}
-          <form onSubmit={handleSaveProfile} className="space-y-4 pt-2">
+          <form onSubmit={handleSaveProfile} className="space-y-4 pt-1">
+            {profileErrors.form && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-[#D72638] text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{profileErrors.form}</span>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Full Name */}
+              {/* Full Legal Name (Editable ONLY when isEditingProfile is true) */}
               <div>
-                <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
-                  Full Legal Name
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
+                    Full Legal Name
+                  </label>
+                  {isEditingProfile && (
+                    <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1">
+                      <Pencil className="w-2.5 h-2.5" />
+                      <span>Editable</span>
+                    </span>
+                  )}
+                </div>
                 <div className="relative group">
-                  <User className="absolute left-3.5 top-3 w-4 h-4 text-slate-400 group-focus-within:text-[#D72638] transition-colors" />
+                  <User className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                    isEditingProfile ? 'text-[#D72638]' : 'text-slate-400'
+                  }`} />
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white text-sm text-[#1A1D20] outline-hidden transition-all font-semibold"
+                    readOnly={!isEditingProfile}
+                    disabled={!isEditingProfile}
+                    placeholder="Enter full clinician legal name"
+                    className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold transition-all outline-hidden ${
+                      isEditingProfile
+                        ? 'bg-white border-2 border-[#D72638] ring-2 ring-[#D72638]/20 text-[#1A1D20] shadow-xs'
+                        : 'bg-[#F5F1EF]/80 border border-[#D9C7C2] text-[#1A1D20] cursor-not-allowed select-text opacity-95'
+                    }`}
                   />
                 </div>
                 {profileErrors.name && (
@@ -822,40 +935,58 @@ export default function Settings() {
                 )}
               </div>
 
-              {/* Work Email */}
+              {/* Work Email (Always locked and cannot be changed) */}
               <div>
-                <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
-                  Clinician Work Email
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
+                    Clinician Work Email
+                  </label>
+                  <span className="text-[10px] text-slate-500 font-semibold flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-slate-400" />
+                    <span>System Bound • Read-only</span>
+                  </span>
+                </div>
                 <div className="relative group">
-                  <Mail className="absolute left-3.5 top-3 w-4 h-4 text-slate-400 group-focus-within:text-[#D72638] transition-colors" />
+                  <Mail className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white text-sm text-[#1A1D20] outline-hidden transition-all font-semibold"
+                    readOnly
+                    disabled
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-100 border border-[#D9C7C2] text-sm text-slate-600 font-semibold cursor-not-allowed select-all"
                   />
                 </div>
-                {profileErrors.email && (
-                  <p className="text-xs text-[#D72638] mt-1 flex items-center gap-1 font-semibold">
-                    <AlertCircle className="w-3 h-3 shrink-0" />
-                    <span>{profileErrors.email}</span>
-                  </p>
-                )}
               </div>
 
-              {/* Emergency Phone */}
+              {/* Verified Contact Number (Editable ONLY when isEditingProfile is true) */}
               <div>
-                <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
-                  Verified Contact Number
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
+                    Verified Contact Number
+                  </label>
+                  {isEditingProfile && (
+                    <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1">
+                      <Pencil className="w-2.5 h-2.5" />
+                      <span>Editable</span>
+                    </span>
+                  )}
+                </div>
                 <div className="relative group">
-                  <Phone className="absolute left-3.5 top-3 w-4 h-4 text-slate-400 group-focus-within:text-[#D72638] transition-colors" />
+                  <Phone className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                    isEditingProfile ? 'text-[#D72638]' : 'text-slate-400'
+                  }`} />
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white text-sm text-[#1A1D20] outline-hidden transition-all font-semibold"
+                    readOnly={!isEditingProfile}
+                    disabled={!isEditingProfile}
+                    placeholder="+91 00000 00000"
+                    className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold transition-all outline-hidden ${
+                      isEditingProfile
+                        ? 'bg-white border-2 border-[#D72638] ring-2 ring-[#D72638]/20 text-[#1A1D20] shadow-xs'
+                        : 'bg-[#F5F1EF]/80 border border-[#D9C7C2] text-[#1A1D20] cursor-not-allowed select-text opacity-95'
+                    }`}
                   />
                 </div>
                 {profileErrors.phone && (
@@ -872,7 +1003,7 @@ export default function Settings() {
                   <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
                     Unique Clinical ID
                   </label>
-                  <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1">
+                  <span className="text-[10px] text-slate-500 font-semibold flex items-center gap-1">
                     <Lock className="w-3 h-3 text-slate-400" />
                     <span>System Assigned • Read-only</span>
                   </span>
@@ -890,15 +1021,32 @@ export default function Settings() {
               </div>
             </div>
 
-            <div className="pt-3">
-              <button
-                type="submit"
-                className="px-6 py-3 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-xs shadow-md shadow-[#D72638]/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95"
-              >
-                <Save className="w-4 h-4" />
-                <span>Save Profile Changes</span>
-              </button>
-            </div>
+            {/* Save Profile Button (Strictly visible ONLY when isEditingProfile is true) */}
+            {isEditingProfile && (
+              <div className="pt-3 flex flex-wrap items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="px-6 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-xs shadow-md shadow-[#D72638]/25 transition-all flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-60"
+                >
+                  {isSavingProfile ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  <span>{isSavingProfile ? 'Saving Changes...' : 'Save Profile Changes'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCancelEditProfile}
+                  disabled={isSavingProfile}
+                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-600 border border-[#D9C7C2] font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </form>
         </motion.div>
       )}
