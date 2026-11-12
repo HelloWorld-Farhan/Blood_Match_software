@@ -139,8 +139,8 @@ export const Dashboard: React.FC = () => {
         setInventory(mappedInv);
         saveInventory(mappedInv);
       }
-    } catch (err) {
-      console.warn('[Dashboard] Background sync completed with local cache:', err);
+    } catch {
+      // Quiet background fallback to cached state
     }
   };
 
@@ -155,10 +155,12 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     loadData();
 
-    // 10-Second Silent Real-Time Auto-Sync Engine (Smooth, calm background polling with zero UI jumps)
+    // Relaxed Silent Real-Time Auto-Sync: 60s cadence only when tab is visible
     const syncInterval = setInterval(() => {
-      loadData();
-    }, 10000);
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadData();
+      }
+    }, 60000);
 
     const handleStorage = () => {
       setRequests(getEmergencyRequests());

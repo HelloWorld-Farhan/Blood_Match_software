@@ -39,8 +39,8 @@ export const BloodStorage = {
       window.dispatchEvent(new CustomEvent('bloodmatch_donors_updated'));
       window.dispatchEvent(new CustomEvent('bloodmatch_inventory_updated'));
       window.dispatchEvent(new Event('storage'));
-    } catch (e) {
-      console.warn('Failed to save donors', e);
+    } catch {
+      // Quiet storage fallback
     }
   },
 
@@ -78,8 +78,8 @@ export const BloodStorage = {
       localStorage.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify(requests));
       window.dispatchEvent(new CustomEvent('bloodmatch_requests_updated'));
       window.dispatchEvent(new Event('storage'));
-    } catch (e) {
-      console.warn('Failed to save requests', e);
+    } catch {
+      // Quiet storage fallback
     }
   },
 
@@ -156,8 +156,8 @@ export const BloodStorage = {
       localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(units));
       window.dispatchEvent(new CustomEvent('bloodmatch_inventory_updated'));
       window.dispatchEvent(new Event('storage'));
-    } catch (e) {
-      console.warn('Failed to save inventory', e);
+    } catch {
+      // Quiet storage fallback
     }
   },
 
@@ -197,8 +197,8 @@ export const BloodStorage = {
       }
       window.dispatchEvent(new CustomEvent('bloodmatch_user_updated'));
       window.dispatchEvent(new Event('storage'));
-    } catch (e) {
-      console.warn('Failed to set user', e);
+    } catch {
+      // Quiet storage fallback
     }
   },
 
@@ -221,8 +221,8 @@ export const BloodStorage = {
       window.dispatchEvent(new CustomEvent('bloodmatch_requests_updated'));
       window.dispatchEvent(new CustomEvent('bloodmatch_inventory_updated'));
       window.dispatchEvent(new Event('storage'));
-    } catch (e) {
-      console.warn('Failed to reset all data to zero', e);
+    } catch {
+      // Quiet storage fallback
     }
   },
 };

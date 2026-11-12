@@ -81,8 +81,8 @@ export default function InventoryManager() {
         setInventory(mapped);
         saveInventory(mapped);
       }
-    } catch (e) {
-      console.warn('[InventoryManager] Backend sync fallback to local calculations:', e);
+    } catch {
+      // Quiet background fallback to local cache
     }
   };
 
@@ -97,10 +97,12 @@ export default function InventoryManager() {
   useEffect(() => {
     loadData();
 
-    // 10-Second Real-Time Silent Auto-Sync Engine (seamless non-intrusive background sync)
+    // Relaxed Real-Time Silent Auto-Sync: 60s cadence only when tab is visible
     const syncInterval = setInterval(() => {
-      loadData();
-    }, 10000);
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadData();
+      }
+    }, 60000);
 
     const handleStorage = () => loadData();
     window.addEventListener('storage', handleStorage);

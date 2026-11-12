@@ -34,9 +34,9 @@ export async function fetchWithRetry(
   options: ApiRequestOptions = {}
 ): Promise<Response> {
   const {
-    timeoutMs = 18000,
-    retries = 3,
-    baseDelayMs = 1200,
+    timeoutMs = 12000,
+    retries = 1,
+    baseDelayMs = 800,
     skipAuth = false,
     headers: customHeaders = {},
     ...fetchOptions
@@ -76,10 +76,7 @@ export async function fetchWithRetry(
 
       // Check if server is in free-tier wake up mode (502 Bad Gateway / 503 Service Unavailable / 504 Gateway Timeout)
       if ([502, 503, 504].includes(response.status) && attempt < retries) {
-        const backoff = baseDelayMs * Math.pow(2, attempt) + Math.random() * 250;
-        console.warn(
-          `[BloodMatch API] Server waking up (${response.status}). Retrying in ${Math.round(backoff)}ms (Attempt ${attempt + 1}/${retries})...`
-        );
+        const backoff = baseDelayMs * Math.pow(2, attempt) + Math.random() * 200;
         await sleep(backoff);
         continue;
       }
@@ -89,17 +86,18 @@ export async function fetchWithRetry(
       clearTimeout(timeoutId);
       lastError = err;
 
+      // Never retry on deliberate aborts or cancellations
+      if (err?.name === 'AbortError' || controller.signal.aborted) {
+        throw err;
+      }
+
       const isNetworkError =
         err instanceof TypeError ||
-        err?.name === 'AbortError' ||
         err?.message?.includes('Failed to fetch') ||
         err?.message?.includes('NetworkError');
 
       if (isNetworkError && attempt < retries) {
-        const backoff = baseDelayMs * Math.pow(2, attempt) + Math.random() * 250;
-        console.warn(
-          `[BloodMatch API] Cold-start connection retry in ${Math.round(backoff)}ms (Attempt ${attempt + 1}/${retries}): ${err?.message || 'Network unreachable'}`
-        );
+        const backoff = baseDelayMs * Math.pow(2, attempt) + Math.random() * 200;
         await sleep(backoff);
         continue;
       }

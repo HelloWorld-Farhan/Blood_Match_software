@@ -199,15 +199,19 @@ export default function Layout() {
       if (res.ok && Array.isArray(res.data)) {
         setAlerts(res.data);
       }
-    } catch (err) {
-      console.warn('[Layout] Alerts fetch fallback:', err);
+    } catch {
+      // Quiet background fallback to cached state
     }
   };
 
   useEffect(() => {
     loadAlerts();
-    // 8-second continuous cross-device background sync
-    const alertInterval = setInterval(loadAlerts, 8000);
+    // Relaxed background sync: 60s cadence only when tab is visible
+    const alertInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadAlerts();
+      }
+    }, 60000);
     const handleStorageChange = () => loadAlerts();
     window.addEventListener('bloodmatch_alerts_updated', handleStorageChange);
     window.addEventListener('bloodmatch_donors_updated', handleStorageChange);

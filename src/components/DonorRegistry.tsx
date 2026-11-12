@@ -165,8 +165,8 @@ export default function DonorRegistry() {
         setDonors(mapped);
         saveDonors(mapped);
       }
-    } catch (err) {
-      console.warn('[DonorRegistry] Failed to fetch server donors, fallback active:', err);
+    } catch {
+      // Quiet background fallback to cached state
     }
   };
 
@@ -178,8 +178,12 @@ export default function DonorRegistry() {
     window.addEventListener('storage', handleStorageUpdate);
     window.addEventListener('bloodmatch_donors_updated', handleStorageUpdate);
 
-    // Cross-device sync polling every 15 seconds
-    const interval = setInterval(loadDonors, 15000);
+    // Calm cross-device sync polling every 60 seconds (active tab only)
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadDonors();
+      }
+    }, 60000);
 
     return () => {
       window.removeEventListener('storage', handleStorageUpdate);
@@ -482,8 +486,8 @@ export default function DonorRegistry() {
       setDonors(prev => prev.filter(d => d.id !== donorId));
       if (expandedDonorId === donorId) setExpandedDonorId(null);
       // Strictly: Zero deletion notification is dispatched
-    } catch (err) {
-      console.warn('[DonorRegistry] Failed to delete donor record:', err);
+    } catch {
+      // Quiet background deletion fallback
     } finally {
       setIsDeletingId(null);
     }

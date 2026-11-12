@@ -110,12 +110,12 @@ export function useNetworkHealth(): NetworkHealthState {
       triggerSynchronizedHealthCheck();
     }
 
-    // Background interval check every 15 seconds
+    // Calm background interval check every 45 seconds (only when tab is active)
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         triggerSynchronizedHealthCheck();
       }
-    }, 15000);
+    }, 45000);
 
     return () => {
       listeners.delete(handleUpdate);
