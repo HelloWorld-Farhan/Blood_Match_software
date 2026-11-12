@@ -197,3 +197,4 @@ export function generateEmergencyDonorDocketPdf(
   const filename = `BloodMatch_Emergency_Docket_${metadata.recipientBloodType}_${metadata.dispatchId}.pdf`;
   doc.save(filename);
 }
+
