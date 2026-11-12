@@ -368,11 +368,13 @@ export default function Login() {
                 className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
               />
 
-              {/* Hardware-Accelerated Video Layer (Smooth native playback with poster warmup) */}
+              {/* Hardware-Accelerated Video Layer (Smooth native playback with poster warmup & 2FA Email OTP video) */}
               <video
+                key={step}
                 ref={videoRef}
-                src="/Login.mp4"
+                src={step === 'TWO_FACTOR' ? '/287987.mp4' : '/Login.mp4'}
                 poster="/login_poster.jpg"
+                autoPlay
                 loop
                 muted
                 playsInline
@@ -615,7 +617,35 @@ export default function Login() {
                       </div>
                     )}
 
-                    <form onSubmit={handleVerify2FA} className="space-y-5">
+                    <form onSubmit={handleVerify2FA} className="space-y-4">
+                      {/* Center Email OTP Video Telemetry Presentation */}
+                      <div className="relative rounded-2xl overflow-hidden border border-[#D9C7C2] bg-black shadow-xs aspect-16/7 w-full">
+                        <video
+                          src="/287987.mp4"
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                          preload="auto"
+                          className="w-full h-full object-cover opacity-90"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-black/20 pointer-events-none" />
+                        <div className="absolute top-2.5 left-3 flex items-center gap-1.5 z-10">
+                          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                          <span className="text-[10px] font-bold text-white tracking-wide uppercase">
+                            Email OTP Security Relay
+                          </span>
+                        </div>
+                        <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-white text-[11px] font-bold z-10">
+                          <span className="truncate text-slate-200 text-xs">
+                            Encrypted code dispatched to {email}
+                          </span>
+                          <span className="text-[10px] font-mono text-emerald-400 shrink-0">
+                            AABB Verified
+                          </span>
+                        </div>
+                      </div>
+
                       <div>
                         <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-2 text-center">
                           Enter 6-Digit Verification Code

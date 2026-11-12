@@ -1884,6 +1884,51 @@ export default function Settings() {
               </div>
             )}
 
+            {/* Center Email OTP Cryptographic Video Telemetry Showcase */}
+            <div className="relative rounded-2xl overflow-hidden border border-[#D9C7C2] bg-black shadow-xs mb-5 group">
+              <div className="relative aspect-16/7 sm:aspect-21/8 w-full overflow-hidden">
+                <video
+                  src="/287987.mp4"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  preload="auto"
+                  className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/20 pointer-events-none" />
+                
+                {/* Top Badge Overlay */}
+                <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-[11px] font-bold">
+                    <Mail className="w-3.5 h-3.5 text-red-400" />
+                    <span>Email OTP Authorization Relay</span>
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#7A0C17]/70 backdrop-blur-md border border-[#D72638]/40 text-[10px] font-bold text-white">
+                    <span className={`w-1.5 h-1.5 rounded-full ${is2FAEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'}`} />
+                    <span>{is2FAEnabled ? '2FA Enforced' : 'Standby Mode'}</span>
+                  </div>
+                </div>
+
+                {/* Bottom Video Telemetry Details */}
+                <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between z-10 text-white">
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-extrabold leading-tight">
+                      Automated 6-Digit Email Challenge
+                    </h4>
+                    <p className="text-[11px] text-slate-200 mt-0.5 max-w-md hidden sm:block font-light">
+                      Cryptographic one-time passcode verification required for unauthenticated sessions and high-priority dispatches.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] font-mono text-slate-300">
+                    <span className="px-2 py-0.5 rounded-md bg-white/10 backdrop-blur-xs border border-white/20">
+                      SHA-256 OTP
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Channel 1: Email OTP */}
               <div className={`p-4 rounded-2xl transition-all duration-200 flex items-start justify-between gap-3 ${

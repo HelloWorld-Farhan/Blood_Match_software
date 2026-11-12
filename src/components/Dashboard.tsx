@@ -22,6 +22,7 @@ import { BloodType, EmergencyRequest, Donor } from '../types';
 import { getDonors, getEmergencyRequests, getInventory, saveDonors, saveInventory } from '../services/storage';
 import { fetchDonorsApi, fetchInventoryApi } from '../services/api';
 import { checkCompatibility } from '../utils/bloodCompatibility';
+import { NetworkHealthPill } from './NetworkHealthPill';
 
 // Cinematic Framer Motion entrance variants with modern blur-in
 const containerVariants: Variants = {
@@ -270,22 +271,8 @@ export const Dashboard: React.FC = () => {
             ))}
           </div>
 
-          {/* Silent, Real-Time Network Sync Status (Single Clean Non-Intrusive Live Hub) */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-[#D9C7C2] shadow-xs text-xs shrink-0 select-none">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-            </span>
-            <span className="font-bold text-[#1A1D20]">Network Live</span>
-            <button
-              type="button"
-              onClick={handleManualSync}
-              className="p-1 rounded-lg hover:bg-[#F5F1EF] text-slate-400 hover:text-[#D72638] transition-colors cursor-pointer"
-              title="Click to refresh live data immediately"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-[#D72638]' : ''}`} />
-            </button>
-          </div>
+          {/* Silent, Real-Time Network Sync Status with Dynamic Speed Telemetry Colors */}
+          <NetworkHealthPill onRefresh={handleManualSync} />
         </div>
       </motion.div>
 

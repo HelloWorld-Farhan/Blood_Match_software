@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { getInventory, saveInventory } from '../services/storage';
 import { fetchInventoryApi } from '../services/api';
+import { NetworkHealthPill } from './NetworkHealthPill';
 
 // Modern scroll-triggered blur-in entrance variants
 const scrollBlurVariants: Variants = {
@@ -176,17 +177,9 @@ export default function InventoryManager() {
           </p>
         </div>
 
-        {/* Monitored Live Status Indicator (Automatic Silent Sync & Gentle On-Demand Refresh) */}
+        {/* Monitored Live Status Indicator with Dynamic Speed Telemetry (Synced Across All Bay Views) */}
         <div className="flex items-center gap-2 shrink-0">
-          <div 
-            onClick={handleManualSync}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-50/80 border border-emerald-200 text-emerald-900 text-xs font-semibold cursor-pointer hover:bg-emerald-100 transition-colors shadow-2xs"
-            title="Monitored live with automatic 10-second background sync. Click to refresh immediately."
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-emerald-600 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>Network Live</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          </div>
+          <NetworkHealthPill onRefresh={handleManualSync} />
         </div>
       </motion.div>
 
