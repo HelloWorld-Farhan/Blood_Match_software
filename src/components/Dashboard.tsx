@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Droplet, 
@@ -16,12 +16,13 @@ import {
   BarChart3,
   HeartPulse,
   Plus,
-  MapPin
+  MapPin,
+  Clock
 } from 'lucide-react';
-import { motion, Variants } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { BloodType, EmergencyRequest, Donor } from '../types';
-import { getDonors, getEmergencyRequests, getInventory, saveDonors, saveInventory } from '../services/storage';
-import { fetchDonorsApi, fetchInventoryApi } from '../services/api';
+import { getDonors, getEmergencyRequests, getInventory, saveDonors, saveInventory, saveEmergencyRequests } from '../services/storage';
+import { fetchDonorsApi, fetchInventoryApi, fetchEmergencyRequestsApi } from '../services/api';
 import { checkCompatibility } from '../utils/bloodCompatibility';
 import { NetworkHealthPill } from './NetworkHealthPill';
 
@@ -83,6 +84,16 @@ export const Dashboard: React.FC = () => {
   const [selectedBloodFilter, setSelectedBloodFilter] = useState<string>('ALL');
   const [isSyncing, setIsSyncing] = useState(false);
   const [hoveredAllele, setHoveredAllele] = useState<string | null>(null);
+  const [hoveredTrendIndex, setHoveredTrendIndex] = useState<number | null>(null);
+
+  // Scoped User Email for Strict Multi-Account Isolation
+  const currentUserEmail = useMemo(() => {
+    return (
+      (typeof window !== 'undefined'
+        ? sessionStorage.getItem('bloodmatch_user_email') || localStorage.getItem('bloodmatch_user_email')
+        : '') || ''
+    ).trim().toLowerCase();
+  }, []);
 
   // Interactive Quick Cross-Match State
   const [recipientType, setRecipientType] = useState<BloodType>('O+');
@@ -91,16 +102,17 @@ export const Dashboard: React.FC = () => {
   const matchResult = checkCompatibility(donorType, recipientType);
 
   const loadData = async (isManual = false) => {
-    // 1. Instant immediate local storage presentation
-    setRequests(getEmergencyRequests());
+    // 1. Instant immediate local storage presentation (strictly isolated per user account)
+    setRequests(getEmergencyRequests(currentUserEmail));
     setDonors(getDonors());
     setInventory(getInventory());
 
     // 2. Silent cross-device background sync from backend database
     try {
-      const [donorsRes, invRes] = await Promise.allSettled([
+      const [donorsRes, invRes, reqRes] = await Promise.allSettled([
         fetchDonorsApi('ALL'),
-        fetchInventoryApi()
+        fetchInventoryApi(),
+        fetchEmergencyRequestsApi(currentUserEmail)
       ]);
 
       if (donorsRes.status === 'fulfilled' && donorsRes.value.ok && Array.isArray(donorsRes.value.data)) {
@@ -139,6 +151,27 @@ export const Dashboard: React.FC = () => {
         setInventory(mappedInv);
         saveInventory(mappedInv);
       }
+
+      if (reqRes.status === 'fulfilled' && reqRes.value.ok && Array.isArray(reqRes.value.data)) {
+        const mappedReqs: EmergencyRequest[] = reqRes.value.data.map((r: any) => ({
+          id: r.id || `REQ-${Math.random().toString().slice(-6)}`,
+          patientName: r.patient_name || r.patientName || 'Emergency Patient',
+          patientAge: Number(r.patient_age ?? r.patientAge ?? 35),
+          bloodType: (r.blood_type || r.bloodType || 'O+') as BloodType,
+          unitsNeeded: Number(r.units_needed ?? r.unitsNeeded ?? 1),
+          hospital: r.hospital || 'Emergency Trauma Network',
+          hospitalCity: r.hospital_city || r.city || 'Delhi',
+          ward: r.ward || 'Trauma Bay 01',
+          urgency: (r.urgency || 'CRITICAL') as any,
+          contactName: r.contact_person || r.contactName || 'Trauma Desk',
+          contactNumber: r.contact_phone || r.contactNumber || '+91 98765 43210',
+          reason: r.reason || r.notes || 'Emergency transfusion',
+          status: (r.status || 'urgent') as any,
+          createdAt: r.created_at || r.createdAt || new Date().toISOString(),
+        }));
+        setRequests(mappedReqs);
+        saveEmergencyRequests(mappedReqs, currentUserEmail);
+      }
     } catch {
       // Quiet background fallback to cached state
     }
@@ -163,20 +196,22 @@ export const Dashboard: React.FC = () => {
     }, 60000);
 
     const handleStorage = () => {
-      setRequests(getEmergencyRequests());
+      setRequests(getEmergencyRequests(currentUserEmail));
       setDonors(getDonors());
       setInventory(getInventory());
     };
     window.addEventListener('storage', handleStorage);
     window.addEventListener('bloodmatch_donors_updated', handleStorage);
     window.addEventListener('bloodmatch_inventory_updated', handleStorage);
+    window.addEventListener('bloodmatch_requests_updated', handleStorage);
     return () => {
       clearInterval(syncInterval);
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('bloodmatch_donors_updated', handleStorage);
       window.removeEventListener('bloodmatch_inventory_updated', handleStorage);
+      window.removeEventListener('bloodmatch_requests_updated', handleStorage);
     };
-  }, []);
+  }, [currentUserEmail]);
 
   const totalUnits = inventory.reduce((acc, curr) => acc + curr.unitsAvailable, 0);
   const urgentCount = requests.filter(r => r.status === 'urgent' || r.status === 'critical').length;
@@ -758,9 +793,13 @@ export const Dashboard: React.FC = () => {
               Real-time trend analysis tracking emergency intake spikes against voluntary donor mobilization.
             </p>
 
-            {/* SVG Wave Chart */}
+            {/* SVG Wave Chart with Interactive Power BI Hover Animation */}
             <div className="w-full bg-[#F5F1EF] rounded-xl p-3 border border-[#D9C7C2]">
-              <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} className="w-full h-40 overflow-visible">
+              <svg 
+                viewBox={`0 0 ${chartWidth} ${chartHeight}`} 
+                className="w-full h-40 overflow-visible"
+                onMouseLeave={() => setHoveredTrendIndex(null)}
+              >
                 {/* Horizontal Grid lines */}
                 <line x1="20" y1="20" x2={chartWidth - 20} y2="20" stroke="#D9C7C2" strokeDasharray="4" />
                 <line x1="20" y1="60" x2={chartWidth - 20} y2="60" stroke="#D9C7C2" strokeDasharray="4" />
@@ -786,22 +825,112 @@ export const Dashboard: React.FC = () => {
                   points={pointsMob}
                 />
 
-                {/* Data Points */}
+                {/* Interactive Data Points and Vertical Hover Guide */}
                 {trendData.map((d, i) => {
                   const x = (i / (trendData.length - 1)) * (chartWidth - 40) + 20;
                   const yReq = chartHeight - (d.requests / maxVal) * (chartHeight - 30) - 15;
                   const yMob = chartHeight - (d.mobilized / maxVal) * (chartHeight - 30) - 15;
+                  const isHovered = hoveredTrendIndex === i;
+
                   return (
                     <g key={i}>
-                      <circle cx={x} cy={yReq} r="4" fill="#D72638" stroke="#FFFFFF" strokeWidth="2" />
-                      <circle cx={x} cy={yMob} r="4" fill="#059669" stroke="#FFFFFF" strokeWidth="2" />
-                      <text x={x} y={chartHeight + 14} fill="#5A626A" fontSize="10" textAnchor="middle" fontWeight="bold">
+                      {/* Vertical Guideline on Hover */}
+                      {isHovered && (
+                        <line 
+                          x1={x} 
+                          y1={10} 
+                          x2={x} 
+                          y2={chartHeight} 
+                          stroke="#D72638" 
+                          strokeWidth="1.5" 
+                          strokeDasharray="3 3" 
+                          opacity={0.7} 
+                        />
+                      )}
+
+                      {/* Transfusion Point */}
+                      <circle 
+                        cx={x} 
+                        cy={yReq} 
+                        r={isHovered ? 6.5 : 4} 
+                        fill="#D72638" 
+                        stroke="#FFFFFF" 
+                        strokeWidth="2.5" 
+                        className="transition-all duration-200"
+                      />
+
+                      {/* Mobilized Point */}
+                      <circle 
+                        cx={x} 
+                        cy={yMob} 
+                        r={isHovered ? 6.5 : 4} 
+                        fill="#059669" 
+                        stroke="#FFFFFF" 
+                        strokeWidth="2.5" 
+                        className="transition-all duration-200"
+                      />
+
+                      {/* Day Label */}
+                      <text 
+                        x={x} 
+                        y={chartHeight + 14} 
+                        fill={isHovered ? '#D72638' : '#5A626A'} 
+                        fontSize="10" 
+                        textAnchor="middle" 
+                        fontWeight={isHovered ? '900' : 'bold'}
+                      >
                         {d.day}
                       </text>
+
+                      {/* Invisible Broad Hit Target Column for Seamless Mouse & Touch Hover */}
+                      <rect
+                        x={x - 26}
+                        y={0}
+                        width={52}
+                        height={chartHeight + 25}
+                        fill="transparent"
+                        className="cursor-pointer"
+                        onMouseEnter={() => setHoveredTrendIndex(i)}
+                        onTouchStart={() => setHoveredTrendIndex(i)}
+                      />
                     </g>
                   );
                 })}
               </svg>
+
+              {/* Animated Power BI Floating Telemetry Tooltip Card */}
+              <AnimatePresence>
+                {hoveredTrendIndex !== null && trendData[hoveredTrendIndex] && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 4, scale: 0.97 }}
+                    transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                    className="mt-3 p-3 rounded-xl bg-white border border-[#D72638]/40 shadow-lg shadow-[#D72638]/10 flex flex-wrap items-center justify-between gap-2.5 text-xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#D72638] animate-ping" />
+                      <span className="font-bold text-[#1A1D20]">
+                        {trendData[hoveredTrendIndex].day} Telemetry Stream
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3.5 text-[11px]">
+                      <span className="flex items-center gap-1 font-bold text-[#D72638]">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        {trendData[hoveredTrendIndex].requests} Emergency Requests
+                      </span>
+                      <span className="flex items-center gap-1 font-bold text-emerald-700">
+                        <Users className="w-3.5 h-3.5" />
+                        {trendData[hoveredTrendIndex].mobilized} Donors Mobilized
+                      </span>
+                      <span className="flex items-center gap-1 font-semibold text-[#5A626A]">
+                        <Database className="w-3.5 h-3.5" />
+                        {totalUnits} Pints In Vault
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Dynamic Trend Indicators without hardcoded mock numbers */}

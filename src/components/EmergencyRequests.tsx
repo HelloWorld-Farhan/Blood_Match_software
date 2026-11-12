@@ -156,7 +156,7 @@ export default function EmergencyRequests() {
         fetchDonorsApi()
       ]);
 
-      if (reqRes.status === 'fulfilled' && reqRes.value.ok && Array.isArray(reqRes.value.data) && reqRes.value.data.length > 0) {
+      if (reqRes.status === 'fulfilled' && reqRes.value.ok && Array.isArray(reqRes.value.data)) {
         const mappedReqs: EmergencyRequest[] = reqRes.value.data.map((r: any) => ({
           id: r.id || `REQ-${Date.now().toString().slice(-6)}`,
           patientName: r.patient_name || r.patientName || 'Emergency Patient',
@@ -173,9 +173,9 @@ export default function EmergencyRequests() {
           createdAt: r.created_at || r.createdAt || new Date().toISOString(),
         }));
         setRequests(mappedReqs);
-        saveEmergencyRequests(mappedReqs);
+        saveEmergencyRequests(mappedReqs, currentUserEmail);
       } else {
-        setRequests(getEmergencyRequests());
+        setRequests(getEmergencyRequests(currentUserEmail));
       }
 
       if (donorRes.status === 'fulfilled' && donorRes.value.ok && Array.isArray(donorRes.value.data) && donorRes.value.data.length > 0) {
@@ -184,7 +184,7 @@ export default function EmergencyRequests() {
         setDonors(getDonors());
       }
     } catch {
-      setRequests(getEmergencyRequests());
+      setRequests(getEmergencyRequests(currentUserEmail));
       setDonors(getDonors());
     }
   };
@@ -297,7 +297,7 @@ export default function EmergencyRequests() {
       }
       return r;
     });
-    saveEmergencyRequests(updated);
+    saveEmergencyRequests(updated, currentUserEmail);
     setRequests(updated);
   };
 
@@ -366,7 +366,7 @@ export default function EmergencyRequests() {
 
     // 1. Save locally to immediate UI board
     const updated = [newRequest, ...requests];
-    saveEmergencyRequests(updated);
+    saveEmergencyRequests(updated, currentUserEmail);
     setRequests(updated);
 
     // 2. Synchronize to backend API and Cloudflare R2

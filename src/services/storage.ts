@@ -20,6 +20,18 @@ if (typeof window !== 'undefined') {
   }
 }
 
+// Helper to isolate emergency request storage per user email account
+function getUserRequestsKey(email?: string): string {
+  if (typeof window === 'undefined') return STORAGE_KEYS.REQUESTS;
+  const targetEmail = (
+    email ||
+    sessionStorage.getItem('bloodmatch_user_email') ||
+    localStorage.getItem('bloodmatch_user_email') ||
+    ''
+  ).trim().toLowerCase();
+  return targetEmail ? `bloodmatch_requests_v2_${targetEmail}` : STORAGE_KEYS.REQUESTS;
+}
+
 export const BloodStorage = {
   // --- Donors (Initially 0) ---
   getDonors(): Donor[] {
@@ -61,21 +73,23 @@ export const BloodStorage = {
     this.saveDonors(donors);
   },
 
-  // --- Emergency Requests (Initially 0) ---
-  getEmergencyRequests(): EmergencyRequest[] {
+  // --- Emergency Requests (Isolated strictly per authenticated user) ---
+  getEmergencyRequests(userEmail?: string): EmergencyRequest[] {
     if (typeof window === 'undefined') return [];
     try {
-      const raw = localStorage.getItem(STORAGE_KEYS.REQUESTS);
+      const key = getUserRequestsKey(userEmail);
+      const raw = localStorage.getItem(key);
       return raw ? JSON.parse(raw) : [];
     } catch {
       return [];
     }
   },
 
-  saveEmergencyRequests(requests: EmergencyRequest[]): void {
+  saveEmergencyRequests(requests: EmergencyRequest[], userEmail?: string): void {
     if (typeof window === 'undefined') return;
     try {
-      localStorage.setItem(STORAGE_KEYS.REQUESTS, JSON.stringify(requests));
+      const key = getUserRequestsKey(userEmail);
+      localStorage.setItem(key, JSON.stringify(requests));
       window.dispatchEvent(new CustomEvent('bloodmatch_requests_updated'));
       window.dispatchEvent(new Event('storage'));
     } catch {
@@ -83,15 +97,15 @@ export const BloodStorage = {
     }
   },
 
-  addEmergencyRequest(reqData: Omit<EmergencyRequest, 'id' | 'status' | 'createdAt'>): EmergencyRequest {
-    const current = this.getEmergencyRequests();
+  addEmergencyRequest(reqData: Omit<EmergencyRequest, 'id' | 'status' | 'createdAt'>, userEmail?: string): EmergencyRequest {
+    const current = this.getEmergencyRequests(userEmail);
     const newReq: EmergencyRequest = {
       ...reqData,
       id: 'REQ-' + Date.now().toString().slice(-6),
       status: 'urgent',
       createdAt: new Date().toISOString(),
     };
-    this.saveEmergencyRequests([newReq, ...current]);
+    this.saveEmergencyRequests([newReq, ...current], userEmail);
     return newReq;
   },
 
@@ -230,8 +244,8 @@ export const BloodStorage = {
 export const getDonors = () => BloodStorage.getDonors();
 export const saveDonors = (donors: Donor[]) => BloodStorage.saveDonors(donors);
 export const deleteDonor = (donorId: string) => BloodStorage.deleteDonor(donorId);
-export const getEmergencyRequests = () => BloodStorage.getEmergencyRequests();
-export const saveEmergencyRequests = (requests: EmergencyRequest[]) => BloodStorage.saveEmergencyRequests(requests);
+export const getEmergencyRequests = (userEmail?: string) => BloodStorage.getEmergencyRequests(userEmail);
+export const saveEmergencyRequests = (requests: EmergencyRequest[], userEmail?: string) => BloodStorage.saveEmergencyRequests(requests, userEmail);
 export const getInventory = () => BloodStorage.getInventory();
 export const saveInventory = (units: BloodInventoryUnit[]) => BloodStorage.saveInventory(units);
 export const resetAllDataToZero = () => BloodStorage.resetAllDataToZero();
