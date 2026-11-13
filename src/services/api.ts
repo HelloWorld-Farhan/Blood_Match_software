@@ -275,16 +275,32 @@ export async function fetchEmergencyRequestsApi(userEmail?: string) {
 }
 
 export async function createEmergencyRequestApi(payload: {
+  id?: string;
   user_email?: string;
   patient_name: string;
+  patient_age?: number;
   hospital?: string;
+  hospital_city?: string;
+  ward?: string;
   blood_type: string;
   units_needed: number;
+  urgency?: string;
   status?: string;
   contact_person: string;
   contact_phone: string;
 }) {
   return apiClient.post<any>('/api/emergency', payload);
+}
+
+export async function fulfillEmergencyRequestApi(requestId: string, payload: {
+  requester_email?: string;
+  requester_name?: string;
+  donor_id?: string;
+  donor_name: string;
+  donor_email: string;
+  notes?: string;
+}) {
+  return apiClient.post<{ ok: boolean; message: string; request: any }>(`/api/emergency/${encodeURIComponent(requestId)}/fulfill`, payload);
 }
 
 export async function dispatchEmergencyDonorApi(payload: {

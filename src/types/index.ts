@@ -51,6 +51,8 @@ export interface EmergencyRequest {
   createdAt: string;
   matchedDonorId?: string;
   fulfilledAt?: string;
+  fulfilledByDonorName?: string;
+  fulfilledByDonorEmail?: string;
 }
 
 export interface BloodInventoryUnit {

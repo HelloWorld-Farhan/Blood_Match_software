@@ -25,7 +25,9 @@ import {
   ShieldCheck, 
   User, 
   Clock, 
-  ArrowRight 
+  ArrowRight,
+  ChevronDown,
+  Users
 } from 'lucide-react';
 import { 
   getEmergencyRequests, 
@@ -38,7 +40,8 @@ import {
   createEmergencyRequestApi, 
   fetchDonorsApi, 
   dispatchEmergencyDonorApi, 
-  emailEmergencyRosterApi 
+  emailEmergencyRosterApi,
+  fulfillEmergencyRequestApi
 } from '../services/api';
 import { COUNTRY_CODES, validatePhoneNumber } from '../utils/countryCodes';
 import { 
@@ -82,11 +85,6 @@ interface RankedMatchDonor extends Donor {
 
 export default function EmergencyRequests() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [requests, setRequests] = useState<EmergencyRequest[]>([]);
-  const [donors, setDonors] = useState<Donor[]>([]);
-  const [filterStatus, setFilterStatus] = useState<string>('ALL');
-  const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
-
   // Clinician context
   const currentUserEmail = useMemo(() => {
     return sessionStorage.getItem('bloodmatch_user_email') || 
@@ -99,6 +97,23 @@ export default function EmergencyRequests() {
            localStorage.getItem('bloodmatch_user_name') || 
            'Attending Trauma Clinician';
   }, []);
+
+  // Initialize with immediate local storage data to prevent any blank flicker or disappearing items
+  const [requests, setRequests] = useState<EmergencyRequest[]>(() => getEmergencyRequests(currentUserEmail));
+  const [donors, setDonors] = useState<Donor[]>(() => getDonors());
+  const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
+
+  // Expanded horizontal triage bar request ID (for in-board matched lifesavers dropdown)
+  const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
+
+  // Mark Fulfilled Confirmation Modal State
+  const [fulfillmentModalReq, setFulfillmentModalReq] = useState<EmergencyRequest | null>(null);
+  const [fulfillmentDonorName, setFulfillmentDonorName] = useState<string>('');
+  const [fulfillmentDonorEmail, setFulfillmentDonorEmail] = useState<string>('');
+  const [selectedFulfillingDonorId, setSelectedFulfillingDonorId] = useState<string>('');
+  const [isFulfilling, setIsFulfilling] = useState<boolean>(false);
+  const [boardNotification, setBoardNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Modal Workflow Phase: 'INPUT' | 'SCANNING' | 'RESULTS'
   const [modalPhase, setModalPhase] = useState<'INPUT' | 'SCANNING' | 'RESULTS'>('INPUT');
@@ -151,16 +166,23 @@ export default function EmergencyRequests() {
     }
   }, [searchParams]);
 
-  // Load emergency requests and donors with cross-device sync
+  // Load emergency requests and donors with resilient bidirectional merge & zero data loss
   const loadData = async () => {
+    const currentLocal = getEmergencyRequests(currentUserEmail);
+
     try {
       const [reqRes, donorRes] = await Promise.allSettled([
         fetchEmergencyRequestsApi(currentUserEmail),
         fetchDonorsApi()
       ]);
 
+      if (donorRes.status === 'fulfilled' && donorRes.value.ok && Array.isArray(donorRes.value.data) && donorRes.value.data.length > 0) {
+        setDonors(donorRes.value.data);
+        saveDonors(donorRes.value.data);
+      }
+
       if (reqRes.status === 'fulfilled' && reqRes.value.ok && Array.isArray(reqRes.value.data)) {
-        const mappedReqs: EmergencyRequest[] = reqRes.value.data.map((r: any) => ({
+        const remoteReqs: EmergencyRequest[] = reqRes.value.data.map((r: any) => ({
           id: r.id || `REQ-${Date.now().toString().slice(-6)}`,
           patientName: r.patient_name || r.patientName || 'Emergency Patient',
           patientAge: r.patient_age || r.patientAge || 35,
@@ -174,21 +196,49 @@ export default function EmergencyRequests() {
           contactNumber: r.contact_phone || r.contactNumber || '+91 98765 43210',
           status: (r.status || 'urgent') as EmergencyRequest['status'],
           createdAt: r.created_at || r.createdAt || new Date().toISOString(),
+          matchedDonorId: r.matched_donor_id || r.matchedDonorId,
+          fulfilledAt: r.fulfilled_at || r.fulfilledAt,
+          fulfilledByDonorName: r.fulfilled_by_donor_name || r.fulfilledByDonorName,
+          fulfilledByDonorEmail: r.fulfilled_by_donor_email || r.fulfilledByDonorEmail,
         }));
-        setRequests(mappedReqs);
-        saveEmergencyRequests(mappedReqs, currentUserEmail);
-      } else {
-        setRequests(getEmergencyRequests(currentUserEmail));
-      }
 
-      if (donorRes.status === 'fulfilled' && donorRes.value.ok && Array.isArray(donorRes.value.data) && donorRes.value.data.length > 0) {
-        setDonors(donorRes.value.data);
+        // Merge remote and local by ID to ensure local requests NEVER disappear!
+        const map = new Map<string, EmergencyRequest>();
+        remoteReqs.forEach(r => map.set(r.id, r));
+
+        // Preserve and sync any local requests not yet on remote
+        currentLocal.forEach(r => {
+          if (!map.has(r.id)) {
+            map.set(r.id, r);
+            // Push missing local request to remote in background
+            createEmergencyRequestApi({
+              id: r.id,
+              user_email: currentUserEmail,
+              patient_name: r.patientName,
+              patient_age: r.patientAge,
+              hospital: r.hospital,
+              hospital_city: r.hospitalCity,
+              ward: r.ward,
+              blood_type: r.bloodType,
+              units_needed: r.unitsNeeded,
+              urgency: r.urgency,
+              status: r.status,
+              contact_person: r.contactName,
+              contact_phone: r.contactNumber
+            }).catch(() => {});
+          }
+        });
+
+        const merged = Array.from(map.values()).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setRequests(merged);
+        saveEmergencyRequests(merged, currentUserEmail);
       } else {
-        setDonors(getDonors());
+        setRequests(currentLocal);
       }
     } catch {
-      setRequests(getEmergencyRequests(currentUserEmail));
-      setDonors(getDonors());
+      setRequests(currentLocal);
     }
   };
 
@@ -317,6 +367,278 @@ export default function EmergencyRequests() {
       .sort((a, b) => a.distanceKm - b.distanceKm);
   }, [donors, compatibleBloodTypes, userCoords]);
 
+  // Dynamic matched donors calculator for any specific emergency request
+  const getMatchesForRequest = (req: EmergencyRequest): RankedMatchDonor[] => {
+    if (!donors || donors.length === 0) return [];
+    const compTypes = getCompatibleDonorTypes(req.bloodType);
+    const reqCoords = resolveCoordinatesForLocation(req.hospitalCity || 'Delhi');
+
+    return donors
+      .filter((donor) => {
+        const isAvail = donor.isAvailable !== false && donor.available !== false;
+        return isAvail && compTypes.includes(donor.bloodType);
+      })
+      .map((donor) => {
+        const donorCoords = resolveCoordinatesForLocation(donor.location || donor.city || 'Delhi');
+        const distance = calculateHaversineDistance(
+          reqCoords.latitude,
+          reqCoords.longitude,
+          donorCoords.latitude,
+          donorCoords.longitude
+        );
+        const tier = getProximityTier(distance);
+
+        return {
+          ...donor,
+          distanceKm: distance,
+          tier
+        };
+      })
+      .sort((a, b) => a.distanceKm - b.distanceKm);
+  };
+
+  // Open the interactive Mark Fulfilled confirmation modal
+  const handleOpenFulfillModal = (req: EmergencyRequest) => {
+    setFulfillmentModalReq(req);
+    const matches = getMatchesForRequest(req);
+    if (matches.length > 0) {
+      setSelectedFulfillingDonorId(matches[0].id);
+      setFulfillmentDonorName(matches[0].fullName);
+      setFulfillmentDonorEmail(matches[0].email);
+    } else {
+      setSelectedFulfillingDonorId('');
+      setFulfillmentDonorName('');
+      setFulfillmentDonorEmail('');
+    }
+  };
+
+  // Confirm Fulfillment & trigger dual thank-you / completion emails
+  const handleConfirmFulfillment = async () => {
+    if (!fulfillmentModalReq || !fulfillmentDonorName.trim() || !fulfillmentDonorEmail.trim()) return;
+    setIsFulfilling(true);
+
+    const targetReq = fulfillmentModalReq;
+    const fulfilledAt = new Date().toISOString();
+
+    try {
+      // 1. Call backend fulfillment endpoint to update status and dispatch dual emails
+      await fulfillEmergencyRequestApi(targetReq.id, {
+        requester_email: currentUserEmail,
+        requester_name: targetReq.contactName,
+        donor_id: selectedFulfillingDonorId || undefined,
+        donor_name: fulfillmentDonorName.trim(),
+        donor_email: fulfillmentDonorEmail.trim(),
+        notes: `Transfusion fulfilled by voluntary donor ${fulfillmentDonorName.trim()}`
+      });
+
+      // 2. Update local state
+      const updated = requests.map(r => {
+        if (r.id === targetReq.id) {
+          return {
+            ...r,
+            status: 'fulfilled' as const,
+            matchedDonorId: selectedFulfillingDonorId || r.matchedDonorId,
+            fulfilledAt,
+            fulfilledByDonorName: fulfillmentDonorName.trim(),
+            fulfilledByDonorEmail: fulfillmentDonorEmail.trim()
+          };
+        }
+        return r;
+      });
+
+      setRequests(updated);
+      saveEmergencyRequests(updated, currentUserEmail);
+
+      setBoardNotification({
+        message: `Transfusion for ${targetReq.patientName} marked as FULFILLED! Gratitude emails transmitted to ${fulfillmentDonorEmail.trim()} and ${currentUserEmail}.`,
+        type: 'success'
+      });
+      setTimeout(() => setBoardNotification(null), 6000);
+      setFulfillmentModalReq(null);
+    } catch (err: any) {
+      setBoardNotification({
+        message: err.message || 'Error marking request fulfilled. Please try again.',
+        type: 'error'
+      });
+    } finally {
+      setIsFulfilling(false);
+    }
+  };
+
+  // Generate and download clinical PDF docket directly from horizontal request card
+  const handleDownloadPdfForRequest = (req: EmergencyRequest, matches: RankedMatchDonor[]) => {
+    setIsGeneratingPdf(true);
+    try {
+      const donorItems: RankedDonorItem[] = matches.map((d, index) => ({
+        rank: index + 1,
+        id: d.id,
+        fullName: d.fullName,
+        bloodType: d.bloodType,
+        distanceKm: d.distanceKm,
+        location: d.location || d.city || 'Delhi NCR',
+        phone: d.phone,
+        matchScore: Math.max(70, Math.round(100 - d.distanceKm * 2))
+      }));
+
+      const reqCoords = resolveCoordinatesForLocation(req.hospitalCity || 'Delhi');
+
+      generateEmergencyDonorDocketPdf(
+        {
+          recipientBloodType: req.bloodType,
+          patientName: req.patientName,
+          patientAge: req.patientAge,
+          unitsNeeded: req.unitsNeeded,
+          urgency: req.urgency,
+          hospitalLocality: req.hospitalCity || 'Delhi NCR',
+          searchCoordinates: reqCoords,
+          timestamp: new Date().toISOString(),
+          autoDownload: true
+        },
+        donorItems
+      );
+
+      setBoardNotification({
+        message: `Clinical PDF docket downloaded for ${req.patientName} (${req.bloodType}).`,
+        type: 'success'
+      });
+      setTimeout(() => setBoardNotification(null), 4000);
+    } catch (err: any) {
+      setBoardNotification({
+        message: err.message || 'Failed to download PDF docket.',
+        type: 'error'
+      });
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
+  // Email top compatible donor roster with attached PDF directly from horizontal request card
+  const handleEmailRosterForRequest = async (req: EmergencyRequest, matches: RankedMatchDonor[]) => {
+    if (matches.length === 0) {
+      setBoardNotification({ message: 'No compatible donors available to email.', type: 'error' });
+      return;
+    }
+    setIsEmailingRoster(true);
+
+    const rosterItems = matches.slice(0, 18).map((d, index) => ({
+      rank: index + 1,
+      fullName: d.fullName,
+      bloodType: d.bloodType,
+      distanceKm: d.distanceKm,
+      locality: d.location || d.city || 'Delhi NCR',
+      phone: d.phone
+    }));
+
+    const donorItems: RankedDonorItem[] = matches.map((d, index) => ({
+      rank: index + 1,
+      id: d.id,
+      fullName: d.fullName,
+      bloodType: d.bloodType,
+      distanceKm: d.distanceKm,
+      location: d.location || d.city || 'Delhi NCR',
+      phone: d.phone,
+      matchScore: Math.max(70, Math.round(100 - d.distanceKm * 2))
+    }));
+
+    const reqCoords = resolveCoordinatesForLocation(req.hospitalCity || 'Delhi');
+
+    try {
+      const pdfResult = generateEmergencyDonorDocketPdf(
+        {
+          recipientBloodType: req.bloodType,
+          patientName: req.patientName,
+          patientAge: req.patientAge,
+          unitsNeeded: req.unitsNeeded,
+          urgency: req.urgency,
+          hospitalLocality: req.hospitalCity || 'Delhi NCR',
+          searchCoordinates: reqCoords,
+          timestamp: new Date().toISOString(),
+          autoDownload: false
+        },
+        donorItems
+      );
+
+      const res = await emailEmergencyRosterApi({
+        clinician_email: currentUserEmail,
+        clinician_name: currentUserName,
+        patient_name: req.patientName,
+        recipient_blood_type: req.bloodType,
+        units_needed: req.unitsNeeded,
+        hospital: req.hospital || 'Emergency Trauma Network',
+        locality: req.hospitalCity || 'Delhi NCR',
+        urgency: req.urgency,
+        emergency_phone: req.contactNumber,
+        roster_items: rosterItems,
+        pdf_base64: pdfResult.base64,
+        pdf_filename: pdfResult.filename,
+        dispatch_id: pdfResult.uniqueId
+      });
+
+      if (res.ok) {
+        setBoardNotification({
+          message: `Ranked donor roster & PDF docket #${pdfResult.uniqueId} dispatched to ${currentUserEmail} with attachment!`,
+          type: 'success'
+        });
+        setTimeout(() => setBoardNotification(null), 5000);
+      } else {
+        setBoardNotification({
+          message: res.error || 'Failed to send roster briefing email.',
+          type: 'error'
+        });
+      }
+    } catch (err: any) {
+      setBoardNotification({
+        message: err.message || 'Error transmitting roster email.',
+        type: 'error'
+      });
+    } finally {
+      setIsEmailingRoster(false);
+    }
+  };
+
+  // Send real-time emergency alert email to an individual donor from horizontal card
+  const handleSendAlertForRequest = async (req: EmergencyRequest, donor: RankedMatchDonor) => {
+    setDispatchingDonorId(donor.id);
+
+    try {
+      const res = await dispatchEmergencyDonorApi({
+        donor_id: donor.id,
+        donor_name: donor.fullName,
+        donor_email: donor.email,
+        donor_phone: donor.phone,
+        patient_name: req.patientName,
+        recipient_blood_type: req.bloodType,
+        units_needed: req.unitsNeeded,
+        hospital: req.hospital || 'Emergency Trauma Network',
+        locality: req.hospitalCity || 'Delhi NCR',
+        urgency: req.urgency,
+        clinician_name: currentUserName,
+        emergency_contact: req.contactNumber
+      });
+
+      if (res.ok) {
+        setDispatchedDonorIds((prev) => ({ ...prev, [donor.id]: true }));
+        setBoardNotification({
+          message: `Emergency dispatch email transmitted successfully to ${donor.fullName} (${donor.email})!`,
+          type: 'success'
+        });
+        setTimeout(() => setBoardNotification(null), 5000);
+      } else {
+        setBoardNotification({
+          message: res.error || 'Failed to dispatch email. Please check network.',
+          type: 'error'
+        });
+      }
+    } catch (err: any) {
+      setBoardNotification({
+        message: err.message || 'Error transmitting emergency dispatch.',
+        type: 'error'
+      });
+    } finally {
+      setDispatchingDonorId(null);
+    }
+  };
+
   // Update Status helper
   const onUpdateStatus = (id: string, status: EmergencyRequest['status'], matchedDonorId?: string) => {
     const updated = requests.map(r => {
@@ -421,20 +743,21 @@ export default function EmergencyRequests() {
     setRequests(updated);
 
     // 2. Synchronize to backend API and Cloudflare R2
-    try {
-      createEmergencyRequestApi({
-        user_email: currentUserEmail,
-        patient_name: patientName.trim(),
-        hospital: 'Emergency Trauma Network',
-        blood_type: bloodType as BloodType,
-        units_needed: Number(unitsNeeded) || 1,
-        status: 'urgent',
-        contact_person: contactName.trim() || currentUserName,
-        contact_phone: fullPhone
-      });
-    } catch {
-      // Quiet background sync fallback
-    }
+    createEmergencyRequestApi({
+      id: newRequest.id,
+      user_email: currentUserEmail,
+      patient_name: newRequest.patientName,
+      patient_age: newRequest.patientAge,
+      hospital: newRequest.hospital,
+      hospital_city: newRequest.hospitalCity,
+      ward: newRequest.ward,
+      blood_type: newRequest.bloodType,
+      units_needed: newRequest.unitsNeeded,
+      urgency: newRequest.urgency,
+      status: 'urgent',
+      contact_person: newRequest.contactName,
+      contact_phone: newRequest.contactNumber
+    }).catch(() => {});
 
     // 3. Seamlessly transition to Radar Scanning state inside the same popup
     setModalPhase('SCANNING');
@@ -638,7 +961,7 @@ export default function EmergencyRequests() {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.2 }}
-        className="p-6 sm:p-8 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
+        className="p-6 sm:p-8 rounded-2xl bg-white border border-[#D9C7C2] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
       >
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/30 mb-2">
@@ -673,7 +996,7 @@ export default function EmergencyRequests() {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.15 }}
-        className="p-5 sm:p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-hidden"
+        className="p-5 sm:p-6 rounded-2xl bg-white border border-[#D9C7C2] shadow-sm overflow-hidden"
       >
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
           <div 
@@ -777,7 +1100,7 @@ export default function EmergencyRequests() {
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
               filterStatus === status
                 ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/20'
-                : 'bg-white/90 text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
+                : 'bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
             }`}
           >
             {status.toUpperCase()} ({status === 'ALL' ? requests.length : requests.filter(r => r.status === status).length})
@@ -785,87 +1108,400 @@ export default function EmergencyRequests() {
         ))}
       </div>
 
-      {/* Active Triage Request Cards Grid */}
+      {/* Board Notification Toast */}
+      <AnimatePresence>
+        {boardNotification && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className={`p-3.5 sm:p-4 rounded-2xl flex items-center justify-between text-xs font-bold shadow-md border ${
+              boardNotification.type === 'success'
+                ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+                : 'bg-red-50 text-[#D72638] border-red-200'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {boardNotification.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-[#D72638] shrink-0" />
+              )}
+              <span>{boardNotification.message}</span>
+            </div>
+            <button
+              onClick={() => setBoardNotification(null)}
+              className="p-1 rounded-lg hover:bg-black/5 text-slate-500 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Active Triage Request Cards (Full-Width Horizontal Bar Architecture) */}
       {filteredRequests.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-white/95 border border-[#D9C7C2] text-[#5A626A]">
+        <div className="p-12 text-center rounded-2xl bg-white border border-[#D9C7C2] text-[#5A626A] shadow-xs">
           <ShieldAlert className="w-12 h-12 mx-auto mb-3 text-slate-300" />
           <h3 className="text-base font-bold text-[#1A1D20]">No active requests found</h3>
           <p className="text-xs mt-1">No emergency transfusion requests have been broadcast yet. Click "Broadcast Emergency Request" above to initiate a real-time call.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredRequests.map(req => (
-            <motion.div
-              key={req.id}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] hover:border-[#D72638]/60 transition-all shadow-xs space-y-3"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] text-white font-black text-sm flex items-center justify-center shadow-xs">
-                    {req.bloodType}
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-[#1A1D20] leading-tight">{req.patientName}</h3>
-                    <div className="text-[11px] text-[#5A626A] flex items-center gap-1 mt-0.5">
-                      <span>Age: {req.patientAge}</span>
-                      <span>•</span>
-                      <span className="font-semibold">{req.unitsNeeded} Pints</span>
+        <div className="flex flex-col gap-3.5 w-full">
+          {filteredRequests.map(req => {
+            const matches = getMatchesForRequest(req);
+            const isExpanded = expandedRequestId === req.id;
+            const isFulfilled = req.status === 'fulfilled';
+
+            return (
+              <motion.div
+                key={req.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`rounded-2xl bg-white border transition-all duration-200 overflow-hidden shadow-xs ${
+                  isFulfilled ? 'border-emerald-200' : 'border-[#D9C7C2] hover:border-[#D72638]/50'
+                }`}
+              >
+                {/* Horizontal Primary Row */}
+                <div className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                  {/* Left: Blood Type & Patient Clinical Details */}
+                  <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] text-white font-black text-base flex flex-col items-center justify-center shadow-xs shrink-0">
+                      <span className="text-[8px] font-bold uppercase tracking-wider text-red-100">Blood</span>
+                      <span>{req.bloodType}</span>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-base font-bold text-[#1A1D20] leading-tight truncate">
+                          {req.patientName}
+                        </h3>
+                        <span className="font-mono text-xs text-[#7A0C17] bg-[#7A0C17]/10 px-2 py-0.5 rounded-md font-bold">
+                          {req.id}
+                        </span>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                          isFulfilled
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : req.urgency === 'CRITICAL'
+                            ? 'bg-red-100 text-[#D72638] border border-red-200'
+                            : 'bg-amber-100 text-amber-800 border border-amber-200'
+                        }`}>
+                          {isFulfilled ? '✓ FULFILLED' : req.urgency}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2.5 text-xs text-[#5A626A] mt-1 flex-wrap">
+                        <span>Age: {req.patientAge}</span>
+                        <span>•</span>
+                        <span className="font-bold text-[#1A1D20]">{req.unitsNeeded} Pints Needed</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1 text-[#1A1D20]">
+                          <MapPin className="w-3.5 h-3.5 text-[#D72638]" />
+                          <span>{req.hospitalCity || 'Delhi NCR'}</span>
+                        </span>
+                        <span>•</span>
+                        <span className="font-mono text-slate-400 text-[11px]">
+                          {new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+
+                      <div className="text-[11px] text-[#5A626A] mt-1 flex items-center gap-2 flex-wrap">
+                        <span>Contact: <strong>{req.contactName}</strong></span>
+                        <a href={`tel:${req.contactNumber}`} className="font-mono text-[#D72638] font-bold hover:underline">
+                          {req.contactNumber}
+                        </a>
+                        {isFulfilled && req.fulfilledByDonorName && (
+                          <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                            Fulfilled by: {req.fulfilledByDonorName}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Right: Action Buttons & Expandable Dropdown Toggle */}
+                  <div className="flex items-center gap-2 self-end lg:self-center shrink-0 flex-wrap">
+                    {!isFulfilled && (
+                      <>
+                        <a
+                          href={`tel:${req.contactNumber}`}
+                          className="py-2 px-3.5 rounded-xl bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] text-xs font-bold transition-all flex items-center gap-1.5 border border-[#D9C7C2]"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Call Hotline</span>
+                        </a>
+                        <button
+                          onClick={() => handleOpenFulfillModal(req)}
+                          className="py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          <span>Mark Fulfilled</span>
+                        </button>
+                      </>
+                    )}
+
+                    {/* Expandable Dropdown Toggle Button */}
+                    <button
+                      onClick={() => setExpandedRequestId(isExpanded ? null : req.id)}
+                      className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border ${
+                        isExpanded
+                          ? 'bg-[#1A1D20] text-white border-[#1A1D20]'
+                          : 'bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border-[#D9C7C2]'
+                      }`}
+                    >
+                      <Users className="w-3.5 h-3.5 text-[#D72638]" />
+                      <span>Matched Lifesavers ({matches.length})</span>
+                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-white' : 'text-slate-400'}`} />
+                    </button>
+                  </div>
                 </div>
 
-                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                  req.status === 'fulfilled' 
-                    ? 'bg-emerald-100 text-emerald-800' 
-                    : req.urgency === 'CRITICAL' 
-                    ? 'bg-red-100 text-[#D72638] border border-red-200' 
-                    : 'bg-amber-100 text-amber-800'
-                }`}>
-                  {req.status === 'fulfilled' ? 'FULFILLED' : req.urgency}
-                </span>
-              </div>
+                {/* EXPANDABLE DROPDOWN DRAWER: MATCHED DONOR ROSTER, EMAIL ROSTER & DOWNLOAD PDF */}
+                <AnimatePresence>
+                  {isExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeInOut' }}
+                      className="border-t border-[#D9C7C2] bg-[#FDF9F8] p-4 sm:p-6 space-y-4"
+                    >
+                      {/* Dropdown Header Toolbar: Request Actions (Email Roster & PDF, Download PDF Docket) */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D9C7C2]">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <h4 className="text-xs sm:text-sm font-bold text-[#1A1D20]">
+                            {matches.length} Compatible {req.bloodType} Lifesavers Ranked By GPS Proximity
+                          </h4>
+                        </div>
 
-              <div className="p-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]/60 text-xs space-y-1">
-                <div className="flex items-center justify-between text-[#5A626A]">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-[#D72638]" />
-                    <span>{req.hospitalCity || 'Delhi NCR'}</span>
-                  </span>
-                  <span className="font-mono text-[10px] text-slate-400">
-                    {new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-                <div className="text-[11px] font-medium text-[#1A1D20] flex items-center justify-between pt-1 border-t border-[#D9C7C2]/40">
-                  <span>Contact: {req.contactName}</span>
-                  <a href={`tel:${req.contactNumber}`} className="font-mono text-[#D72638] font-bold hover:underline">
-                    {req.contactNumber}
-                  </a>
-                </div>
-              </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => handleEmailRosterForRequest(req, matches)}
+                            disabled={isEmailingRoster}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-[#D9C7C2] text-xs font-bold text-[#1A1D20] transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
+                          >
+                            <Mail className="w-3.5 h-3.5 text-[#D72638]" />
+                            <span>{isEmailingRoster ? 'Sending...' : 'Email Roster & PDF'}</span>
+                          </button>
 
-              {req.status !== 'fulfilled' && (
-                <div className="flex items-center gap-2 pt-1">
-                  <a
-                    href={`tel:${req.contactNumber}`}
-                    className="flex-1 py-1.5 px-3 rounded-xl bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] text-xs font-bold text-center transition-all flex items-center justify-center gap-1.5"
-                  >
-                    <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Call Hotline</span>
-                  </a>
-                  <button
-                    onClick={() => onUpdateStatus(req.id, 'fulfilled')}
-                    className="flex-1 py-1.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold text-center transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                  >
-                    <CheckCircle className="w-3.5 h-3.5" />
-                    <span>Mark Fulfilled</span>
-                  </button>
-                </div>
-              )}
-            </motion.div>
-          ))}
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadPdfForRequest(req, matches)}
+                            disabled={isGeneratingPdf}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                          >
+                            <FileDown className="w-3.5 h-3.5" />
+                            <span>{isGeneratingPdf ? 'Generating...' : 'Download PDF Docket'}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Matching Donor List */}
+                      {matches.length === 0 ? (
+                        <div className="p-8 text-center bg-white rounded-xl border border-dashed border-[#D9C7C2] text-xs text-[#5A626A]">
+                          <Droplet className="w-8 h-8 text-[#D72638]/40 mx-auto mb-2" />
+                          <p className="font-bold text-[#1A1D20]">No active compatible donors found in this radius for {req.bloodType}</p>
+                          <p className="text-[11px] mt-0.5">Emergency broadcast remains active across all hospital nodes.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {matches.map((donor, idx) => {
+                            const isDispatched = dispatchedDonorIds[donor.id] || false;
+                            const isDispatching = dispatchingDonorId === donor.id;
+
+                            return (
+                              <div
+                                key={donor.id}
+                                className="p-3.5 rounded-xl bg-white border border-[#D9C7C2] shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-[#D72638]/40 transition-colors"
+                              >
+                                <div className="flex items-center gap-3 min-w-0">
+                                  <div className="w-8 h-8 rounded-lg bg-[#F5F1EF] border border-[#D9C7C2] flex items-center justify-center font-mono font-bold text-xs text-[#7A0C17] shrink-0">
+                                    #{idx + 1}
+                                  </div>
+
+                                  <div className="w-9 h-9 rounded-lg bg-red-50 border border-red-200 text-[#D72638] font-black text-xs flex items-center justify-center shrink-0">
+                                    {donor.bloodType}
+                                  </div>
+
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="font-bold text-xs text-[#1A1D20]">{donor.fullName}</span>
+                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${donor.tier.badgeClass}`}>
+                                        {donor.tier.label} • {donor.distanceKm < 1 ? '< 1 km' : `${donor.distanceKm.toFixed(1)} km`}
+                                      </span>
+                                    </div>
+                                    <div className="text-[11px] text-[#5A626A] flex items-center gap-2 mt-0.5 flex-wrap">
+                                      <span className="flex items-center gap-1">
+                                        <MapPin className="w-3 h-3 text-[#D72638]" />
+                                        <span>{donor.location || donor.city}</span>
+                                      </span>
+                                      <span>•</span>
+                                      <span className="font-mono text-slate-500">{donor.phone}</span>
+                                      <span>•</span>
+                                      <span className="text-[#5A626A]">{donor.email}</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                  <a
+                                    href={`tel:${donor.phone}`}
+                                    className="px-3 py-1.5 rounded-lg bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] font-bold text-xs flex items-center gap-1 transition-colors border border-[#D9C7C2]"
+                                  >
+                                    <Phone className="w-3 h-3 text-emerald-600" />
+                                    <span>Call</span>
+                                  </a>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSendAlertForRequest(req, donor)}
+                                    disabled={isDispatching || isDispatched}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-2xs ${
+                                      isDispatched
+                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                        : 'bg-[#D72638] hover:bg-[#b51d2c] text-white'
+                                    }`}
+                                  >
+                                    <Send className="w-3 h-3" />
+                                    <span>{isDispatching ? 'Transmitting...' : isDispatched ? 'Alert Sent ✓' : 'Send Alert'}</span>
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
         </div>
+      )}
+
+      {/* =========================================================================
+          CONFIRM TRANSFUSION FULFILLED MODAL WITH DUAL THANKS EMAILS
+          ========================================================================= */}
+      {fulfillmentModalReq && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in"
+          onClick={() => !isFulfilling && setFulfillmentModalReq(null)}
+        >
+          <div
+            className="relative w-full max-w-lg rounded-3xl bg-white border border-[#D9C7C2] p-6 sm:p-7 shadow-2xl text-[#1A1D20]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-[#D9C7C2]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-800 flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-[#1A1D20]">Confirm Transfusion Fulfilled</h3>
+                  <p className="text-[11px] text-[#5A626A]">Record delivery &amp; dispatch dual clinical thanks emails</p>
+                </div>
+              </div>
+              <button
+                onClick={() => !isFulfilling && setFulfillmentModalReq(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-[#1A1D20] hover:bg-[#F5F1EF]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="py-4 space-y-4 text-xs">
+              <div className="p-3.5 rounded-2xl bg-[#F5F1EF] border border-[#D9C7C2] space-y-1">
+                <span className="text-[10px] text-[#7A0C17] font-bold uppercase tracking-wider block">Transfusion Case</span>
+                <p className="text-sm font-bold text-[#1A1D20]">
+                  {fulfillmentModalReq.patientName} • Group {fulfillmentModalReq.bloodType} ({fulfillmentModalReq.unitsNeeded} Pints)
+                </p>
+                <p className="text-[#5A626A] text-[11px]">{fulfillmentModalReq.hospitalCity} • Requested by {fulfillmentModalReq.contactName}</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1A1D20] mb-1.5">
+                  Who fulfilled this blood demand? *
+                </label>
+                {getMatchesForRequest(fulfillmentModalReq).length > 0 && (
+                  <div className="mb-2">
+                    <span className="text-[10px] text-[#5A626A] block mb-1">Quick Select from Matched Lifesavers:</span>
+                    <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                      {getMatchesForRequest(fulfillmentModalReq).map(d => (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedFulfillingDonorId(d.id);
+                            setFulfillmentDonorName(d.fullName);
+                            setFulfillmentDonorEmail(d.email);
+                          }}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer whitespace-nowrap ${
+                            selectedFulfillingDonorId === d.id
+                              ? 'bg-[#D72638] text-white border-[#D72638]'
+                              : 'bg-white hover:bg-slate-50 text-[#1A1D20] border-[#D9C7C2]'
+                          }`}
+                        >
+                          {d.fullName} ({d.bloodType})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                  <div>
+                    <span className="text-[10px] text-slate-500 font-semibold block mb-0.5">Donor Full Name *</span>
+                    <input
+                      type="text"
+                      value={fulfillmentDonorName}
+                      onChange={(e) => setFulfillmentDonorName(e.target.value)}
+                      placeholder="e.g. Farhan Khalid"
+                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9C7C2] text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638]"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-500 font-semibold block mb-0.5">Donor Email Address *</span>
+                    <input
+                      type="email"
+                      value={fulfillmentDonorEmail}
+                      onChange={(e) => setFulfillmentDonorEmail(e.target.value)}
+                      placeholder="donor@example.com"
+                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9C7C2] text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px] leading-relaxed">
+                <strong>Dual Notification Protocol:</strong> Marking this request fulfilled will update the clinical ledger and automatically transmit two concise gratitude emails: one to the clinician and one to voluntary donor <strong>{fulfillmentDonorName || 'Donor'}</strong> thanking them for saving a life.
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#D9C7C2]">
+              <button
+                type="button"
+                onClick={() => setFulfillmentModalReq(null)}
+                disabled={isFulfilling}
+                className="px-4 py-2 rounded-xl border border-[#D9C7C2] text-xs font-bold text-[#4A5568] hover:bg-[#F5F1EF] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmFulfillment}
+                disabled={isFulfilling || !fulfillmentDonorName.trim() || !fulfillmentDonorEmail.trim()}
+                className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold transition-all cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <CheckCircle className="w-3.5 h-3.5" />
+                <span>{isFulfilling ? 'Completing...' : 'Confirm Transfusion Received ✓'}</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* =========================================================================

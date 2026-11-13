@@ -109,14 +109,27 @@ export const BloodStorage = {
     return newReq;
   },
 
-  updateRequestStatus(id: string, status: EmergencyRequest['status'], matchedDonorId?: string): void {
-    const list = this.getEmergencyRequests().map(r => {
+  updateRequestStatus(
+    id: string, 
+    status: EmergencyRequest['status'], 
+    matchedDonorId?: string, 
+    userEmail?: string,
+    fulfillmentMeta?: { fulfilledByDonorName?: string; fulfilledByDonorEmail?: string; fulfilledAt?: string }
+  ): void {
+    const list = this.getEmergencyRequests(userEmail).map(r => {
       if (r.id === id) {
-        return { ...r, status, matchedDonorId: matchedDonorId || r.matchedDonorId };
+        return { 
+          ...r, 
+          status, 
+          matchedDonorId: matchedDonorId || r.matchedDonorId,
+          fulfilledAt: status === 'fulfilled' ? (fulfillmentMeta?.fulfilledAt || new Date().toISOString()) : r.fulfilledAt,
+          fulfilledByDonorName: fulfillmentMeta?.fulfilledByDonorName || r.fulfilledByDonorName,
+          fulfilledByDonorEmail: fulfillmentMeta?.fulfilledByDonorEmail || r.fulfilledByDonorEmail
+        };
       }
       return r;
     });
-    this.saveEmergencyRequests(list);
+    this.saveEmergencyRequests(list, userEmail);
   },
 
   // --- Blood Bank Inventory (Live Synchronized with Registered Donors) ---
