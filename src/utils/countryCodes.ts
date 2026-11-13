@@ -110,3 +110,29 @@ export const getInitials = (name?: string | null): string => {
   return clean.toUpperCase();
 };
 
+export const parsePhoneNumberWithCountry = (fullPhone?: string | null): { dialCode: string; number: string } => {
+  if (!fullPhone) return { dialCode: '+91', number: '' };
+  const clean = fullPhone.trim();
+  const sorted = [...COUNTRY_CODES].sort((a, b) => b.dialCode.length - a.dialCode.length);
+  for (const c of sorted) {
+    if (clean.startsWith(c.dialCode)) {
+      const rest = clean.slice(c.dialCode.length).trim().replace(/^[- ]+/, '');
+      return { dialCode: c.dialCode, number: rest };
+    }
+  }
+  if (clean.startsWith('+')) {
+    const parts = clean.split(/\s+/);
+    if (parts.length > 1) {
+      return { dialCode: parts[0], number: parts.slice(1).join(' ') };
+    }
+  }
+  return { dialCode: '+91', number: clean };
+};
+
+export const formatFullPhone = (dialCode: string, number: string): string => {
+  const cleanNum = (number || '').trim();
+  if (!cleanNum) return '';
+  return `${dialCode} ${cleanNum}`;
+};
+
+

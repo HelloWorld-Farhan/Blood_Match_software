@@ -263,9 +263,10 @@ export async function fetchAlertsApi(userEmail?: string) {
   return apiClient.get<any[]>(endpoint);
 }
 
-export async function deleteDonorApi(donorId: string, userEmail: string) {
-  const endpoint = `/api/donors/${encodeURIComponent(donorId)}?user_email=${encodeURIComponent(userEmail)}`;
-  return apiClient.delete<{ message: string; deleted_id: string }>(endpoint);
+export async function deleteDonorApi(donorId: string, userEmail?: string) {
+  const query = userEmail ? `?user_email=${encodeURIComponent(userEmail)}` : '';
+  const endpoint = `/api/donors/${encodeURIComponent(donorId)}${query}`;
+  return apiClient.delete<{ message: string; deleted_id: string; inventory?: any[] }>(endpoint);
 }
 
 export async function fetchEmergencyRequestsApi(userEmail?: string) {
@@ -347,6 +348,14 @@ export async function emailEmergencyRosterApi(payload: {
   return apiClient.post<{ message: string; success: boolean; has_attachment?: boolean }>('/api/emergency/email-roster', payload);
 }
 
+export async function saveEmergencyDocketApi(payload: {
+  user_email: string;
+  filename: string;
+  pdf_base64: string;
+}) {
+  return apiClient.post<{ message: string; ok: boolean }>('/api/emergency/save-docket', payload);
+}
+
 export async function fetchSessionsApi() {
   return apiClient.get<any[]>(`/api/sessions?_t=${Date.now()}`, {
     headers: {
@@ -363,3 +372,28 @@ export async function revokeSessionApi(sessionId: string) {
 export async function revokeOtherSessionsApi() {
   return apiClient.delete<{ message: string; terminated_count: number }>('/api/sessions/others');
 }
+
+export async function fetchSavedPhonesApi(email?: string) {
+  const query = email ? `?user_email=${encodeURIComponent(email)}` : '';
+  return apiClient.get<{ user_email: string; phone: string | null; saved_phones: string[] }>(`/api/v1/user/saved-phones${query}`);
+}
+
+export async function saveUserPhoneApi(phone: string, email?: string) {
+  return apiClient.post<{ status: string; saved_phones: string[] }>('/api/v1/user/saved-phones', {
+    phone,
+    email: email || undefined,
+  });
+}
+
+export async function fetchVerifiedEmailsApi(email?: string) {
+  const query = email ? `?user_email=${encodeURIComponent(email)}` : '';
+  return apiClient.get<{ user_email: string; verified_emails: string[] }>(`/api/v1/user/verified-emails${query}`);
+}
+
+export async function saveUserVerifiedEmailApi(verifiedEmail: string, email?: string) {
+  return apiClient.post<{ status: string; verified_emails: string[] }>('/api/v1/user/verified-emails', {
+    verified_email: verifiedEmail,
+    email: email || undefined,
+  });
+}
+

@@ -263,6 +263,19 @@ export default function Login() {
           sessionStorage.setItem('bloodmatch_2fa_enabled', res.data.user.is_2fa_enabled ? 'true' : 'false');
         }
 
+        // Cross-Device Synced User Phone Numbers & Emails
+        if (res.data.user?.phone) {
+          localStorage.setItem('bloodmatch_user_phone', res.data.user.phone);
+          sessionStorage.setItem('bloodmatch_user_phone', res.data.user.phone);
+        }
+        if (Array.isArray(res.data.user?.saved_phones)) {
+          const userKey = `bloodmatch_saved_phones_${(res.data.user?.email || email).trim().toLowerCase()}`;
+          localStorage.setItem(userKey, JSON.stringify(res.data.user.saved_phones));
+        }
+        if (Array.isArray(res.data.user?.verified_emails)) {
+          localStorage.setItem('bloodmatch_verified_emails', JSON.stringify(res.data.user.verified_emails));
+        }
+
         // Requirement 4: Cross-Device Cloud Sync Hydration on Login
         if (res.data.user?.photo_url) {
           const cacheBusted = `${res.data.user.photo_url}?v=${Date.now()}`;
@@ -323,6 +336,18 @@ export default function Login() {
         localStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
         localStorage.setItem('bloodmatch_2fa_enabled', 'true');
         sessionStorage.setItem('bloodmatch_2fa_enabled', 'true');
+
+        if (res.data.user?.phone) {
+          localStorage.setItem('bloodmatch_user_phone', res.data.user.phone);
+          sessionStorage.setItem('bloodmatch_user_phone', res.data.user.phone);
+        }
+        if (Array.isArray(res.data.user?.saved_phones)) {
+          const userKey = `bloodmatch_saved_phones_${(res.data.user?.email || email).trim().toLowerCase()}`;
+          localStorage.setItem(userKey, JSON.stringify(res.data.user.saved_phones));
+        }
+        if (Array.isArray(res.data.user?.verified_emails)) {
+          localStorage.setItem('bloodmatch_verified_emails', JSON.stringify(res.data.user.verified_emails));
+        }
 
         if (res.data.user?.photo_url) {
           const cacheBusted = `${res.data.user.photo_url}?v=${Date.now()}`;
@@ -469,7 +494,7 @@ export default function Login() {
               <div className="relative z-10 pt-8 sm:pt-16 lg:pt-48">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#D72638]/40 border border-[#D72638]/50 text-white text-xs font-bold mb-2">
                   <Sparkles className="w-3.5 h-3.5" />
-                  Zero-Tolerance ABO/Rh Triage
+                  Instant Blood Matching
                 </div>
                 <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white leading-tight mb-2">
                   Emergency Transfusion <br />
@@ -478,7 +503,7 @@ export default function Login() {
                   </span>
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-200 leading-relaxed max-w-md font-light mb-3">
-                  Autonomous 8-group ABO & RhD antigen cross-matching, instant cryo-reserve dispatch, and certified voluntary donor mobilization.
+                  Instant blood compatibility matching, live blood stock monitoring, and rapid voluntary donor coordination.
                 </p>
 
                 <div className="grid grid-cols-2 gap-2 text-[10px] sm:text-[11px] text-white">
@@ -488,7 +513,7 @@ export default function Login() {
                   </div>
                   <div className="p-2 rounded-lg bg-black/60 backdrop-blur-md border border-white/20 flex items-center gap-1.5 sm:gap-2">
                     <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0"></span>
-                    <span className="truncate">Cryo Telemetry 0ms</span>
+                    <span className="truncate">Live Stock Monitored</span>
                   </div>
                 </div>
               </div>
@@ -511,7 +536,7 @@ export default function Login() {
                           Clinician Sign In
                         </h1>
                         <p className="text-xs sm:text-sm text-[#5A626A] mt-1">
-                          Enter authenticated credentials to manage reserves and donors
+                          Sign in to check blood stock, find donors, and manage requests
                         </p>
                       </div>
                       <div className="w-10 h-10 rounded-xl bg-[#7A0C17]/10 border border-[#D72638]/20 flex items-center justify-center text-[#D72638]">

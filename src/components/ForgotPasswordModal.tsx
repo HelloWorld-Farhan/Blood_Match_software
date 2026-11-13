@@ -833,7 +833,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                   Access Credentials Restored!
                 </h3>
                 <p className="text-xs text-[#5A626A] max-w-sm mx-auto">
-                  Your clinical password has been securely updated. A confirmation email with audit telemetry has been dispatched to your registered address.
+                  Your password has been securely updated. A confirmation email has been sent to your registered address.
                 </p>
                 <button
                   type="button"

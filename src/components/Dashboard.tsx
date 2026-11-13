@@ -135,7 +135,7 @@ export const Dashboard: React.FC = () => {
           unitsDonatedTotal: d.units_donated_total ?? d.unitsDonatedTotal ?? 0,
         }));
         setDonors(mappedDonors);
-        saveDonors(mappedDonors);
+        saveDonors(mappedDonors, false);
       }
 
       if (invRes.status === 'fulfilled' && invRes.value.ok && Array.isArray(invRes.value.data)) {
@@ -149,7 +149,7 @@ export const Dashboard: React.FC = () => {
           temperatureCelsius: item.temperature_celsius ?? 4.0,
         }));
         setInventory(mappedInv);
-        saveInventory(mappedInv);
+        saveInventory(mappedInv, false);
       }
 
       if (reqRes.status === 'fulfilled' && reqRes.value.ok && Array.isArray(reqRes.value.data)) {
@@ -170,7 +170,7 @@ export const Dashboard: React.FC = () => {
           createdAt: r.created_at || r.createdAt || new Date().toISOString(),
         }));
         setRequests(mappedReqs);
-        saveEmergencyRequests(mappedReqs, currentUserEmail);
+        saveEmergencyRequests(mappedReqs, currentUserEmail, false);
       }
     } catch {
       // Quiet background fallback to cached state
@@ -188,12 +188,12 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     loadData();
 
-    // Relaxed Silent Real-Time Auto-Sync: 60s cadence only when tab is visible
+    // Real-Time Cross-Device Auto-Sync: 3s cadence on active tab
     const syncInterval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         loadData();
       }
-    }, 60000);
+    }, 3000);
 
     const handleStorage = () => {
       setRequests(getEmergencyRequests(currentUserEmail));
@@ -204,12 +204,23 @@ export const Dashboard: React.FC = () => {
     window.addEventListener('bloodmatch_donors_updated', handleStorage);
     window.addEventListener('bloodmatch_inventory_updated', handleStorage);
     window.addEventListener('bloodmatch_requests_updated', handleStorage);
+    window.addEventListener('focus', handleStorage);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       clearInterval(syncInterval);
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('bloodmatch_donors_updated', handleStorage);
       window.removeEventListener('bloodmatch_inventory_updated', handleStorage);
       window.removeEventListener('bloodmatch_requests_updated', handleStorage);
+      window.removeEventListener('focus', handleStorage);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [currentUserEmail]);
 
@@ -280,13 +291,13 @@ export const Dashboard: React.FC = () => {
           <div>
             <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[#7A0C17]/10 border border-[#D72638]/30 text-[#7A0C17] text-xs font-bold mb-1">
               <Activity className="w-3.5 h-3.5 text-[#D72638] animate-pulse" />
-              <span>Hemodynamic Intelligence Active</span>
+              <span>Live Blood Matching System</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-[#1A1D20] tracking-tight flex items-center gap-2">
               <span>Main Operations Dashboard</span>
             </h1>
             <p className="text-xs text-[#5A626A]">
-              Real-time ABO/Rh cross-matching analytics, blood bank reserve volume, and emergency trauma triage.
+              Check available blood stock, find matching donors, and manage emergency hospital requests.
             </p>
           </div>
         </div>
@@ -350,7 +361,7 @@ export const Dashboard: React.FC = () => {
             {/* Power BI Micro ABO Alleles Segmented Bar Chart */}
             <div className="mt-2.5 pt-2 border-t border-[#D9C7C2]/40">
               <div className="flex items-center justify-between text-[10px] text-[#5A626A] mb-1">
-                <span>Allele Volume Bar</span>
+                <span>Blood Group Breakdown</span>
                 <span className="font-bold text-[#7A0C17]">{hoveredAllele ? hoveredAllele : `${inventory.length} Groups`}</span>
               </div>
               <div className="grid grid-cols-8 gap-1 h-9 items-end bg-[#F5F1EF] p-1.5 rounded-xl border border-[#D9C7C2]/60">
@@ -387,10 +398,10 @@ export const Dashboard: React.FC = () => {
 
           <div className="mt-3 flex items-center justify-between text-[11px] text-[#5A626A] border-t border-[#D9C7C2]/60 pt-2">
             <span className={criticalUnitsCount > 0 ? "text-amber-600 font-semibold" : "text-emerald-600 font-semibold"}>
-              {criticalUnitsCount > 0 ? `${criticalUnitsCount} groups need donors` : 'All groups stocked'}
+              {criticalUnitsCount > 0 ? `${criticalUnitsCount} groups have low stock` : 'All groups well-stocked'}
             </span>
             <span className="text-[#D72638] font-bold group-hover:underline flex items-center gap-0.5">
-              <span>Inspect Blood Bank</span>
+              <span>View Blood Stock</span>
               <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </span>
           </div>
@@ -405,7 +416,7 @@ export const Dashboard: React.FC = () => {
         >
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-[#7A0C17] uppercase tracking-wider">Certified Donors</span>
+              <span className="text-xs font-bold text-[#7A0C17] uppercase tracking-wider">Registered Donors</span>
               <div className="w-8 h-8 rounded-xl bg-[#7A0C17]/10 text-[#D72638] group-hover:bg-[#D72638] group-hover:text-white transition-colors flex items-center justify-center border border-[#D72638]/30">
                 <Users className="w-4 h-4" />
               </div>
@@ -445,18 +456,18 @@ export const Dashboard: React.FC = () => {
                 </span>
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-bold text-[#1A1D20] truncate">Mobilization Velocity</div>
+                <div className="text-[10px] font-bold text-[#1A1D20] truncate">Donor Readiness</div>
                 <div className="text-[9px] text-[#5A626A] truncate">
-                  {donors.length > 0 ? '24m Emergency Response' : 'Standby Pool Initializing'}
+                  {donors.length > 0 ? 'Avg 24m Response Time' : 'Waiting for Donors'}
                 </div>
               </div>
             </div>
           </div>
 
           <div className="mt-3 flex items-center justify-between text-[11px] text-[#5A626A] border-t border-[#D9C7C2]/60 pt-2">
-            <span>{donors.length > 0 ? `${donors.length} Verified Clinicians` : 'Registry Zero Standby'}</span>
+            <span>{donors.length > 0 ? `${donors.length} Verified Donors` : 'No donors yet'}</span>
             <span className="text-[#D72638] font-bold group-hover:underline flex items-center gap-0.5">
-              <span>Registry</span>
+              <span>View Donors</span>
               <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </span>
           </div>
@@ -471,7 +482,7 @@ export const Dashboard: React.FC = () => {
         >
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-[#7A0C17] uppercase tracking-wider">Active Trauma Calls</span>
+              <span className="text-xs font-bold text-[#7A0C17] uppercase tracking-wider">Urgent Blood Calls</span>
               <div className="w-8 h-8 rounded-xl bg-[#D72638]/15 text-[#D72638] group-hover:bg-[#D72638] group-hover:text-white transition-colors flex items-center justify-center border border-[#D72638]/30">
                 <AlertTriangle className={`w-4 h-4 ${urgentCount > 0 ? 'animate-pulse' : ''}`} />
               </div>
@@ -479,7 +490,7 @@ export const Dashboard: React.FC = () => {
 
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-black text-[#1A1D20]">{urgentCount}</span>
-              <span className="text-xs text-[#D72638] font-bold">Critical Calls</span>
+              <span className="text-xs text-[#D72638] font-bold">Urgent Calls</span>
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-red-50 text-[#D72638] border border-red-200 ml-auto">
                 {requests.length} Total
               </span>
@@ -488,10 +499,10 @@ export const Dashboard: React.FC = () => {
             {/* Power BI Real-Time Triage Pulse Sparkline Waveform */}
             <div className="mt-2.5 pt-2 border-t border-[#D9C7C2]/40 bg-[#F5F1EF] p-2 rounded-xl border border-[#D9C7C2]/60">
               <div className="flex items-center justify-between text-[10px] mb-1">
-                <span className="text-[#5A626A]">Triage Velocity</span>
+                <span className="text-[#5A626A]">Request Pace</span>
                 <span className="font-bold text-[#D72638] flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#D72638] animate-ping" />
-                  <span>{urgentCount > 0 ? 'Priority Stream' : 'Calibrated'}</span>
+                  <span>{urgentCount > 0 ? 'High Priority' : 'Normal'}</span>
                 </span>
               </div>
               <svg className="w-full h-6 overflow-visible" viewBox="0 0 100 24" preserveAspectRatio="none">
@@ -508,9 +519,9 @@ export const Dashboard: React.FC = () => {
           </div>
 
           <div className="mt-3 flex items-center justify-between text-[11px] text-[#5A626A] border-t border-[#D9C7C2]/60 pt-2">
-            <span className="text-[#D72638] font-semibold">{urgentCount > 0 ? 'Urgent Queue Active' : 'Queue Cleared'}</span>
+            <span className="text-[#D72638] font-semibold">{urgentCount > 0 ? 'Calls Waiting' : 'All Clear'}</span>
             <span className="text-[#D72638] font-bold group-hover:underline flex items-center gap-0.5">
-              <span>Dispatch Board</span>
+              <span>View Requests</span>
               <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </span>
           </div>
@@ -525,7 +536,7 @@ export const Dashboard: React.FC = () => {
         >
           <div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold text-[#7A0C17] uppercase tracking-wider">Antigen Safety Index</span>
+              <span className="text-xs font-bold text-[#7A0C17] uppercase tracking-wider">Safe Match Check</span>
               <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors flex items-center justify-center border border-emerald-300">
                 <HeartPulse className="w-4 h-4" />
               </div>
@@ -533,7 +544,7 @@ export const Dashboard: React.FC = () => {
 
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-black text-emerald-600">100%</span>
-              <span className="text-xs text-[#5A626A]">Zero Mismatch</span>
+              <span className="text-xs text-[#5A626A]">Zero Incompatibilities</span>
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 ml-auto">
                 Optimal
               </span>
@@ -563,16 +574,16 @@ export const Dashboard: React.FC = () => {
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-[10px] font-bold text-[#1A1D20] truncate">AABB Cross-Match Latency</div>
-                <div className="text-[9px] text-emerald-700 font-semibold truncate">0.4ms Synchronous Verification</div>
+                <div className="text-[10px] font-bold text-[#1A1D20] truncate">Safety Verification</div>
+                <div className="text-[9px] text-emerald-700 font-semibold truncate">Instant Compatibility Checking</div>
               </div>
             </div>
           </div>
 
           <div className="mt-3 flex items-center justify-between text-[11px] text-[#5A626A] border-t border-[#D9C7C2]/60 pt-2">
-            <span>8x8 Matrix Synchronized</span>
+            <span>8x8 Guide Active</span>
             <span className="text-[#D72638] font-bold group-hover:underline flex items-center gap-0.5">
-              <span>8x8 Matrix</span>
+              <span>View Guide</span>
               <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
             </span>
           </div>
@@ -640,36 +651,36 @@ export const Dashboard: React.FC = () => {
             <div>
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/20 mb-2">
                 <Activity className="w-3.5 h-3.5 text-[#D72638]" />
-                <span>Hemodynamic Diagnostics</span>
+                <span>Live Blood Flow Monitor</span>
               </div>
               <h2 className="text-lg sm:text-xl font-black text-[#1A1D20] tracking-tight">
-                Live Erythrocyte Velocity & Tissue Perfusion
+                Healthy Blood Flow &amp; Cell Quality
               </h2>
               <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
-                Direct in-vivo microvascular feed visualizing cellular rheology, erythrocyte aggregation resistance, and oxygen transport capacity under active transfusion protocols.
+                Microscopic preview showing healthy red blood cells moving smoothly and safely, ready for patient transfusion.
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]">
-                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Agglutination Rate</span>
+                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Clumping Risk</span>
                 <span className="text-base font-black text-emerald-700 font-mono mt-0.5 block">0.00% Zero</span>
-                <span className="text-[10px] text-[#5A626A] mt-0.5 block">No antigen clumping</span>
+                <span className="text-[10px] text-[#5A626A] mt-0.5 block">No antibody clumping</span>
               </div>
               <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]">
-                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Vessel Viscosity</span>
+                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Flow Smoothness</span>
                 <span className="text-base font-black text-[#1A1D20] font-mono mt-0.5 block">3.2 cP</span>
-                <span className="text-[10px] text-emerald-700 font-semibold mt-0.5 block">Normo-rheologic</span>
+                <span className="text-[10px] text-emerald-700 font-semibold mt-0.5 block">Optimal &amp; Smooth</span>
               </div>
             </div>
 
             <div className="p-3 rounded-xl bg-[#7A0C17]/5 border border-[#D72638]/20 flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span className="text-[#1A1D20] font-semibold text-xs">Transfusion Cross-Safety Lock</span>
+                <span className="text-[#1A1D20] font-semibold text-xs">Transfusion Safety Lock</span>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">
-                ENGAGED
+                ENGAGED • 100% SAFE
               </span>
             </div>
           </div>
@@ -691,23 +702,23 @@ export const Dashboard: React.FC = () => {
               <div className="flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-[#D72638]" />
                 <h2 className="text-sm font-bold text-[#1A1D20] uppercase tracking-wider">
-                  Blood Bank Reserve Distribution (8 Groups)
+                  Blood Bank Stock (8 Blood Groups)
                 </h2>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] text-[#7A0C17] font-mono font-semibold">Benchmark: 10 Pints</span>
+                <span className="text-[11px] text-[#7A0C17] font-mono font-semibold">Safe Target: 10 Pints</span>
               </div>
             </div>
             <p className="text-xs text-[#5A626A] mb-4">
-              Real-time pint volume against clinical minimum safe thresholds.
+              Available pints of blood for each group with clear Low, Medium, and High stock levels.
             </p>
 
             {/* Power BI Visual Bars */}
             <div className="space-y-2.5">
               {displayedInventory.map((item) => {
                 const percentage = Math.min(100, (item.unitsAvailable / 20) * 100);
-                const isCritical = item.unitsAvailable < 5;
-                const isWarning = item.unitsAvailable >= 5 && item.unitsAvailable < 10;
+                const isLow = item.unitsAvailable < 5;
+                const isMedium = item.unitsAvailable >= 5 && item.unitsAvailable < 15;
 
                 return (
                   <div key={item.bloodType} className="p-1.5 rounded-xl hover:bg-[#F5F1EF]/70 active:bg-red-50/50 transition-colors space-y-1">
@@ -722,26 +733,26 @@ export const Dashboard: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-bold text-[#1A1D20] text-xs">{item.unitsAvailable} Pints</span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                          isCritical ? 'bg-red-100 text-[#D72638] border border-red-200' :
-                          isWarning ? 'bg-amber-100 text-amber-700 border border-amber-200' :
-                          'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          isLow ? 'bg-red-100 text-[#D72638] border border-red-200' :
+                          isMedium ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                          'bg-emerald-100 text-emerald-800 border border-emerald-200'
                         }`}>
-                          {isCritical ? 'CRITICAL' : isWarning ? 'LOW' : 'OPTIMAL'}
+                          {isLow ? 'Low' : isMedium ? 'Medium' : 'High'}
                         </span>
                       </div>
                     </div>
 
                     {/* Progress Track with Safe Threshold Marker */}
                     <div className="w-full h-3 rounded-full bg-[#F5F1EF] border border-[#D9C7C2]/60 overflow-hidden relative">
-                      <div className="absolute top-0 bottom-0 left-[50%] w-[1.5px] bg-[#7A0C17]/50 z-10" title="Safe Reserve (10 Pints)"></div>
+                      <div className="absolute top-0 bottom-0 left-[50%] w-[1.5px] bg-[#7A0C17]/50 z-10" title="Safe Target (10 Pints)"></div>
                       <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${Math.max(item.unitsAvailable > 0 ? 4 : 0, percentage)}%` }}
                         transition={{ duration: 0.6, ease: 'easeOut' }}
                         className={`h-full rounded-full ${
-                          isCritical ? 'bg-gradient-to-r from-[#7A0C17] to-[#D72638]' :
-                          isWarning ? 'bg-gradient-to-r from-amber-600 to-amber-400' :
+                          isLow ? 'bg-gradient-to-r from-[#7A0C17] to-[#D72638]' :
+                          isMedium ? 'bg-gradient-to-r from-amber-600 to-amber-400' :
                           'bg-gradient-to-r from-[#7A0C17] via-[#D72638] to-emerald-500'
                         }`}
                       />
@@ -753,7 +764,7 @@ export const Dashboard: React.FC = () => {
           </div>
 
           <div className="mt-4 pt-3 border-t border-[#D9C7C2]/60 flex items-center justify-between text-[11px] text-[#5A626A]">
-            <span>Center Line: 10 Pint Buffer</span>
+            <span>Center Mark: 10 Pint Safe Level</span>
             <Link to="/dashboard/inventory" className="text-[#D72638] font-bold hover:underline">
               Manage Blood Bank Units →
             </Link>
@@ -767,20 +778,20 @@ export const Dashboard: React.FC = () => {
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-[#D72638]" />
                 <h2 className="text-sm font-bold text-[#1A1D20] uppercase tracking-wider">
-                  7-Day Blood Requests &amp; Donor Activity
+                  7-Day Requests &amp; Donor Activity
                 </h2>
               </div>
               <div className="flex items-center gap-3 text-[11px]">
                 <span className="flex items-center gap-1.5 text-[#D72638] font-bold">
-                  <span className="w-2.5 h-1 bg-[#D72638] rounded-sm"></span> Transfusions
+                  <span className="w-2.5 h-1 bg-[#D72638] rounded-sm"></span> Hospital Requests
                 </span>
                 <span className="flex items-center gap-1.5 text-emerald-600 font-bold">
-                  <span className="w-2.5 h-1 bg-emerald-600 rounded-sm"></span> Mobilized
+                  <span className="w-2.5 h-1 bg-emerald-600 rounded-sm"></span> Responded Donors
                 </span>
               </div>
             </div>
             <p className="text-xs text-[#5A626A] mb-4">
-              Real-time weekly tracking of patient transfusion requests against voluntary donor mobilization.
+              Track emergency hospital requests and voluntary donor responses over the past week.
             </p>
 
             {/* SVG Wave Chart with Interactive Power BI Hover Animation */}
@@ -902,21 +913,21 @@ export const Dashboard: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#D72638] animate-ping shrink-0" />
                       <span className="font-bold text-[#1A1D20]">
-                        {trendData[hoveredTrendIndex].day} Telemetry Stream
+                        {trendData[hoveredTrendIndex].day} Activity Summary
                       </span>
                     </div>
                     <div className="flex flex-wrap items-center gap-3.5 text-[11px]">
                       <span className="flex items-center gap-1 font-bold text-[#D72638]">
                         <AlertTriangle className="w-3.5 h-3.5" />
-                        {trendData[hoveredTrendIndex].requests} Emergency Requests
+                        {trendData[hoveredTrendIndex].requests} Requests
                       </span>
                       <span className="flex items-center gap-1 font-bold text-emerald-700">
                         <Users className="w-3.5 h-3.5" />
-                        {trendData[hoveredTrendIndex].mobilized} Donors Mobilized
+                        {trendData[hoveredTrendIndex].mobilized} Donors Responded
                       </span>
                       <span className="flex items-center gap-1 font-semibold text-[#5A626A]">
                         <Database className="w-3.5 h-3.5" />
-                        {totalUnits} Pints In Vault
+                        {totalUnits} Units in Stock
                       </span>
                     </div>
                   </motion.div>
@@ -925,11 +936,11 @@ export const Dashboard: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                       <span className="font-medium text-[#1A1D20]">
-                        Hover over any weekday data point to inspect live clinical telemetry
+                        Hover over any day to see requests, donor responses, and stored units
                       </span>
                     </div>
                     <span className="text-[10px] font-mono text-slate-400">
-                      7-Day Activity Stream
+                      7-Day Activity
                     </span>
                   </div>
                 )}
@@ -939,27 +950,27 @@ export const Dashboard: React.FC = () => {
             {/* Dynamic Trend Indicators without hardcoded mock numbers */}
             <div className="grid grid-cols-2 gap-3 mt-4">
               <div className="p-3 rounded-xl bg-white border border-[#D9C7C2]">
-                <span className="text-[11px] text-[#5A626A] block">Active Critical Intake</span>
+                <span className="text-[11px] text-[#5A626A] block">Active Urgent Intake</span>
                 <span className="text-base font-bold text-[#D72638]">{urgentCount} Urgent Calls</span>
                 <span className="text-[10px] text-emerald-600 font-semibold block mt-0.5">
-                  {urgentCount > 0 ? 'Triage dispatch running' : 'Zero unassigned calls'}
+                  {urgentCount > 0 ? 'Assistance needed' : 'All requests handled'}
                 </span>
               </div>
               <div className="p-3 rounded-xl bg-white border border-[#D9C7C2]">
-                <span className="text-[11px] text-[#5A626A] block">Volunteer Standby</span>
+                <span className="text-[11px] text-[#5A626A] block">Available Donors</span>
                 <span className="text-base font-bold text-emerald-700">
                   {donors.filter(d => d.isAvailable).length} Ready Donors
                 </span>
                 <span className="text-[10px] text-[#5A626A] block mt-0.5">
-                  {donors.length > 0 ? `${donors.length} in registry` : 'Zero registered donors'}
+                  {donors.length > 0 ? `${donors.length} registered` : 'No donors registered yet'}
                 </span>
               </div>
             </div>
           </div>
 
           <div className="mt-4 pt-3 border-t border-[#D9C7C2]/60 flex items-center justify-between text-[11px] text-[#5A626A]">
-            <span>AABB Protocol Validated</span>
-            <span className="text-emerald-600 font-semibold">System Health: 100%</span>
+            <span>Safe Transfusion Protocols</span>
+            <span className="text-emerald-600 font-semibold">System Status: Active</span>
           </div>
         </div>
       </motion.div>
@@ -978,11 +989,11 @@ export const Dashboard: React.FC = () => {
             <div className="flex items-center gap-2 mb-2">
               <Droplet className="w-4 h-4 text-[#D72638]" />
               <h2 className="text-sm font-bold text-[#1A1D20] uppercase tracking-wider">
-                Instant ABO/Rh Cross-Match Evaluator
+                Instant Blood Compatibility Checker
               </h2>
             </div>
             <p className="text-xs text-[#5A626A] mb-4">
-              Cross-test recipient serum and donor red cells to assess agglutination risk.
+              Check if recipient and donor blood types can safely mix without clumping.
             </p>
 
             <div className="space-y-3">
@@ -1073,7 +1084,7 @@ export const Dashboard: React.FC = () => {
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-[#D72638]" />
                 <h2 className="text-sm font-bold text-[#1A1D20] uppercase tracking-wider">
-                  Live Emergency Transfusion Stream
+                  Live Emergency Blood Requests
                 </h2>
               </div>
               <div className="flex items-center gap-3">
@@ -1087,7 +1098,7 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
             <p className="text-xs text-[#5A626A] mb-4">
-              Real-time urgent hospital calls requiring immediate pint allocation and donor mobilization.
+              Real-time urgent hospital requests needing immediate blood units or donor help.
             </p>
 
             {requests.length === 0 ? (
@@ -1110,7 +1121,8 @@ export const Dashboard: React.FC = () => {
                 {requests.slice(0, 4).map((req) => (
                   <div
                     key={req.id}
-                    className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] hover:border-[#D72638] flex items-center justify-between gap-3 text-xs transition-colors"
+                    onClick={() => navigate(`/dashboard/emergency?highlight=${encodeURIComponent(req.id)}`)}
+                    className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] hover:border-[#D72638] flex items-center justify-between gap-3 text-xs transition-colors cursor-pointer group/row"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] border border-[#D72638]/40 flex flex-col items-center justify-center font-bold text-white shadow-xs">
@@ -1137,10 +1149,12 @@ export const Dashboard: React.FC = () => {
                     <div className="text-right">
                       <div className="font-mono text-[11px] text-[#5A626A]">{req.contactNumber}</div>
                       <Link
-                        to="/dashboard/emergency"
-                        className="text-[11px] text-[#D72638] hover:underline font-bold"
+                        to={`/dashboard/emergency?highlight=${encodeURIComponent(req.id)}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[11px] text-[#D72638] hover:underline font-bold inline-flex items-center gap-1 group"
                       >
-                        Match Donors →
+                        <span>Match Donors</span>
+                        <span className="transition-transform group-hover:translate-x-0.5">→</span>
                       </Link>
                     </div>
                   </div>

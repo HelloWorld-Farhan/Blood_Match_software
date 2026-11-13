@@ -28,6 +28,42 @@
   .glow-crimson {
     box-shadow: 0 0 25px -5px rgba(215, 38, 56, 0.35);
   }
+  .animate-target-blink-2s {
+    animation: targetBlink2s 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+}
+
+@keyframes targetBlink2s {
+  0% {
+    box-shadow: 0 0 0 0 rgba(215, 38, 56, 0);
+    border-color: #D9C7C2;
+    background-color: #FFFFFF;
+  }
+  20% {
+    box-shadow: 0 0 0 6px rgba(215, 38, 56, 0.38), 0 10px 25px -5px rgba(215, 38, 56, 0.25);
+    border-color: #D72638;
+    background-color: #FFF5F6;
+  }
+  45% {
+    box-shadow: 0 0 0 1px rgba(215, 38, 56, 0.12);
+    border-color: #F87171;
+    background-color: #FFFFFF;
+  }
+  65% {
+    box-shadow: 0 0 0 6px rgba(215, 38, 56, 0.38), 0 10px 25px -5px rgba(215, 38, 56, 0.25);
+    border-color: #D72638;
+    background-color: #FFF5F6;
+  }
+  85% {
+    box-shadow: 0 0 0 2px rgba(215, 38, 56, 0.15);
+    border-color: #E2E8F0;
+    background-color: #FFFFFF;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(215, 38, 56, 0);
+    border-color: #D9C7C2;
+    background-color: #FFFFFF;
+  }
 }
 
 html {

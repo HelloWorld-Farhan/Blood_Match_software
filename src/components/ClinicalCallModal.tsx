@@ -91,10 +91,10 @@ export default function ClinicalCallModal({
               </div>
               <div>
                 <h3 className="text-base font-bold text-[#1A1D20] tracking-tight">
-                  Clinical Mobilize Call
+                  Call Contact Person
                 </h3>
                 <p className="text-xs text-[#5A626A]">
-                  Direct Voice Channel • Instant Transfusion Triage
+                  Direct phone call for quick coordination
                 </p>
               </div>
             </div>

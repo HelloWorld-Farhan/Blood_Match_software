@@ -79,7 +79,7 @@ export default function InventoryManager() {
           temperatureCelsius: item.temperature_celsius ?? 4.0,
         }));
         setInventory(mapped);
-        saveInventory(mapped);
+        saveInventory(mapped, false);
       }
     } catch {
       // Quiet background fallback to local cache
@@ -97,22 +97,33 @@ export default function InventoryManager() {
   useEffect(() => {
     loadData();
 
-    // Relaxed Real-Time Silent Auto-Sync: 60s cadence only when tab is visible
+    // Real-Time Cross-Device Silent Auto-Sync: 3s cadence on active tab
     const syncInterval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         loadData();
       }
-    }, 60000);
+    }, 3000);
 
     const handleStorage = () => loadData();
     window.addEventListener('storage', handleStorage);
     window.addEventListener('bloodmatch_donors_updated', handleStorage);
     window.addEventListener('bloodmatch_inventory_updated', handleStorage);
+    window.addEventListener('focus', handleStorage);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
     return () => {
       clearInterval(syncInterval);
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('bloodmatch_donors_updated', handleStorage);
       window.removeEventListener('bloodmatch_inventory_updated', handleStorage);
+      window.removeEventListener('focus', handleStorage);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);
 
@@ -169,13 +180,13 @@ export default function InventoryManager() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/30 mb-2">
             <BarChart3 className="w-3.5 h-3.5 text-[#D72638]" />
-            <span>Power BI Clinical Telemetry Hub</span>
+            <span>Live Blood Stock Overview</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-[#1A1D20] tracking-tight">
-            Blood Bank Reserves
+            Blood Bank Stock
           </h1>
           <p className="text-xs sm:text-sm text-[#5A626A] mt-1 max-w-2xl">
-            Real-time monitored blood bank inventory across all 8 ABO and Rh blood groups, synchronized live with registered voluntary donors.
+            Track available pints of blood across all 8 blood groups and see where donations are needed.
           </p>
         </div>
 
@@ -202,7 +213,7 @@ export default function InventoryManager() {
         >
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-[11px] font-black uppercase tracking-wider text-[#5A626A]">Total Bank Volume</span>
+              <span className="text-[11px] font-black uppercase tracking-wider text-[#5A626A]">Total Available Blood</span>
               <div className="text-3xl font-black text-[#1A1D20] font-mono mt-1">
                 {totalUnits} <span className="text-sm font-bold text-[#5A626A] font-sans">Pints</span>
               </div>
@@ -235,7 +246,7 @@ export default function InventoryManager() {
         >
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-[11px] font-black uppercase tracking-wider text-[#5A626A]">Critical Shortages</span>
+              <span className="text-[11px] font-black uppercase tracking-wider text-[#5A626A]">Low Stock Groups</span>
               <div className="text-3xl font-black text-[#1A1D20] font-mono mt-1 flex items-baseline gap-1.5">
                 <span className={criticalGroupsCount > 0 ? 'text-[#D72638]' : 'text-emerald-600'}>
                   {criticalGroupsCount}
@@ -253,7 +264,7 @@ export default function InventoryManager() {
           </div>
 
           <div className="mt-4 pt-3 border-t border-[#D9C7C2]/50 flex items-center justify-between text-xs">
-            <span className="text-[#5A626A]">Healthy Groups (≥15 Pts):</span>
+            <span className="text-[#5A626A]">Well-Stocked Groups (≥15 Pts):</span>
             <span className="font-bold text-emerald-700 font-mono">{healthyGroupsCount} Groups</span>
           </div>
         </motion.div>
@@ -267,7 +278,7 @@ export default function InventoryManager() {
         >
           <div className="flex items-start justify-between">
             <div>
-              <span className="text-[11px] font-black uppercase tracking-wider text-[#5A626A]">Universal O- Buffer</span>
+              <span className="text-[11px] font-black uppercase tracking-wider text-[#5A626A]">Universal O- Blood</span>
               <div className="text-3xl font-black text-[#1A1D20] font-mono mt-1">
                 {universalUnits} <span className="text-sm font-bold text-[#5A626A] font-sans">Pints</span>
               </div>
@@ -359,32 +370,32 @@ export default function InventoryManager() {
               className="absolute inset-0 w-full h-full object-cover pointer-events-none"
               style={{ transform: 'translateZ(0)' }}
             />
-            {/* Live Cryo Telemetry Overlays */}
+            {/* Live Storage Monitor Overlays */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 pointer-events-none" />
             
             <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-xs pointer-events-none">
               <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white font-bold">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                Blood Bank Sensor Bay 01
+                Cold Storage Unit 01
               </span>
               <span className="px-2.5 py-0.5 rounded-full bg-[#D72638]/90 text-white font-mono font-bold text-[11px] shadow-xs">
-                Deep-Cold Storage 60fps
+                Active Cold Monitoring
               </span>
             </div>
 
             <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white pointer-events-none">
               <div>
                 <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Chamber Environment</span>
-                <span className="text-sm font-black font-mono">Core Temp: 4.0°C Stable</span>
+                <span className="text-sm font-black font-mono">Temp: 4.0°C Safe</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">LN2 Vapor Seal</span>
+                  <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Door Seal</span>
                   <span className="text-sm font-black text-emerald-400 font-mono">100% Sealed</span>
                 </div>
                 <div className="text-right border-l border-white/20 pl-3">
-                  <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Thermal Vacuum</span>
-                  <span className="text-sm font-black text-white font-mono">0.02 mbar</span>
+                  <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Storage Health</span>
+                  <span className="text-sm font-black text-white font-mono">Optimal</span>
                 </div>
               </div>
             </div>
@@ -395,35 +406,35 @@ export default function InventoryManager() {
             <div>
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/20 mb-2">
                 <Database className="w-3.5 h-3.5 text-[#D72638]" />
-                <span>Storage Temperature Integrity</span>
+                <span>Cold Storage Safety</span>
               </div>
               <h2 className="text-lg sm:text-xl font-black text-[#1A1D20] tracking-tight">
-                Sub-Zero Whole Blood & Packed Red Cell Preservation
+                Temperature Controlled Blood Bank Storage
               </h2>
               <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
-                Autonomous thermal surveillance actively maintaining CPD/SAGM blood packs within the strict AABB +2°C to +6°C clinical refrigeration corridor.
+                Medical cold-storage kept between 2°C and 6°C ensures all donated blood units remain completely fresh, safe, and ready for transfusion.
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]">
-                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Reserve Saturation</span>
+                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Total Blood Stock</span>
                 <span className="text-sm font-black text-[#1A1D20] mt-0.5 block truncate">{totalUnits} / 160 Pints</span>
-                <span className="text-[10px] text-[#5A626A] mt-0.5 block">{capacityPercent}% Banked</span>
+                <span className="text-[10px] text-[#5A626A] mt-0.5 block">{capacityPercent}% of capacity</span>
               </div>
               <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]">
-                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Deficit Alleles</span>
+                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Low Blood Groups</span>
                 <span className={`text-sm font-black mt-0.5 block truncate ${criticalGroupsCount > 0 ? 'text-[#D72638]' : 'text-emerald-700'}`}>
                   {criticalGroupsCount} Groups Low
                 </span>
-                <span className="text-[10px] text-[#5A626A] mt-0.5 block">Threshold: &lt;5 Pts</span>
+                <span className="text-[10px] text-[#5A626A] mt-0.5 block">Less than 5 Pints</span>
               </div>
             </div>
 
             <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span className="text-emerald-900 font-semibold text-xs">AABB Cold-Chain Storage Standard</span>
+                <span className="text-emerald-900 font-semibold text-xs">Medical Cold-Chain Standards</span>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 font-bold text-[10px]">
                 CERTIFIED
@@ -446,23 +457,23 @@ export default function InventoryManager() {
             <div className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-[#D72638]" />
               <h2 className="font-bold text-base text-[#1A1D20]">
-                Comparative Stock Level Distribution Matrix
+                Blood Stock Levels by Group
               </h2>
             </div>
             <p className="text-xs text-[#5A626A] mt-0.5">
-              Live capacity visualization with baseline 20-pint safety target threshold per allele.
+              Available blood units for each blood group compared to the 20-pint full capacity goal.
             </p>
           </div>
 
           <div className="flex items-center gap-3 text-xs shrink-0">
             <span className="flex items-center gap-1.5 text-[#5A626A]">
-              <span className="w-2.5 h-2.5 rounded-sm bg-red-500"></span> Deficit (&lt;5)
+              <span className="w-2.5 h-2.5 rounded-sm bg-red-500"></span> Low (&lt;5)
             </span>
             <span className="flex items-center gap-1.5 text-[#5A626A]">
-              <span className="w-2.5 h-2.5 rounded-sm bg-amber-500"></span> Low (5-14)
+              <span className="w-2.5 h-2.5 rounded-sm bg-amber-500"></span> Medium (5-14)
             </span>
             <span className="flex items-center gap-1.5 text-[#5A626A]">
-              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span> Optimal (≥15)
+              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span> High (≥15)
             </span>
           </div>
         </div>
@@ -527,15 +538,15 @@ export default function InventoryManager() {
         {/* Slicer Pills */}
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-bold text-[#5A626A] mr-2 flex items-center gap-1">
-            <Filter className="w-3.5 h-3.5 text-[#D72638]" /> Slicers:
+            <Filter className="w-3.5 h-3.5 text-[#D72638]" /> Filter:
           </span>
 
           {[
-            { id: 'ALL', label: `All Alleles (${inventory.length})` },
-            { id: 'CRITICAL', label: `Critical Deficit (<5)` },
-            { id: 'UNIVERSAL', label: 'Universal (O-)' },
-            { id: 'RH_NEG', label: 'Rh- Negative' },
-            { id: 'RH_POS', label: 'Rh+ Positive' },
+            { id: 'ALL', label: `All Groups (${inventory.length})` },
+            { id: 'CRITICAL', label: `Low Stock (<5)` },
+            { id: 'UNIVERSAL', label: 'Universal Donor (O-)' },
+            { id: 'RH_NEG', label: 'Rh Negative (-)' },
+            { id: 'RH_POS', label: 'Rh Positive (+)' },
           ].map(slicer => (
             <button
               key={slicer.id}
@@ -586,7 +597,7 @@ export default function InventoryManager() {
                 <div className="flex items-start justify-between gap-2 mb-3">
                   <div className="flex items-center gap-3">
                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] flex flex-col items-center justify-center font-black text-white shadow-md shadow-[#D72638]/20 border border-[#D72638]/40 shrink-0">
-                      <span className="text-[9px] uppercase font-bold text-red-100 tracking-wider">Type</span>
+                      <span className="text-[9px] uppercase font-bold text-red-100 tracking-wider">Group</span>
                       <span className="text-lg leading-tight">{item.bloodType}</span>
                     </div>
                     <div>
@@ -596,8 +607,8 @@ export default function InventoryManager() {
                       <div className="text-[11px] text-[#7A0C17] font-semibold mt-0.5">
                         {item.bloodType === 'O-' ? 'Universal Red Cell Donor' :
                          item.bloodType === 'AB+' ? 'Universal Red Cell Recipient' :
-                         item.bloodType.includes('-') ? 'Rare Rh- Transfusion Allele' :
-                         'Standard Rh+ Allele'}
+                         item.bloodType.includes('-') ? 'Rh Negative (Rh-)' :
+                         'Rh Positive (Rh+)'}
                       </div>
                     </div>
                   </div>
@@ -623,7 +634,7 @@ export default function InventoryManager() {
                       {item.unitsAvailable}
                     </div>
                     <div className="text-[10px] uppercase font-bold text-[#5A626A] mt-1">
-                      Pints Available in Blood Bank
+                      Pints Available
                     </div>
                     <div className="text-[10px] font-mono font-bold text-[#7A0C17] mt-0.5">
                       {pct}% of 20-Pt Goal
@@ -633,13 +644,13 @@ export default function InventoryManager() {
 
                 {/* Health Badge */}
                 <div className="flex items-center justify-between text-xs mb-3">
-                  <span className="text-[#5A626A] font-semibold">Reserve Health:</span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                    isCritical ? 'bg-red-100 text-[#D72638] border-red-200 font-black animate-pulse' :
+                  <span className="text-[#5A626A] font-semibold">Blood Level:</span>
+                  <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                    isCritical ? 'bg-red-100 text-[#D72638] border-red-200' :
                     isLow ? 'bg-amber-100 text-amber-800 border-amber-200' :
                     'bg-emerald-100 text-emerald-800 border-emerald-200'
                   }`}>
-                    {isCritical ? 'CRITICAL SHORTAGE' : isLow ? 'LOW RESERVE' : 'HEALTHY BUFFER'}
+                    {isCritical ? 'Low' : isLow ? 'Medium' : 'High'}
                   </span>
                 </div>
               </div>
@@ -648,10 +659,10 @@ export default function InventoryManager() {
               <div className="pt-2.5 border-t border-[#D9C7C2]/60 flex items-center justify-between text-[11px]">
                 <span className="flex items-center gap-1.5 font-mono text-slate-500">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span>Dynamic Stream</span>
+                  <span>Central Blood Bank</span>
                 </span>
                 <span className="font-mono font-bold text-[#7A0C17]">
-                  4.0°C Monitored
+                  4.0°C Safe
                 </span>
               </div>
             </div>

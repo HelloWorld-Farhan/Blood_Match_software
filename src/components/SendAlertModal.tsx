@@ -150,10 +150,10 @@ export default function SendAlertModal({
               </div>
               <div>
                 <h3 className="text-base font-bold text-[#1A1D20] tracking-tight">
-                  Dispatch Emergency Blood Alert
+                  Send Emergency Blood Alert
                 </h3>
                 <p className="text-xs text-[#5A626A]">
-                  Official Support Node • Real-Time Voluntary Donor Mobilization
+                  Send an urgent email notification to this verified donor
                 </p>
               </div>
             </div>
@@ -328,17 +328,17 @@ export default function SendAlertModal({
                 {isSubmitting ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Transmitting Official Alert...</span>
+                    <span>Sending Alert...</span>
                   </>
                 ) : isSuccess ? (
                   <>
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Dispatched Successfully!</span>
+                    <span>Alert Sent Successfully!</span>
                   </>
                 ) : (
                   <>
                     <Send className="w-3.5 h-3.5" />
-                    <span>Send Alert via Official Support</span>
+                    <span>Send Emergency Blood Alert</span>
                   </>
                 )}
               </button>

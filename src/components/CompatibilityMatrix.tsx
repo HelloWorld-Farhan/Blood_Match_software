@@ -53,13 +53,13 @@ export default function CompatibilityMatrix() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/30 mb-2">
             <BarChart3 className="w-3.5 h-3.5 text-[#D72638]" />
-            <span>Power BI Cross-Match Standards</span>
+            <span>Safe Blood Matching Guide</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-[#1A1D20] tracking-tight">
-            ABO & RhD Compatibility Matrix
+            Blood Group Compatibility Guide
           </h1>
           <p className="text-xs sm:text-sm text-[#5A626A] mt-1 max-w-2xl">
-            Select any blood group below to visualize safe donation targets and compatible donor red cells.
+            Select any blood group below to see which groups can safely give or receive blood.
           </p>
         </div>
 
@@ -122,17 +122,17 @@ export default function CompatibilityMatrix() {
 
             <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white pointer-events-none">
               <div>
-                <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Active Cross-Match Focus</span>
-                <span className="text-sm font-black font-mono">Allele: Group {selectedType} ({selectedInfo.rhFactor ? 'Rh+' : 'Rh-'})</span>
+                <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Active Blood Group</span>
+                <span className="text-sm font-black font-mono">Blood Group {selectedType} ({selectedInfo.rhFactor ? 'Rh+' : 'Rh-'})</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Sequencing Confidence</span>
-                  <span className="text-sm font-black text-emerald-400 font-mono">99.98%</span>
+                  <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Match Accuracy</span>
+                  <span className="text-sm font-black text-emerald-400 font-mono">100% Verified</span>
                 </div>
                 <div className="text-right border-l border-white/20 pl-3">
-                  <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">AABB Verification</span>
-                  <span className="text-sm font-black text-white font-mono">Protocol 4.2</span>
+                  <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Safety Standard</span>
+                  <span className="text-sm font-black text-white font-mono">Medical Standard</span>
                 </div>
               </div>
             </div>
@@ -143,33 +143,33 @@ export default function CompatibilityMatrix() {
             <div>
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/20 mb-2">
                 <Dna className="w-3.5 h-3.5 text-[#D72638]" />
-                <span>Molecular Antigen Profiling</span>
+                <span>How Blood Matching Works</span>
               </div>
               <h2 className="text-lg sm:text-xl font-black text-[#1A1D20] tracking-tight">
-                Antigen / Antibody Double-Helix Compatibility
+                Safe Donor &amp; Recipient Rules
               </h2>
               <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
-                Autonomous molecular serology simulation mapping surface agglutinogens against recipient plasma agglutinins to prevent acute hemolytic transfusion reactions.
+                Different blood groups have natural proteins. Giving the wrong blood group can cause harmful clumping, so matching donor and recipient blood types is essential for safe transfusions.
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]">
-                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Surface Antigens</span>
+                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Red Cell Antigens</span>
                 <span className="text-sm font-black text-[#1A1D20] mt-0.5 block truncate">{selectedInfo.antigens}</span>
-                <span className="text-[10px] text-[#5A626A] mt-0.5 block">Expressed on RBC</span>
+                <span className="text-[10px] text-[#5A626A] mt-0.5 block">Proteins on red blood cells</span>
               </div>
               <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]">
-                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Serum Antibodies</span>
+                <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Plasma Antibodies</span>
                 <span className="text-sm font-black text-[#D72638] mt-0.5 block truncate">{selectedInfo.antibodies}</span>
-                <span className="text-[10px] text-[#5A626A] mt-0.5 block">Present in plasma</span>
+                <span className="text-[10px] text-[#5A626A] mt-0.5 block">Defenses in blood liquid</span>
               </div>
             </div>
 
             <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-xs">
               <div className="flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                <span className="text-emerald-900 font-semibold text-xs">Pre-Transfusion Triage Clearance</span>
+                <span className="text-emerald-900 font-semibold text-xs">Transfusion Safety Check</span>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 font-bold text-[10px]">
                 PASSED
@@ -242,7 +242,7 @@ export default function CompatibilityMatrix() {
 
           <div className="mt-4 pt-3 border-t border-[#D9C7C2]/60 text-[11px] text-[#5A626A] flex items-center gap-1.5">
             <Info className="w-3.5 h-3.5 text-[#D72638] shrink-0" />
-            <span>Strict antigenic matching safeguards patient hemodynamics.</span>
+            <span>Matching blood types ensures safe transfusions without harmful reactions.</span>
           </div>
         </motion.div>
 

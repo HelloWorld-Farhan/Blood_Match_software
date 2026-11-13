@@ -102,13 +102,13 @@ export function generateEmergencyDonorDocketPdf(
   doc.setFillColor(250, 248, 247); // #FAF8F7
   doc.setDrawColor(217, 199, 194); // #D9C7C2
   doc.setLineWidth(0.4);
-  doc.roundedRect(marginX, currentY, contentWidth, 31, 2.5, 2.5, 'FD');
+  doc.roundedRect(marginX, currentY, contentWidth, 38, 2.5, 2.5, 'FD');
 
   // Section Label
   doc.setTextColor(122, 12, 23); // #7A0C17
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
-  doc.text('● EMERGENCY TRANSFUSION SPECIFICATIONS', marginX + 4, currentY + 6.5);
+  doc.text('● EMERGENCY TRANSFUSION SPECIFICATIONS & CLINICAL TRIAGE', marginX + 4, currentY + 6.5);
 
   // Col 1: Patient Details (x: 18)
   const patientVal = metadata.patientName ? metadata.patientName.trim() : 'Emergency Trauma Patient';
@@ -118,20 +118,20 @@ export function generateEmergencyDonorDocketPdf(
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(117, 128, 138); // #75808A
-  doc.text('PATIENT IDENTIFIER', marginX + 4, currentY + 13);
+  doc.text('PATIENT IDENTIFIER', marginX + 4, currentY + 12.5);
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(26, 29, 32);
-  doc.text(`${patientVal} (${ageVal})`, marginX + 4, currentY + 18);
+  doc.text(`${patientVal} (${ageVal})`, marginX + 4, currentY + 17);
 
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(117, 128, 138);
-  doc.text('TRIAGE URGENCY TIER', marginX + 4, currentY + 23.5);
+  doc.text('TRIAGE URGENCY TIER', marginX + 4, currentY + 22);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(215, 38, 56);
-  doc.text(urgencyVal, marginX + 4, currentY + 28);
+  doc.text(urgencyVal, marginX + 4, currentY + 26.5);
 
   // Col 2: Units & Locality (x: 82)
   const unitsVal = `${metadata.unitsNeeded || 2} Pints (Screened RBC)`;
@@ -140,27 +140,38 @@ export function generateEmergencyDonorDocketPdf(
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(117, 128, 138);
-  doc.text('VOLUME REQUIRED', marginX + 66, currentY + 13);
+  doc.text('VOLUME REQUIRED', marginX + 66, currentY + 12.5);
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(26, 29, 32);
-  doc.text(unitsVal, marginX + 66, currentY + 18);
+  doc.text(unitsVal, marginX + 66, currentY + 17);
 
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(117, 128, 138);
-  doc.text('SEARCH LOCALITY', marginX + 66, currentY + 23.5);
+  doc.text('SEARCH LOCALITY / HOSPITAL', marginX + 66, currentY + 22);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(90, 98, 106);
   const safeLoc = localityVal.length > 34 ? localityVal.slice(0, 34) + '...' : localityVal;
-  doc.text(safeLoc, marginX + 66, currentY + 28);
+  doc.text(safeLoc, marginX + 66, currentY + 26.5);
+
+  // Row 3: Emergency Dispatch Contact
+  doc.setFontSize(7);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(117, 128, 138);
+  doc.text('EMERGENCY CONTACT & AUTHORIZATION:', marginX + 4, currentY + 32.5);
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(26, 29, 32);
+  const contactText = `${metadata.contactName || 'Attending Clinician'} • Phone: ${metadata.emergencyPhone || 'N/A'}`;
+  doc.text(contactText, marginX + 58, currentY + 32.5);
 
   // Col 3: Prominent Blood Group Badge (x: 146)
   const badgeWidth = 34;
-  const badgeHeight = 23;
+  const badgeHeight = 26;
   const badgeX = pageWidth - marginX - badgeWidth - 4;
-  const badgeY = currentY + 4;
+  const badgeY = currentY + 5;
 
   doc.setFillColor(255, 240, 241); // #FFF0F1
   doc.setDrawColor(255, 212, 215); // #FFD4D7
@@ -170,14 +181,14 @@ export function generateEmergencyDonorDocketPdf(
   doc.setTextColor(215, 38, 56);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text(metadata.recipientBloodType, badgeX + badgeWidth / 2, badgeY + 13, { align: 'center' });
+  doc.text(metadata.recipientBloodType, badgeX + badgeWidth / 2, badgeY + 14, { align: 'center' });
 
   doc.setFontSize(6.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(122, 12, 23);
-  doc.text('TARGET ABO/Rh', badgeX + badgeWidth / 2, badgeY + 19, { align: 'center' });
+  doc.text('TARGET ABO/Rh', badgeX + badgeWidth / 2, badgeY + 21, { align: 'center' });
 
-  currentY += 36;
+  currentY += 43;
 
   // --- 3. ABO/Rh Compatibility Rule Ribbon ---
   const compatibleGroups = getCompatibleDonorTypes(metadata.recipientBloodType);

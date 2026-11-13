@@ -2,18 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
-import { BloodType, Donor } from '../types';
-import { 
-  Users, 
-  Plus, 
-  Search, 
-  Phone, 
-  MapPin, 
-  Heart, 
-  X, 
-  Mail, 
-  Activity, 
-  ShieldCheck, 
+import { BloodType, Donor, BloodInventoryUnit } from '../types';
+import {
+  Users,
+  Plus,
+  Search,
+  Phone,
+  MapPin,
+  Heart,
+  X,
+  Mail,
+  Activity,
+  ShieldCheck,
   BarChart3,
   Navigation,
   CheckCircle2,
@@ -28,28 +28,43 @@ import {
   Trash2,
   Clock
 } from 'lucide-react';
-import { getDonors, saveDonors, deleteDonor as deleteDonorStorage } from '../services/storage';
-import { fetchDonorsApi, sendDonorOtpApi, registerDonorApi, deleteDonorApi } from '../services/api';
-import { COUNTRY_CODES, validatePhoneNumber, validateEmail } from '../utils/countryCodes';
+import { getDonors, saveDonors, deleteDonor as deleteDonorStorage, saveInventory, getInventory } from '../services/storage';
+import { 
+  fetchDonorsApi, 
+  sendDonorOtpApi, 
+  registerDonorApi, 
+  deleteDonorApi,
+  fetchSavedPhonesApi,
+  saveUserPhoneApi,
+  fetchVerifiedEmailsApi,
+  saveUserVerifiedEmailApi
+} from '../services/api';
+import { 
+  COUNTRY_CODES, 
+  validatePhoneNumber, 
+  validateEmail,
+  parsePhoneNumberWithCountry,
+  formatFullPhone
+} from '../utils/countryCodes';
 import { BLOOD_COMPATIBILITY_TABLE } from '../utils/bloodCompatibility';
 import { reverseGeocodeCoordinates } from '../utils/geolocation';
 import ClinicalCallModal from './ClinicalCallModal';
 import SendAlertModal, { TargetDonorSummary } from './SendAlertModal';
 
 const scrollBlurVariants: Variants = {
-  hidden: { 
-    opacity: 0, 
-    y: 24, 
+  hidden: {
+    opacity: 0,
+    y: 24,
     filter: 'blur(12px)',
     scale: 0.985,
   },
-  visible: { 
-    opacity: 1, 
-    y: 0, 
+  visible: {
+    opacity: 1,
+    y: 0,
     filter: 'blur(0px)',
     scale: 1,
-    transition: { 
-      duration: 0.55, 
+    transition: {
+      duration: 0.55,
       ease: [0.22, 1, 0.36, 1],
     },
   },
@@ -79,6 +94,9 @@ export default function DonorRegistry() {
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
 
   const [donors, setDonors] = useState<Donor[]>([]);
+  const donorsRef = useRef<Donor[]>(donors);
+  donorsRef.current = donors;
+  const isFetchingRef = useRef<boolean>(false);
   const [search, setSearch] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<string>('ALL');
   // State for in-app Clinical Mobilize Call modal (eliminates native browser OS prompt)
@@ -111,14 +129,21 @@ export default function DonorRegistry() {
     if (highlightParam) {
       setHighlightedId(highlightParam);
       setExpandedDonorIds(prev => new Set(prev).add(highlightParam));
-      setTimeout(() => {
+      const scrollTimer = setTimeout(() => {
         const el = document.getElementById(`donor-card-${highlightParam}`);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }, 400);
+      const unhighlightTimer = setTimeout(() => {
+        setHighlightedId(null);
+      }, 2500);
+      return () => {
+        clearTimeout(scrollTimer);
+        clearTimeout(unhighlightTimer);
+      };
     }
-  }, [highlightParam, donors.length]);
+  }, [highlightParam]);
 
   // Modal lifecycle states: FORM -> OTP -> SUCCESS
   const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
@@ -127,17 +152,32 @@ export default function DonorRegistry() {
   // Form input states (Neutral zero-default state)
   const [fullName, setFullName] = useState('');
   const [bloodType, setBloodType] = useState<BloodType | ''>('');
-  const [age, setAge] = useState<number | ''>('');
+  const [age, setAge] = useState<string>('');
   const [gender, setGender] = useState<Donor['gender'] | ''>('');
-  const [countryDialCode, setCountryDialCode] = useState<string>('+91');
-  const [phone, setPhone] = useState('');
+  // User account phone
+  const userAccountPhone = typeof window !== 'undefined'
+    ? (sessionStorage.getItem('bloodmatch_user_phone') || localStorage.getItem('bloodmatch_user_phone') || '').trim()
+    : '';
+
+  // Current logged in clinician / account email
+  const currentUserEmail = typeof window !== 'undefined'
+    ? (sessionStorage.getItem('bloodmatch_user_email') || localStorage.getItem('bloodmatch_user_email') || '').trim().toLowerCase()
+    : '';
+
+  const initialParsedPhone = parsePhoneNumberWithCountry(userAccountPhone);
+  const [countryDialCode, setCountryDialCode] = useState<string>(initialParsedPhone.dialCode || '+91');
+  const [phone, setPhone] = useState(initialParsedPhone.number || '');
   const [email, setEmail] = useState('');
+  const [phoneAnimate, setPhoneAnimate] = useState<boolean>(false);
+  const [emailAnimate, setEmailAnimate] = useState<boolean>(false);
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [location, setLocation] = useState('');
   const [detectedSuggestions, setDetectedSuggestions] = useState<string[]>([]);
   const [consentChecked, setConsentChecked] = useState<boolean>(false);
+  const [contactShareConsent, setContactShareConsent] = useState<boolean>(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [donorToDelete, setDonorToDelete] = useState<Donor | null>(null);
 
   // Geolocation detector states
   const [isDetectingLocation, setIsDetectingLocation] = useState<boolean>(false);
@@ -154,29 +194,104 @@ export default function DonorRegistry() {
   const [devOtp, setDevOtp] = useState<string | null>(null);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Current logged in clinician / account email
-  const currentUserEmail = typeof window !== 'undefined'
-    ? (sessionStorage.getItem('bloodmatch_user_email') || localStorage.getItem('bloodmatch_user_email') || '').trim().toLowerCase()
-    : '';
+  // Saved phone numbers for instant click-to-fill & cross-device sync
+  const [savedPhones, setSavedPhones] = useState<string[]>(() => {
+    try {
+      const userKey = `bloodmatch_saved_phones_${currentUserEmail || 'default'}`;
+      const stored = localStorage.getItem(userKey);
+      let list = stored ? JSON.parse(stored) : [];
+      if (!Array.isArray(list)) list = [];
+      if (userAccountPhone && !list.includes(userAccountPhone)) {
+        list.unshift(userAccountPhone);
+      }
+      return list;
+    } catch {
+      return userAccountPhone ? [userAccountPhone] : [];
+    }
+  });
 
   // Persistent verified emails memory
   const [verifiedEmails, setVerifiedEmails] = useState<string[]>(() => {
     try {
       const stored = localStorage.getItem('bloodmatch_verified_emails');
       const list = stored ? JSON.parse(stored) : [];
-      return Array.isArray(list) ? list.map((e: string) => e.toLowerCase().trim()) : [];
+      const cleanList = Array.isArray(list) ? list.map((e: string) => e.toLowerCase().trim()) : [];
+      if (currentUserEmail && !cleanList.includes(currentUserEmail)) {
+        cleanList.unshift(currentUserEmail);
+      }
+      return cleanList;
     } catch {
-      return [];
+      return currentUserEmail ? [currentUserEmail] : [];
     }
   });
 
-  const isEmailVerified = Boolean(
-    email.trim() && (
-      (currentUserEmail && email.trim().toLowerCase() === currentUserEmail) ||
-      verifiedEmails.includes(email.trim().toLowerCase())
-    )
-  );
+  // Cross-device sync hydration from backend
+  useEffect(() => {
+    if (currentUserEmail) {
+      fetchSavedPhonesApi(currentUserEmail).then(res => {
+        if (res.ok && res.data && Array.isArray(res.data.saved_phones)) {
+          const fetchedPhones = res.data.saved_phones;
+          setSavedPhones(prev => {
+            const combined = [...fetchedPhones];
+            prev.forEach(p => { if (!combined.includes(p)) combined.push(p); });
+            try {
+              localStorage.setItem(`bloodmatch_saved_phones_${currentUserEmail}`, JSON.stringify(combined));
+            } catch { }
+            return combined;
+          });
+        }
+      }).catch(() => {});
 
+      fetchVerifiedEmailsApi(currentUserEmail).then(res => {
+        if (res.ok && res.data && Array.isArray(res.data.verified_emails)) {
+          const fetchedEmails = res.data.verified_emails;
+          setVerifiedEmails(prev => {
+            const combined = [...fetchedEmails];
+            prev.forEach(e => { if (!combined.includes(e)) combined.push(e); });
+            try {
+              localStorage.setItem('bloodmatch_verified_emails', JSON.stringify(combined));
+            } catch { }
+            return combined;
+          });
+        }
+      }).catch(() => {});
+    }
+  }, [currentUserEmail]);
+
+  // Click-to-fill phone with smooth pulse animation
+  const handleSelectPhone = (phoneStr: string) => {
+    const parsed = parsePhoneNumberWithCountry(phoneStr);
+    setCountryDialCode(parsed.dialCode);
+    setPhone(parsed.number);
+    if (formErrors.phone) setFormErrors(prev => ({ ...prev, phone: '' }));
+    setPhoneAnimate(true);
+    setTimeout(() => setPhoneAnimate(false), 1600);
+  };
+
+  // Save phone to state, localStorage, and backend
+  const saveCustomPhone = (phoneStr: string) => {
+    const clean = phoneStr.trim();
+    if (!clean) return;
+    setSavedPhones(prev => {
+      if (prev.includes(clean)) return prev;
+      const updated = [...prev, clean];
+      try {
+        localStorage.setItem(`bloodmatch_saved_phones_${currentUserEmail || 'default'}`, JSON.stringify(updated));
+      } catch { }
+      return updated;
+    });
+    saveUserPhoneApi(clean, currentUserEmail).catch(() => {});
+  };
+
+  // Click-to-fill verified email with smooth pulse animation
+  const handleSelectVerifiedEmail = (emailStr: string) => {
+    setEmail(emailStr.trim());
+    if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
+    setEmailAnimate(true);
+    setTimeout(() => setEmailAnimate(false), 1600);
+  };
+
+  // Save verified email to state, localStorage, and backend
   const saveVerifiedEmail = (em: string) => {
     const clean = em.trim().toLowerCase();
     if (!clean) return;
@@ -185,20 +300,59 @@ export default function DonorRegistry() {
       const updated = [...prev, clean];
       try {
         localStorage.setItem('bloodmatch_verified_emails', JSON.stringify(updated));
-      } catch {}
+      } catch { }
       return updated;
     });
+    saveUserVerifiedEmailApi(clean, currentUserEmail).catch(() => {});
   };
+
+  const isEmailVerified = Boolean(
+    email.trim() && (
+      (currentUserEmail && email.trim().toLowerCase() === currentUserEmail) ||
+      verifiedEmails.includes(email.trim().toLowerCase())
+    )
+  );
 
   const bloodTypes: BloodType[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
-  // Global cross-device sync & local cache loader
-  const loadDonors = async () => {
-    // 1. Initial local cache presentation for instant render
-    const cached = getDonors();
-    if (cached && cached.length > 0) {
-      setDonors(cached);
+  // Fast structural equality check to prevent needless re-renders & blinking
+  const areDonorsIdentical = (a: Donor[], b: Donor[]): boolean => {
+    if (a === b) return true;
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      const da = a[i];
+      const db = b[i];
+      if (
+        da.id !== db.id ||
+        da.fullName !== db.fullName ||
+        da.bloodType !== db.bloodType ||
+        da.phone !== db.phone ||
+        da.email !== db.email ||
+        da.user_email !== db.user_email ||
+        da.isAvailable !== db.isAvailable ||
+        da.unitsDonatedTotal !== db.unitsDonatedTotal ||
+        da.location !== db.location
+      ) {
+        return false;
+      }
     }
+    return true;
+  };
+
+  // Global cross-device sync & local cache loader
+  const loadDonors = async (force: boolean = false) => {
+    // 1. Initial local cache presentation on cold start only
+    if (donorsRef.current.length === 0) {
+      const cached = getDonors();
+      if (cached && cached.length > 0) {
+        donorsRef.current = cached;
+        setDonors(cached);
+      }
+    }
+
+    // Guard against concurrent overlapping requests
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
 
     // 2. Fetch fresh live records from backend database
     try {
@@ -222,32 +376,55 @@ export default function DonorRegistry() {
           registeredAt: d.created_at || d.registeredAt || new Date().toISOString(),
           unitsDonatedTotal: d.units_donated_total ?? d.unitsDonatedTotal ?? 0,
         }));
-        setDonors(mapped);
-        saveDonors(mapped);
+
+        if (force || !areDonorsIdentical(donorsRef.current, mapped)) {
+          donorsRef.current = mapped;
+          setDonors(mapped);
+          saveDonors(mapped, false);
+          saveInventory(getInventory(), false);
+        }
       }
     } catch {
       // Quiet background fallback to cached state
+    } finally {
+      isFetchingRef.current = false;
     }
   };
 
   useEffect(() => {
-    loadDonors();
+    loadDonors(true);
 
-    // Listen for storage / cross-tab updates
-    const handleStorageUpdate = () => loadDonors();
+    // Cross-tab real-time sync via browser native storage event
+    const handleStorageUpdate = (e: StorageEvent) => {
+      if (!e.key || e.key.includes('bloodmatch_donors') || e.key.includes('bloodmatch_inventory')) {
+        loadDonors();
+      }
+    };
     window.addEventListener('storage', handleStorageUpdate);
-    window.addEventListener('bloodmatch_donors_updated', handleStorageUpdate);
 
-    // Calm cross-device sync polling every 60 seconds (active tab only)
+    const handleCustomUpdate = () => loadDonors();
+    window.addEventListener('bloodmatch_donors_updated', handleCustomUpdate);
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        loadDonors();
+      }
+    };
+    window.addEventListener('focus', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+
+    // Real-Time cross-device sync polling (4-second cadence on active tab)
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
         loadDonors();
       }
-    }, 60000);
+    }, 4000);
 
     return () => {
       window.removeEventListener('storage', handleStorageUpdate);
-      window.removeEventListener('bloodmatch_donors_updated', handleStorageUpdate);
+      window.removeEventListener('bloodmatch_donors_updated', handleCustomUpdate);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
       clearInterval(interval);
     };
   }, [selectedFilter, currentUserEmail]);
@@ -338,7 +515,7 @@ export default function DonorRegistry() {
         setIsDetectingLocation(false);
         setFormErrors(prev => ({
           ...prev,
-          location: err.code === 1 
+          location: err.code === 1
             ? 'Location permission was denied. Please allow access in your browser or enter your locality manually.'
             : 'Unable to retrieve GPS coordinates. Please enter your locality manually.',
         }));
@@ -365,6 +542,8 @@ export default function DonorRegistry() {
     setState('');
     setDetectedSuggestions([]);
     setLocationDetectionSuccess(false);
+    setConsentChecked(false);
+    setContactShareConsent(false);
   };
 
   const validateForm = (): boolean => {
@@ -405,7 +584,11 @@ export default function DonorRegistry() {
     }
 
     if (!consentChecked) {
-      errors.consent = 'You must declare voluntary donor eligibility criteria and consent to proceed';
+      errors.consent = 'You must declare voluntary donor eligibility criteria to proceed';
+    }
+
+    if (!contactShareConsent) {
+      errors.contactShare = 'Please agree to share your contact details so callers can reach you in emergencies';
     }
 
     setFormErrors(errors);
@@ -434,6 +617,7 @@ export default function DonorRegistry() {
       });
 
       if (res.ok && res.data) {
+        saveCustomPhone(`${countryDialCode} ${phone.trim()}`);
         saveVerifiedEmail(email);
         setModalStep('SUCCESS');
         await loadDonors();
@@ -576,7 +760,8 @@ export default function DonorRegistry() {
       });
 
       if (res.ok && res.data) {
-        // Successful registration & verification - save email to verified registry!
+        // Successful registration & verification - save phone & email!
+        saveCustomPhone(`${countryDialCode} ${phone.trim()}`);
         saveVerifiedEmail(email);
         setModalStep('SUCCESS');
         await loadDonors();
@@ -596,7 +781,9 @@ export default function DonorRegistry() {
     setBloodType('');
     setAge('');
     setGender('');
-    setPhone('');
+    const parsed = parsePhoneNumberWithCountry(userAccountPhone);
+    setCountryDialCode(parsed.dialCode || '+91');
+    setPhone(parsed.number || '');
     setEmail('');
     setLocation('');
     setCity('');
@@ -604,6 +791,7 @@ export default function DonorRegistry() {
     setDetectedSuggestions([]);
     setLocationDetectionSuccess(false);
     setConsentChecked(false);
+    setContactShareConsent(false);
     setFormErrors({});
     setIsOpenModal(false);
     setModalStep('FORM');
@@ -611,26 +799,48 @@ export default function DonorRegistry() {
     setDevOtp(null);
   };
 
-  // Owner-Only Donor Deletion Handler (Zero deletion notification dispatched)
-  const handleDeleteDonor = async (donorId: string, e: React.MouseEvent) => {
+  // Owner-Only Donor Deletion Modal Trigger
+  const handleOpenDeleteModal = (donor: Donor, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm('Are you sure you want to remove your voluntary blood donor pledge from the active registry? This will immediately update the blood bank reserve.')) {
-      return;
-    }
+    setDonorToDelete(donor);
+  };
 
+  // Confirmed Donor Deletion Executor (Zero deletion notification dispatched)
+  const handleConfirmDelete = async () => {
+    if (!donorToDelete) return;
+    const donorId = donorToDelete.id;
     setIsDeletingId(donorId);
     try {
-      if (currentUserEmail) {
-        await deleteDonorApi(donorId, currentUserEmail);
+      const effectiveEmail = currentUserEmail || donorToDelete.user_email || donorToDelete.email || '';
+      const res = await deleteDonorApi(donorId, effectiveEmail);
+      if (res.ok && res.data?.inventory) {
+        const mappedInv: BloodInventoryUnit[] = res.data.inventory.map((item: any) => ({
+          id: item.id || `INV-${item.blood_type}`,
+          bloodType: (item.blood_type || item.bloodType) as BloodType,
+          unitsAvailable: item.units_available ?? 0,
+          storageFacility: 'Central Blood Bank',
+          lastTestedDate: item.last_tested_date || new Date().toISOString().split('T')[0],
+          status: item.status || 'critical',
+          temperatureCelsius: item.temperature_celsius ?? 4.0,
+        }));
+        saveInventory(mappedInv);
       }
       deleteDonorStorage(donorId);
       setDonors(prev => prev.filter(d => d.id !== donorId));
       setExpandedDonorIds(prev => { const n = new Set(prev); n.delete(donorId); return n; });
-      // Strictly: Zero deletion notification is dispatched
+      saveInventory(getInventory());
+      window.dispatchEvent(new CustomEvent('bloodmatch_inventory_updated'));
+      window.dispatchEvent(new CustomEvent('bloodmatch_donors_updated'));
+      window.dispatchEvent(new Event('storage'));
     } catch {
-      // Quiet background deletion fallback
+      deleteDonorStorage(donorId);
+      setDonors(prev => prev.filter(d => d.id !== donorId));
+      saveInventory(getInventory());
+      window.dispatchEvent(new CustomEvent('bloodmatch_inventory_updated'));
+      window.dispatchEvent(new CustomEvent('bloodmatch_donors_updated'));
     } finally {
       setIsDeletingId(null);
+      setDonorToDelete(null);
     }
   };
 
@@ -638,7 +848,7 @@ export default function DonorRegistry() {
   const query = search.toLowerCase().trim();
   const filteredDonors = donors.filter(d => {
     const matchesFilter = selectedFilter === 'ALL' || d.bloodType === selectedFilter;
-    const matchesSearch = 
+    const matchesSearch =
       !query ||
       d.fullName.toLowerCase().includes(query) ||
       d.city.toLowerCase().includes(query) ||
@@ -650,14 +860,14 @@ export default function DonorRegistry() {
   });
 
   // Partition into: 1. Current logged-in user's pledges (PINNED AT TOP) and 2. Community donors
-  const myPledges = filteredDonors.filter(d => 
+  const myPledges = filteredDonors.filter(d =>
     Boolean(currentUserEmail) && (
       (d.user_email && d.user_email.toLowerCase() === currentUserEmail) ||
       (d.email && d.email.toLowerCase() === currentUserEmail)
     )
   );
 
-  const communityDonors = filteredDonors.filter(d => 
+  const communityDonors = filteredDonors.filter(d =>
     !Boolean(currentUserEmail) || !(
       (d.user_email && d.user_email.toLowerCase() === currentUserEmail) ||
       (d.email && d.email.toLowerCase() === currentUserEmail)
@@ -667,7 +877,7 @@ export default function DonorRegistry() {
   return (
     <div className="space-y-6 sm:space-y-8 pb-2 sm:pb-3 relative z-10">
       {/* Header */}
-      <motion.div 
+      <motion.div
         variants={scrollBlurVariants}
         initial="hidden"
         whileInView="visible"
@@ -677,13 +887,13 @@ export default function DonorRegistry() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/30 mb-2">
             <BarChart3 className="w-3.5 h-3.5 text-[#D72638]" />
-            <span>Power BI Voluntary Network</span>
+            <span>Volunteer Donor Community</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-[#1A1D20] tracking-tight">
-            Certified Voluntary Blood Donor Registry
+            Volunteer Blood Donor Registry
           </h1>
           <p className="text-xs sm:text-sm text-[#5A626A] mt-1 max-w-xl">
-            Live directory of screened voluntary blood donors across Delhi & nationwide standby pools, synchronized across all authenticated clinical terminals.
+            Find and contact verified volunteer donors near you by blood group and location.
           </p>
         </div>
 
@@ -701,7 +911,7 @@ export default function DonorRegistry() {
       </motion.div>
 
       {/* Featured Apheresis Mobilization Live Monitor */}
-      <motion.div 
+      <motion.div
         variants={scrollBlurVariants}
         initial="hidden"
         whileInView="visible"
@@ -709,7 +919,7 @@ export default function DonorRegistry() {
         className="p-5 sm:p-6 rounded-2xl bg-white border border-[#D9C7C2] shadow-sm overflow-hidden"
       >
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
-          <div 
+          <div
             className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black h-[220px] xs:h-[260px] sm:h-[300px] flex items-center justify-center"
             style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
           >
@@ -728,13 +938,13 @@ export default function DonorRegistry() {
 
             <div className="absolute top-3 left-3 flex items-center gap-2 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white text-xs font-semibold">
               <span className="w-2 h-2 rounded-full bg-[#D72638] animate-ping" />
-              <span>Live Emergency Donor Dispatch Ledger</span>
+              <span>Active Volunteer Donors</span>
             </div>
 
             <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white pointer-events-none">
               <div>
-                <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">National Standby Pool</span>
-                <span className="text-sm font-black font-mono">{donors.length} Screened Voluntary Donors</span>
+                <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Registered Donors</span>
+                <span className="text-sm font-black font-mono">{donors.length} Verified Volunteers</span>
               </div>
               <div className="flex items-center gap-3">
                 <div className="text-right">
@@ -744,8 +954,8 @@ export default function DonorRegistry() {
                   </span>
                 </div>
                 <div className="text-right border-l border-white/20 pl-3">
-                  <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Transfusion Protocol</span>
-                  <span className="text-sm font-black text-white font-mono">AABB 4.2</span>
+                  <span className="text-[10px] text-red-200 uppercase tracking-wider block font-semibold">Safety Protocol</span>
+                  <span className="text-sm font-black text-white font-mono">Standard 4.2</span>
                 </div>
               </div>
             </div>
@@ -755,13 +965,13 @@ export default function DonorRegistry() {
             <div>
               <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/20 mb-2">
                 <Activity className="w-3.5 h-3.5 text-[#D72638]" />
-                <span>Voluntary Donor Mobilization</span>
+                <span>Donor Community</span>
               </div>
               <h2 className="text-lg sm:text-xl font-black text-[#1A1D20] tracking-tight">
-                Live Geocoded Donor Directory
+                Registered Blood Donors
               </h2>
               <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
-                Autonomous cross-device synchronization indexes verified donors by exact locality, blood antibodies, and contact readiness for rapid trauma triage.
+                Directory of verified voluntary blood donors ready to help during hospital transfusion emergencies.
               </p>
             </div>
 
@@ -794,7 +1004,7 @@ export default function DonorRegistry() {
       </motion.div>
 
       {/* Controls & Blood Group Filters */}
-      <motion.div 
+      <motion.div
         variants={scrollBlurVariants}
         initial="hidden"
         whileInView="visible"
@@ -817,11 +1027,10 @@ export default function DonorRegistry() {
             <button
               key={bt}
               onClick={() => setSelectedFilter(bt)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
-                selectedFilter === bt
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${selectedFilter === bt
                   ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/30 scale-105'
                   : 'bg-[#F5F1EF] hover:bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
-              }`}
+                }`}
             >
               {bt}
             </button>
@@ -833,13 +1042,7 @@ export default function DonorRegistry() {
           SECTION 1: YOUR REGISTERED BLOOD PLEDGES (PRIORITY TOP HIGHLIGHT)
           ========================================================================= */}
       {currentUserEmail && (
-        <motion.div
-          variants={scrollBlurVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.1 }}
-          className="space-y-3"
-        >
+        <div className="space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <div className="p-1.5 rounded-lg bg-[#D72638] text-white shadow-xs shrink-0">
@@ -883,19 +1086,13 @@ export default function DonorRegistry() {
               {myPledges.map((donor) => renderDonorCard(donor, true))}
             </div>
           )}
-        </motion.div>
+        </div>
       )}
 
       {/* =========================================================================
           SECTION 2: VERIFIED COMMUNITY DONORS (NETWORK DIRECTORY)
           ========================================================================= */}
-      <motion.div
-        variants={scrollBlurVariants}
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.1 }}
-        className="space-y-3 pt-2"
-      >
+      <div className="space-y-3 pt-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-[#1A1D20] text-white shadow-xs">
@@ -925,17 +1122,17 @@ export default function DonorRegistry() {
             {communityDonors.map((donor) => renderDonorCard(donor, false))}
           </div>
         )}
-      </motion.div>
+      </div>
 
       {/* =========================================================================
           REGISTER DONOR MODAL WITH GPS DELHI LOCATOR & EMAIL OTP (HORIZONTAL TWO-COLUMN LAYOUT)
           ========================================================================= */}
       {isOpenModal && typeof document !== 'undefined' && createPortal(
-        <div 
+        <div
           className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 md:p-6 bg-black/75 backdrop-blur-md animate-fade-in"
           onClick={handleCloseModal}
         >
-          <div 
+          <div
             className="relative w-full max-w-4xl lg:max-w-5xl max-h-[94vh] overflow-y-auto no-scrollbar rounded-3xl bg-white border border-[#D9C7C2] p-5 sm:p-7 md:p-8 shadow-2xl text-[#1A1D20]"
             onClick={(e) => e.stopPropagation()}
           >
@@ -988,9 +1185,8 @@ export default function DonorRegistry() {
                             if (formErrors.fullName) setFormErrors(prev => ({ ...prev, fullName: '' }));
                           }}
                           placeholder="e.g. Farhan Khalid"
-                          className={`w-full px-3 py-2 rounded-xl bg-white border ${
-                            formErrors.fullName ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                          } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                          className={`w-full px-3 py-2 rounded-xl bg-white border ${formErrors.fullName ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                            } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
                         />
                         {formErrors.fullName && (
                           <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.fullName}</p>
@@ -1009,9 +1205,8 @@ export default function DonorRegistry() {
                               setBloodType(e.target.value as BloodType);
                               if (formErrors.bloodType) setFormErrors(prev => ({ ...prev, bloodType: '' }));
                             }}
-                            className={`w-full px-3 py-2 rounded-xl bg-white border ${
-                              formErrors.bloodType ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                            } text-xs text-[#1A1D20] font-bold outline-hidden focus:border-[#D72638] cursor-pointer`}
+                            className={`w-full px-3 py-2 rounded-xl bg-white border ${formErrors.bloodType ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                              } text-xs text-[#1A1D20] font-bold outline-hidden focus:border-[#D72638] cursor-pointer`}
                           >
                             <option value="" disabled>Select Blood Group</option>
                             {bloodTypes.map(t => (
@@ -1033,9 +1228,8 @@ export default function DonorRegistry() {
                               setGender(e.target.value as Donor['gender']);
                               if (formErrors.gender) setFormErrors(prev => ({ ...prev, gender: '' }));
                             }}
-                            className={`w-full px-3 py-2 rounded-xl bg-white border ${
-                              formErrors.gender ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                            } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] cursor-pointer`}
+                            className={`w-full px-3 py-2 rounded-xl bg-white border ${formErrors.gender ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                              } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] cursor-pointer`}
                           >
                             <option value="" disabled>Select Gender</option>
                             <option value="MALE">Male</option>
@@ -1054,19 +1248,21 @@ export default function DonorRegistry() {
                           Age (18 - 65) <span className="text-[#D72638]">*</span>
                         </label>
                         <input
-                          type="number"
-                          min="18"
-                          max="65"
-                          value={age === '' ? '' : age}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          maxLength={3}
+                          autoComplete="off"
+                          value={age}
                           placeholder="e.g. 28"
                           onChange={(e) => {
-                            const val = e.target.value;
-                            setAge(val === '' ? '' : Number(val));
+                            const raw = e.target.value.replace(/\D/g, '');
+                            const clean = raw.replace(/^0+/, '');
+                            setAge(clean);
                             if (formErrors.age) setFormErrors(prev => ({ ...prev, age: '' }));
                           }}
-                          className={`w-full px-3 py-2 rounded-xl bg-white border ${
-                            formErrors.age ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                          } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                          className={`w-full px-3 py-2 rounded-xl bg-white border ${formErrors.age ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                            } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
                         />
                         {formErrors.age && (
                           <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.age}</p>
@@ -1102,11 +1298,32 @@ export default function DonorRegistry() {
                               if (formErrors.phone) setFormErrors(prev => ({ ...prev, phone: '' }));
                             }}
                             placeholder={countryDialCode === '+91' ? '98765 43210' : 'Mobile number'}
-                            className={`w-full px-3 py-2 rounded-xl bg-white border ${
-                              formErrors.phone ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                            } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                            className={`w-full px-3 py-2 rounded-xl bg-white border ${formErrors.phone ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                              } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-all duration-300 ${
+                                phoneAnimate ? 'ring-2 ring-emerald-500 bg-emerald-50/60 scale-[1.01]' : ''
+                              }`}
                           />
                         </div>
+                        {savedPhones.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            <span className="text-[10px] font-bold text-[#7A0C17] uppercase tracking-wider">Saved Numbers:</span>
+                            {savedPhones.map((p, idx) => (
+                              <button
+                                key={p + idx}
+                                type="button"
+                                onClick={() => handleSelectPhone(p)}
+                                className="group inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-[#F5F1EF] hover:bg-emerald-50 border border-[#D9C7C2] hover:border-emerald-300 text-[11px] font-medium text-[#1A1D20] hover:text-emerald-900 transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+                                title="Click to fill into phone field"
+                              >
+                                <Phone className="w-2.5 h-2.5 text-[#D72638] group-hover:text-emerald-600 transition-colors" />
+                                <span className="font-mono">{p}</span>
+                                <span className="text-[9px] px-1 rounded bg-white text-slate-500 font-mono">
+                                  {idx === 0 ? 'Account' : `Saved #${idx + 1}`}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                         {formErrors.phone && (
                           <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.phone}</p>
                         )}
@@ -1133,22 +1350,24 @@ export default function DonorRegistry() {
                             if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
                           }}
                           placeholder="donor@example.com"
-                          className={`w-full px-3 py-2 rounded-xl bg-white border ${
-                            formErrors.email ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                          } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                          className={`w-full px-3 py-2 rounded-xl bg-white border ${formErrors.email ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                            } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-all duration-300 ${
+                              emailAnimate ? 'ring-2 ring-emerald-500 bg-emerald-50/60 scale-[1.01]' : ''
+                            }`}
                         />
-                        {currentUserEmail && email.trim().toLowerCase() !== currentUserEmail && (
-                          <div className="mt-1.5 flex items-center justify-between">
+                        {currentUserEmail && (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                             <button
                               type="button"
-                              onClick={() => {
-                                setEmail(currentUserEmail);
-                                if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
-                              }}
-                              className="text-[11px] font-bold text-[#D72638] hover:underline flex items-center gap-1 cursor-pointer"
+                              onClick={() => handleSelectVerifiedEmail(currentUserEmail)}
+                              className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50/90 hover:bg-emerald-100 border border-emerald-300 hover:border-emerald-500 text-emerald-900 text-xs font-medium transition-all shadow-2xs hover:scale-102 active:scale-98 cursor-pointer"
+                              title="Click to fill verified account email into the field"
                             >
-                              <Sparkles className="w-3 h-3 text-[#D72638]" />
-                              Use verified account email ({currentUserEmail})
+                              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span>Verified Account Email: <strong className="font-semibold underline decoration-emerald-400">{currentUserEmail}</strong></span>
+                              <span className="text-[10px] bg-white px-1.5 py-0.5 rounded-md font-bold text-emerald-700 border border-emerald-200 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+                                Auto-fill
+                              </span>
                             </button>
                           </div>
                         )}
@@ -1196,9 +1415,8 @@ export default function DonorRegistry() {
                               if (formErrors.location) setFormErrors(prev => ({ ...prev, location: '' }));
                             }}
                             placeholder="e.g. Area, Suburb, District (or click Detect My Location)"
-                            className={`w-full px-3 py-2 rounded-xl bg-[#F5F1EF] border ${
-                              formErrors.location ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                            } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                            className={`w-full px-3 py-2 rounded-xl bg-[#F5F1EF] border ${formErrors.location ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                              } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
                           />
                           {formErrors.location && (
                             <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.location}</p>
@@ -1225,11 +1443,10 @@ export default function DonorRegistry() {
                                       setLocation(loc);
                                       if (formErrors.location) setFormErrors(prev => ({ ...prev, location: '' }));
                                     }}
-                                    className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors cursor-pointer ${
-                                      location.toLowerCase().includes(loc.toLowerCase())
+                                    className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors cursor-pointer ${location.toLowerCase().includes(loc.toLowerCase())
                                         ? 'bg-[#D72638] text-white shadow-2xs'
                                         : 'bg-[#F5F1EF] hover:bg-red-50 text-[#5A626A] border border-[#D9C7C2]'
-                                    }`}
+                                      }`}
                                   >
                                     {loc}
                                   </button>
@@ -1253,9 +1470,8 @@ export default function DonorRegistry() {
                                 if (formErrors.city) setFormErrors(prev => ({ ...prev, city: '' }));
                               }}
                               placeholder="e.g. New Delhi, Mumbai, London"
-                              className={`w-full px-3 py-2 rounded-xl bg-white border ${
-                                formErrors.city ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                              } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                              className={`w-full px-3 py-2 rounded-xl bg-white border ${formErrors.city ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                                } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
                             />
                             {formErrors.city && (
                               <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.city}</p>
@@ -1274,8 +1490,10 @@ export default function DonorRegistry() {
                           </div>
                         </div>
 
-                        {/* Voluntary Consent Declaration Checkbox */}
-                        <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200/80">
+                        {/* Donor Health & Eligibility Declaration Checkbox */}
+                        <div className={`p-3 rounded-xl border transition-colors ${
+                          formErrors.consent ? 'bg-red-50/80 border-red-300' : 'bg-amber-50/70 border-amber-200/80'
+                        }`}>
                           <label className="flex items-start gap-2.5 cursor-pointer select-none">
                             <input
                               type="checkbox"
@@ -1286,12 +1504,45 @@ export default function DonorRegistry() {
                               }}
                               className="mt-0.5 w-4 h-4 rounded-sm border-[#D9C7C2] text-[#D72638] focus:ring-[#D72638] cursor-pointer shrink-0"
                             />
-                            <span className="text-[11px] text-[#5A626A] leading-relaxed">
-                              I certify that I am between 18–65 years of age, weigh at least 45kg, have no active transmissible illnesses or blood-borne conditions, have had no major surgery or tattoo in the past 6 months, and voluntarily consent to emergency transfusion notifications. <span className="text-[#D72638]">*</span>
-                            </span>
+                            <div className="text-[11px] leading-relaxed">
+                              <span className="font-bold text-[#1A1D20] block mb-0.5">
+                                Donor Health &amp; Eligibility Declaration <span className="text-[#D72638]">*</span>
+                              </span>
+                              <span className="text-[#5A626A] block">
+                                I certify that I am between 18–65 years old, weigh at least 45kg, am in good health, and voluntarily register as an emergency blood donor.
+                              </span>
+                            </div>
                           </label>
                           {formErrors.consent && (
                             <p className="text-red-500 text-[11px] font-semibold mt-1.5 ml-6">{formErrors.consent}</p>
+                          )}
+                        </div>
+
+                        {/* Public Phone Number & Contact Sharing Consent Checkbox */}
+                        <div className={`p-3 rounded-xl border transition-colors ${
+                          formErrors.contactShare ? 'bg-red-50/80 border-red-300' : 'bg-emerald-50/70 border-emerald-200/80'
+                        }`}>
+                          <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={contactShareConsent}
+                              onChange={(e) => {
+                                setContactShareConsent(e.target.checked);
+                                if (formErrors.contactShare) setFormErrors(prev => ({ ...prev, contactShare: '' }));
+                              }}
+                              className="mt-0.5 w-4 h-4 rounded-sm border-[#D9C7C2] text-[#D72638] focus:ring-[#D72638] cursor-pointer shrink-0"
+                            />
+                            <div className="text-[11px] leading-relaxed">
+                              <span className="font-bold text-[#1A1D20] block mb-0.5">
+                                Phone Number &amp; Contact Sharing Consent <span className="text-[#D72638]">*</span>
+                              </span>
+                              <span className="text-[#5A626A] block">
+                                I agree to share my phone number and contact details publicly on this donor directory so that patients, clinicians, and hospitals in urgent need of blood can call me directly.
+                              </span>
+                            </div>
+                          </label>
+                          {formErrors.contactShare && (
+                            <p className="text-red-500 text-[11px] font-semibold mt-1.5 ml-6">{formErrors.contactShare}</p>
                           )}
                         </div>
                       </div>
@@ -1441,13 +1692,12 @@ export default function DonorRegistry() {
                             value={digit}
                             onChange={(e) => handleOtpChange(idx, e.target.value)}
                             onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                            className={`w-11 h-13 sm:w-12 sm:h-14 rounded-xl text-center text-xl font-mono font-black border transition-all duration-200 outline-hidden ${
-                              otpError 
-                                ? 'border-red-400 bg-red-50/40 text-[#D72638]' 
-                                : digit 
-                                  ? 'border-[#D72638] bg-white text-[#1A1D20] shadow-sm' 
+                            className={`w-11 h-13 sm:w-12 sm:h-14 rounded-xl text-center text-xl font-mono font-black border transition-all duration-200 outline-hidden ${otpError
+                                ? 'border-red-400 bg-red-50/40 text-[#D72638]'
+                                : digit
+                                  ? 'border-[#D72638] bg-white text-[#1A1D20] shadow-sm'
                                   : 'border-[#D9C7C2] bg-[#F5F1EF] text-[#1A1D20]'
-                            } focus:border-[#D72638] focus:bg-white`}
+                              } focus:border-[#D72638] focus:bg-white`}
                           />
                         ))}
                       </div>
@@ -1471,9 +1721,8 @@ export default function DonorRegistry() {
                         type="button"
                         onClick={handleResendOtp}
                         disabled={resendCooldown > 0 || isSendingOtp}
-                        className={`font-semibold cursor-pointer ${
-                          resendCooldown > 0 ? 'text-slate-400 cursor-not-allowed' : 'text-[#D72638] hover:underline'
-                        }`}
+                        className={`font-semibold cursor-pointer ${resendCooldown > 0 ? 'text-slate-400 cursor-not-allowed' : 'text-[#D72638] hover:underline'
+                          }`}
                       >
                         {resendCooldown > 0 ? `Resend Code (${resendCooldown}s)` : 'Resend Code'}
                       </button>
@@ -1553,6 +1802,89 @@ export default function DonorRegistry() {
           targetDonor={alertModalTarget}
         />
       )}
+
+      {/* Custom Branded Delete Pledge Confirmation Modal */}
+      {donorToDelete && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
+          onClick={() => { if (!isDeletingId) setDonorToDelete(null); }}
+        >
+          <div 
+            className="relative w-full max-w-md bg-[#FAF7F5] rounded-3xl border border-[#D9C7C2] shadow-2xl p-6 text-left space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header: Trash Icon + Close Button */}
+            <div className="flex items-start justify-between">
+              <div className="w-12 h-12 rounded-2xl bg-red-100 border border-red-200 text-[#D72638] flex items-center justify-center shrink-0 shadow-2xs">
+                <Trash2 className="w-6 h-6 text-[#D72638]" />
+              </div>
+              <button
+                type="button"
+                onClick={() => { if (!isDeletingId) setDonorToDelete(null); }}
+                disabled={Boolean(isDeletingId)}
+                className="w-8 h-8 rounded-full bg-white hover:bg-slate-200 text-[#5A626A] hover:text-[#1A1D20] flex items-center justify-center border border-[#D9C7C2] transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Title & Body */}
+            <div>
+              <h3 className="text-lg font-extrabold text-[#1A1D20]">
+                Remove Blood Donor Pledge?
+              </h3>
+              <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
+                Are you sure you want to remove your voluntary blood donor pledge from the active registry? This will immediately remove your availability from the donor directory and update the reserve.
+              </p>
+            </div>
+
+            {/* Target Donor Summary Card */}
+            <div className="p-3 rounded-2xl bg-white border border-[#D9C7C2] flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-200 text-[#D72638] font-black text-sm flex items-center justify-center shrink-0 font-mono">
+                {donorToDelete.bloodType}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold text-[#1A1D20] truncate">
+                  {donorToDelete.fullName}
+                </div>
+                <div className="text-[10px] text-[#5A626A] truncate">
+                  {donorToDelete.location || donorToDelete.city} • {donorToDelete.phone}
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#D9C7C2]/60">
+              <button
+                type="button"
+                onClick={() => setDonorToDelete(null)}
+                disabled={Boolean(isDeletingId)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#5A626A] hover:text-[#1A1D20] hover:bg-[#F5F1EF] border border-[#D9C7C2] transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={Boolean(isDeletingId)}
+                className="px-5 py-2 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold shadow-md shadow-[#D72638]/25 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 disabled:opacity-60"
+              >
+                {isDeletingId ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Removing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Yes, Remove Pledge</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -1572,22 +1904,18 @@ export default function DonorRegistry() {
     );
 
     return (
-      <motion.div
+      <div
         id={`donor-card-${donor.id}`}
         key={donor.id}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25 }}
-        className={`rounded-2xl transition-all duration-300 overflow-hidden w-full ${
-          isTargeted
-            ? 'ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/25 scale-[1.005] bg-white'
+        className={`rounded-2xl transition-all duration-300 overflow-hidden w-full ${isTargeted
+            ? 'ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/25 scale-[1.005] bg-white animate-pulse'
             : isSelfDonor
-            ? 'bg-white border-2 border-[#D72638] shadow-md shadow-[#D72638]/10'
-            : 'bg-white border border-[#D9C7C2] shadow-xs hover:border-[#D72638]/50 hover:shadow-sm'
-        }`}
+              ? 'bg-white border-2 border-[#D72638] shadow-md shadow-[#D72638]/10'
+              : 'bg-white border border-[#D9C7C2] shadow-xs hover:border-[#D72638]/50 hover:shadow-sm'
+          }`}
       >
         {/* Card Header (Full-Width Horizontal Bar on One Line) */}
-        <div 
+        <div
           onClick={() => {
             toggleDonorExpanded(donor.id);
             if (isTargeted) setHighlightedId(null);
@@ -1620,11 +1948,10 @@ export default function DonorRegistry() {
                 <span className="font-mono text-xs text-[#7A0C17] bg-[#7A0C17]/10 px-2 py-0.5 rounded-md font-bold shrink-0">
                   {donor.id}
                 </span>
-                <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border shrink-0 ${
-                  donor.isAvailable 
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border shrink-0 ${donor.isAvailable
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                     : 'bg-[#F5F1EF] text-slate-500 border-[#D9C7C2]'
-                }`}>
+                  }`}>
                   {donor.isAvailable ? '● Standby Ready' : 'Resting'}
                 </span>
               </div>
@@ -1651,7 +1978,7 @@ export default function DonorRegistry() {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleDeleteDonor(donor.id, e);
+                  handleOpenDeleteModal(donor, e);
                 }}
                 disabled={isDeletingId === donor.id}
                 className="px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-[#D72638] border border-red-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -1686,7 +2013,7 @@ export default function DonorRegistry() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                 <div className="p-2.5 rounded-xl bg-white border border-[#D9C7C2]">
                   <span className="text-[10px] text-[#7A0C17] font-bold uppercase tracking-wider block">Verified Phone</span>
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setCallModalTarget({
                       contactName: donor.fullName,
@@ -1703,8 +2030,8 @@ export default function DonorRegistry() {
 
                 <div className="p-2.5 rounded-xl bg-white border border-[#D9C7C2]">
                   <span className="text-[10px] text-[#7A0C17] font-bold uppercase tracking-wider block">Verified Email</span>
-                  <a 
-                    href={`mailto:${donor.email}`} 
+                  <a
+                    href={`mailto:${donor.email}`}
                     className="font-medium text-[#1A1D20] hover:text-[#D72638] hover:underline mt-0.5 block truncate"
                   >
                     {donor.email}
@@ -1732,8 +2059,8 @@ export default function DonorRegistry() {
                 </span>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {compatibility.canGiveTo.map((target) => (
-                    <span 
-                      key={target} 
+                    <span
+                      key={target}
                       className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-300 text-emerald-800 text-[10px] font-black"
                     >
                       ✓ {target}
@@ -1766,7 +2093,7 @@ export default function DonorRegistry() {
                     </div>
                     <button
                       type="button"
-                      onClick={(e) => handleDeleteDonor(donor.id, e)}
+                      onClick={(e) => handleOpenDeleteModal(donor, e)}
                       disabled={isDeletingId === donor.id}
                       className="self-end sm:self-center px-3.5 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-[#D72638] font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
                     >
@@ -1811,7 +2138,7 @@ export default function DonorRegistry() {
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </div>
     );
   }
 }

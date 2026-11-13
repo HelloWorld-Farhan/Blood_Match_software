@@ -418,29 +418,29 @@ export default function Signup() {
               <div className="relative z-10 pt-8 sm:pt-16 lg:pt-48">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#D72638]/40 border border-[#D72638]/50 text-white text-xs font-bold mb-2">
                   <Sparkles className="w-3.5 h-3.5" />
-                  {step === 'OTP_VERIFY' ? 'Cryptographic Token Security' : 'Life-Saving Rapid Response'}
+                  {step === 'OTP_VERIFY' ? 'Secure Code Verification' : 'Rapid Emergency Response'}
                 </div>
                 <h2 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white leading-tight mb-2">
                   {step === 'OTP_VERIFY' ? (
                     <>
-                      Validate Clinician <br />
+                      Verify Your <br />
                       <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-red-100 to-white">
-                        Authorization Token
+                        6-Digit Security Code
                       </span>
                     </>
                   ) : (
                     <>
-                      Empower Immediate <br />
+                      Join the <br />
                       <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-red-100 to-white">
-                        Emergency Matchmaking
+                        Blood Match Network
                       </span>
                     </>
                   )}
                 </h2>
                 <p className="text-xs sm:text-sm text-slate-200 leading-relaxed max-w-md font-light mb-3">
                   {step === 'OTP_VERIFY' 
-                    ? 'Two-factor cryptographic token authentication strictly protects emergency transfusion dispatch orders and voluntary donor health records.'
-                    : 'Every certified donor and registered clinician bridges the gap in critical trauma cases, open-heart surgeries, and blood bank shortfalls.'}
+                    ? 'We sent a 6-digit verification code to your email to confirm your account securely.'
+                    : 'Connect directly with blood banks and volunteer donors to help save lives during emergency transfusions.'}
                 </p>
 
                 <div className="p-2.5 sm:p-3 rounded-xl bg-black/60 backdrop-blur-md border border-white/20 text-xs text-white flex items-center justify-between">

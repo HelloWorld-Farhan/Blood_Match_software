@@ -44,13 +44,14 @@ export const BloodStorage = {
     }
   },
 
-  saveDonors(donors: Donor[]): void {
+  saveDonors(donors: Donor[], emitCustomEvent: boolean = true): void {
     if (typeof window === 'undefined') return;
     try {
       localStorage.setItem(STORAGE_KEYS.DONORS, JSON.stringify(donors));
-      window.dispatchEvent(new CustomEvent('bloodmatch_donors_updated'));
-      window.dispatchEvent(new CustomEvent('bloodmatch_inventory_updated'));
-      window.dispatchEvent(new Event('storage'));
+      if (emitCustomEvent) {
+        window.dispatchEvent(new CustomEvent('bloodmatch_donors_updated'));
+        window.dispatchEvent(new CustomEvent('bloodmatch_inventory_updated'));
+      }
     } catch {
       // Quiet storage fallback
     }
@@ -69,8 +70,41 @@ export const BloodStorage = {
   },
 
   deleteDonor(donorId: string): void {
-    const donors = this.getDonors().filter(d => d.id !== donorId);
-    this.saveDonors(donors);
+    const currentDonors = this.getDonors();
+    const donorToDelete = currentDonors.find(d => d.id === donorId);
+    const updatedDonors = currentDonors.filter(d => d.id !== donorId);
+    
+    // 1. Save updated donors list
+    try {
+      localStorage.setItem(STORAGE_KEYS.DONORS, JSON.stringify(updatedDonors));
+    } catch { }
+
+    // 2. Synchronize and decrement blood bank inventory immediately
+    if (donorToDelete) {
+      const bt = donorToDelete.bloodType;
+      const rawInv = localStorage.getItem(STORAGE_KEYS.INVENTORY);
+      if (rawInv) {
+        try {
+          const invList: BloodInventoryUnit[] = JSON.parse(rawInv);
+          const remainingPledges = updatedDonors.filter(d => d.bloodType === bt && (d.isAvailable ?? true)).length;
+          const updatedInv = invList.map(item => {
+            if (item.bloodType === bt) {
+              return {
+                ...item,
+                unitsAvailable: remainingPledges,
+                status: (remainingPledges >= 15 ? 'optimal' : remainingPledges >= 5 ? 'moderate' : 'critical') as BloodInventoryUnit['status'],
+              };
+            }
+            return item;
+          });
+          localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(updatedInv));
+        } catch { }
+      }
+    }
+
+    // 3. Dispatch real-time events across windows & components
+    window.dispatchEvent(new CustomEvent('bloodmatch_donors_updated'));
+    window.dispatchEvent(new CustomEvent('bloodmatch_inventory_updated'));
   },
 
   // --- Emergency Requests (Isolated strictly per authenticated user) ---
@@ -85,13 +119,14 @@ export const BloodStorage = {
     }
   },
 
-  saveEmergencyRequests(requests: EmergencyRequest[], userEmail?: string): void {
+  saveEmergencyRequests(requests: EmergencyRequest[], userEmail?: string, emitCustomEvent: boolean = true): void {
     if (typeof window === 'undefined') return;
     try {
       const key = getUserRequestsKey(userEmail);
       localStorage.setItem(key, JSON.stringify(requests));
-      window.dispatchEvent(new CustomEvent('bloodmatch_requests_updated'));
-      window.dispatchEvent(new Event('storage'));
+      if (emitCustomEvent) {
+        window.dispatchEvent(new CustomEvent('bloodmatch_requests_updated'));
+      }
     } catch {
       // Quiet storage fallback
     }
@@ -159,9 +194,8 @@ export const BloodStorage = {
 
       const result: BloodInventoryUnit[] = bloodTypes.map(type => {
         const existing = savedMap.get(type);
-        const bankedUnits = existing ? existing.unitsAvailable : 0;
         const donorUnits = donorPledgedCounts[type] || 0;
-        const totalUnits = Math.max(bankedUnits, donorUnits);
+        const totalUnits = donorUnits;
         return {
           id: existing?.id || `INV-${type}`,
           bloodType: type,
@@ -177,12 +211,13 @@ export const BloodStorage = {
     }
   },
 
-  saveInventory(units: BloodInventoryUnit[]): void {
+  saveInventory(units: BloodInventoryUnit[], emitCustomEvent: boolean = true): void {
     if (typeof window === 'undefined') return;
     try {
       localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(units));
-      window.dispatchEvent(new CustomEvent('bloodmatch_inventory_updated'));
-      window.dispatchEvent(new Event('storage'));
+      if (emitCustomEvent) {
+        window.dispatchEvent(new CustomEvent('bloodmatch_inventory_updated'));
+      }
     } catch {
       // Quiet storage fallback
     }
@@ -255,12 +290,12 @@ export const BloodStorage = {
 };
 
 export const getDonors = () => BloodStorage.getDonors();
-export const saveDonors = (donors: Donor[]) => BloodStorage.saveDonors(donors);
+export const saveDonors = (donors: Donor[], emitCustomEvent: boolean = true) => BloodStorage.saveDonors(donors, emitCustomEvent);
 export const deleteDonor = (donorId: string) => BloodStorage.deleteDonor(donorId);
 export const getEmergencyRequests = (userEmail?: string) => BloodStorage.getEmergencyRequests(userEmail);
-export const saveEmergencyRequests = (requests: EmergencyRequest[], userEmail?: string) => BloodStorage.saveEmergencyRequests(requests, userEmail);
+export const saveEmergencyRequests = (requests: EmergencyRequest[], userEmail?: string, emitCustomEvent: boolean = true) => BloodStorage.saveEmergencyRequests(requests, userEmail, emitCustomEvent);
 export const getInventory = () => BloodStorage.getInventory();
-export const saveInventory = (units: BloodInventoryUnit[]) => BloodStorage.saveInventory(units);
+export const saveInventory = (units: BloodInventoryUnit[], emitCustomEvent: boolean = true) => BloodStorage.saveInventory(units, emitCustomEvent);
 export const resetAllDataToZero = () => BloodStorage.resetAllDataToZero();
 export const updateInventoryUnits = (type: BloodType, delta: number) => {
   BloodStorage.updateUnits(type, delta);

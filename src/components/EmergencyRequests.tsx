@@ -27,7 +27,9 @@ import {
   Clock, 
   ArrowRight,
   ChevronDown,
-  Users
+  Users,
+  Search,
+  RotateCcw
 } from 'lucide-react';
 import { 
   getEmergencyRequests, 
@@ -41,9 +43,17 @@ import {
   fetchDonorsApi, 
   dispatchEmergencyDonorApi, 
   emailEmergencyRosterApi,
-  fulfillEmergencyRequestApi
+  fulfillEmergencyRequestApi,
+  saveEmergencyDocketApi,
+  fetchSavedPhonesApi,
+  saveUserPhoneApi
 } from '../services/api';
-import { COUNTRY_CODES, validatePhoneNumber } from '../utils/countryCodes';
+import { 
+  COUNTRY_CODES, 
+  validatePhoneNumber,
+  parsePhoneNumberWithCountry,
+  formatFullPhone
+} from '../utils/countryCodes';
 import { 
   Coordinates, 
   DELHI_LOCALITY_NAMES, 
@@ -85,8 +95,183 @@ interface RankedMatchDonor extends Donor {
   tier: ReturnType<typeof getProximityTier>;
 }
 
+interface BlurDropdownOption<T> {
+  value: T;
+  label: string;
+  badge?: string;
+  badgeClass?: string;
+  sublabel?: string;
+}
+
+function BlurDropdown<T extends string>({
+  value,
+  onChange,
+  options,
+  placeholder = 'Select option...',
+  hasError = false,
+  className = '',
+}: {
+  value: T | '';
+  onChange: (val: T) => void;
+  options: BlurDropdownOption<T>[];
+  placeholder?: string;
+  hasError?: boolean;
+  className?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isOpen]);
+
+  const selectedOption = options.find((o) => o.value === value);
+
+  return (
+    <div ref={containerRef} className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${
+          hasError
+            ? 'border-red-500 bg-red-50/20'
+            : isOpen
+            ? 'border-[#D72638] ring-2 ring-[#D72638]/20'
+            : 'border-[#D9C7C2] hover:border-[#D72638]/60'
+        } text-xs font-bold text-[#1A1D20] flex items-center justify-between gap-2 transition-all cursor-pointer shadow-2xs`}
+      >
+        <span className="flex items-center gap-2 truncate">
+          {selectedOption ? (
+            <>
+              {selectedOption.badge && (
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-black shrink-0 ${selectedOption.badgeClass || 'bg-red-100 text-[#D72638]'}`}>
+                  {selectedOption.badge}
+                </span>
+              )}
+              <span className="truncate">{selectedOption.label}</span>
+            </>
+          ) : (
+            <span className="text-slate-400 font-normal">{placeholder}</span>
+          )}
+        </span>
+        <ChevronDown
+          className={`w-4 h-4 text-[#5A626A] transition-transform duration-200 shrink-0 ${
+            isOpen ? 'rotate-180 text-[#D72638]' : ''
+          }`}
+        />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+            transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute z-50 mt-1.5 w-full rounded-xl border border-[#D9C7C2] bg-white/95 backdrop-blur-md shadow-2xl overflow-hidden py-1.5 max-h-60 overflow-y-auto no-scrollbar"
+          >
+            {options.map((opt) => {
+              const isSelected = opt.value === value;
+              return (
+                <div
+                  key={String(opt.value)}
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                  className={`px-3.5 py-2 text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors ${
+                    isSelected
+                      ? 'bg-red-50/80 text-[#D72638] font-bold'
+                      : 'hover:bg-[#F5F1EF] text-[#1A1D20]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {opt.badge && (
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-black shrink-0 ${opt.badgeClass || 'bg-red-100 text-[#D72638]'}`}>
+                        {opt.badge}
+                      </span>
+                    )}
+                    <span className="truncate">{opt.label}</span>
+                    {opt.sublabel && (
+                      <span className="text-[10px] text-slate-400 truncate">({opt.sublabel})</span>
+                    )}
+                  </div>
+                  {isSelected && <CheckCircle className="w-3.5 h-3.5 text-[#D72638] shrink-0" />}
+                </div>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export default function EmergencyRequests() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const highlightParam = searchParams.get('highlight');
+  const [highlightedId, setHighlightedId] = useState<string | null>(highlightParam);
+  const [isBlinking, setIsBlinking] = useState<boolean>(Boolean(highlightParam));
+
+  // Multi-card independent expansion tracking via Set so opening one does not close others
+  const [expandedRequestIds, setExpandedRequestIds] = useState<Set<string>>(() => new Set(highlightParam ? [highlightParam] : []));
+
+  const toggleRequestExpanded = (id: string) => {
+    setExpandedRequestIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Search and Blood Group filtering states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedBloodFilter, setSelectedBloodFilter] = useState<string>('ALL');
+
+  // 2-Second Pulsating Blink & Auto-Scroll when arriving via "Match Donors ->"
+  useEffect(() => {
+    if (highlightParam) {
+      setHighlightedId(highlightParam);
+      setIsBlinking(true);
+      setExpandedRequestIds(prev => new Set(prev).add(highlightParam));
+
+      const scrollTimer = setTimeout(() => {
+        const el = document.getElementById(`request-row-${highlightParam}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 150);
+
+      const blinkTimer = setTimeout(() => {
+        setIsBlinking(false);
+        setSearchParams(prev => {
+          const next = new URLSearchParams(prev);
+          next.delete('highlight');
+          return next;
+        }, { replace: true });
+      }, 2000);
+
+      return () => {
+        clearTimeout(scrollTimer);
+        clearTimeout(blinkTimer);
+      };
+    }
+  }, [highlightParam, setSearchParams]);
+
   // Clinician context
   const currentUserEmail = useMemo(() => {
     return sessionStorage.getItem('bloodmatch_user_email') || 
@@ -105,9 +290,6 @@ export default function EmergencyRequests() {
   const [donors, setDonors] = useState<Donor[]>(() => getDonors());
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
-
-  // Expanded horizontal triage bar request ID (for in-board matched lifesavers dropdown)
-  const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
 
   // In-App Clinical Mobilize Call modal state (eliminates browser OS pick-an-app dialog)
   const [callModalTarget, setCallModalTarget] = useState<{
@@ -138,17 +320,85 @@ export default function EmergencyRequests() {
   const [modalPhase, setModalPhase] = useState<'INPUT' | 'SCANNING' | 'RESULTS'>('INPUT');
   const [scanStepIndex, setScanStepIndex] = useState(0);
 
-  // Form states (Form Neutrality with zero default prefilled inputs)
+  // Form states (Form Neutrality with zero default prefilled inputs, string state prevents leading 0 bug)
   const [patientName, setPatientName] = useState('');
-  const [patientAge, setPatientAge] = useState<number | ''>('');
+  const [patientAge, setPatientAge] = useState<string>('');
   const [bloodType, setBloodType] = useState<BloodType | ''>('');
-  const [unitsNeeded, setUnitsNeeded] = useState<number | ''>('');
+  const [unitsNeeded, setUnitsNeeded] = useState<string>('');
   const [urgency, setUrgency] = useState<UrgencyLevel>('CRITICAL');
   const [contactName, setContactName] = useState(currentUserName);
-  const [countryDialCode, setCountryDialCode] = useState<string>('+91');
-  const [contactPhone, setContactPhone] = useState('');
+
+  // User account phone
+  const userAccountPhone = typeof window !== 'undefined'
+    ? (sessionStorage.getItem('bloodmatch_user_phone') || localStorage.getItem('bloodmatch_user_phone') || '').trim()
+    : '';
+
+  const initialParsedPhone = parsePhoneNumberWithCountry(userAccountPhone);
+  const [countryDialCode, setCountryDialCode] = useState<string>(initialParsedPhone.dialCode || '+91');
+  const [contactPhone, setContactPhone] = useState(initialParsedPhone.number || '');
+  const [phoneAnimate, setPhoneAnimate] = useState<boolean>(false);
   const [emergencyConfirmed, setEmergencyConfirmed] = useState<boolean>(false);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+  // Saved phone numbers for instant click-to-fill & cross-device sync
+  const [savedPhones, setSavedPhones] = useState<string[]>(() => {
+    try {
+      const userKey = `bloodmatch_saved_phones_${currentUserEmail || 'default'}`;
+      const stored = localStorage.getItem(userKey);
+      let list = stored ? JSON.parse(stored) : [];
+      if (!Array.isArray(list)) list = [];
+      if (userAccountPhone && !list.includes(userAccountPhone)) {
+        list.unshift(userAccountPhone);
+      }
+      return list;
+    } catch {
+      return userAccountPhone ? [userAccountPhone] : [];
+    }
+  });
+
+  // Cross-device sync hydration from backend
+  useEffect(() => {
+    if (currentUserEmail) {
+      fetchSavedPhonesApi(currentUserEmail).then(res => {
+        if (res.ok && res.data && Array.isArray(res.data.saved_phones)) {
+          const fetchedPhones = res.data.saved_phones;
+          setSavedPhones(prev => {
+            const combined = [...fetchedPhones];
+            prev.forEach(p => { if (!combined.includes(p)) combined.push(p); });
+            try {
+              localStorage.setItem(`bloodmatch_saved_phones_${currentUserEmail}`, JSON.stringify(combined));
+            } catch { }
+            return combined;
+          });
+        }
+      }).catch(() => {});
+    }
+  }, [currentUserEmail]);
+
+  // Click-to-fill phone with smooth pulse animation
+  const handleSelectPhone = (phoneStr: string) => {
+    const parsed = parsePhoneNumberWithCountry(phoneStr);
+    setCountryDialCode(parsed.dialCode);
+    setContactPhone(parsed.number);
+    if (formErrors.contactPhone) setFormErrors(prev => ({ ...prev, contactPhone: '' }));
+    setPhoneAnimate(true);
+    setTimeout(() => setPhoneAnimate(false), 1600);
+  };
+
+  // Save phone to state, localStorage, and backend
+  const saveCustomPhone = (phoneStr: string) => {
+    const clean = phoneStr.trim();
+    if (!clean) return;
+    setSavedPhones(prev => {
+      if (prev.includes(clean)) return prev;
+      const updated = [...prev, clean];
+      try {
+        localStorage.setItem(`bloodmatch_saved_phones_${currentUserEmail || 'default'}`, JSON.stringify(updated));
+      } catch { }
+      return updated;
+    });
+    saveUserPhoneApi(clean, currentUserEmail).catch(() => {});
+  };
 
   // Geolocation & Locality
   const [selectedLocality, setSelectedLocality] = useState<string>('');
@@ -164,8 +414,48 @@ export default function EmergencyRequests() {
   const [isEmailingRoster, setIsEmailingRoster] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [modalNotification, setModalNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [lastGeneratedPdf, setLastGeneratedPdf] = useState<{
+    uniqueId: string;
+    filename: string;
+    timestamp: string;
+    patientName: string;
+    patientAge: number;
+    bloodType: BloodType;
+    unitsNeeded: number;
+    urgency: string;
+    locality: string;
+    emergencyPhone: string;
+    contactName: string;
+    donorCount: number;
+    persistedToR2: boolean;
+  } | null>(null);
 
   const bloodTypes: BloodType[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
+  const bloodTypeOptions: BlurDropdownOption<BloodType>[] = useMemo(() => {
+    return bloodTypes.map(t => ({
+      value: t,
+      badge: t,
+      badgeClass: 'bg-red-100 text-[#D72638] font-black',
+      label: `Blood Group ${t}`,
+      sublabel: `Safely receives from: ${getCompatibleDonorTypes(t).join(', ')}`
+    }));
+  }, [bloodTypes]);
+
+  const urgencyOptions: BlurDropdownOption<UrgencyLevel>[] = useMemo(() => [
+    { value: 'CRITICAL', badge: 'CRITICAL', badgeClass: 'bg-red-100 text-[#D72638] font-black', label: 'Critical Emergency (< 1 Hour Transfusion)' },
+    { value: 'URGENT', badge: 'URGENT', badgeClass: 'bg-amber-100 text-amber-800 font-bold', label: 'Urgent Transfusion (< 4 Hours Trauma Call)' },
+    { value: 'STANDARD', badge: 'STANDARD', badgeClass: 'bg-blue-100 text-blue-800 font-semibold', label: 'Standard Elective (Next 24 Hours)' },
+  ], []);
+
+  const countryOptions: BlurDropdownOption<string>[] = useMemo(() => {
+    return COUNTRY_CODES.map(c => ({
+      value: c.dialCode,
+      badge: c.flag,
+      label: `${c.dialCode}`,
+      sublabel: c.name
+    }));
+  }, []);
   const scanSteps = [
     'Triaging 8-Group ABO/Rh Matrix...',
     'Scanning Locality GPS Radius Worldwide...',
@@ -501,7 +791,7 @@ export default function EmergencyRequests() {
 
       const reqCoords = resolveCoordinatesForLocation(req.hospitalCity || 'Delhi');
 
-      generateEmergencyDonorDocketPdf(
+      const pdfResult = generateEmergencyDonorDocketPdf(
         {
           recipientBloodType: req.bloodType,
           patientName: req.patientName,
@@ -515,6 +805,15 @@ export default function EmergencyRequests() {
         },
         donorItems
       );
+
+      // Persist PDF docket to Cloudflare R2 object storage for this user
+      if (pdfResult.base64 && currentUserEmail) {
+        saveEmergencyDocketApi({
+          user_email: currentUserEmail,
+          filename: pdfResult.filename,
+          pdf_base64: pdfResult.base64
+        }).catch(() => {});
+      }
 
       setBoardNotification({
         message: `Clinical PDF docket downloaded for ${req.patientName} (${req.bloodType}).`,
@@ -592,6 +891,15 @@ export default function EmergencyRequests() {
         pdf_filename: pdfResult.filename,
         dispatch_id: pdfResult.uniqueId
       });
+
+      // Persist PDF docket to Cloudflare R2 object storage for this user
+      if (pdfResult.base64 && currentUserEmail) {
+        saveEmergencyDocketApi({
+          user_email: currentUserEmail,
+          filename: pdfResult.filename,
+          pdf_base64: pdfResult.base64
+        }).catch(() => {});
+      }
 
       if (res.ok) {
         setBoardNotification({
@@ -675,9 +983,32 @@ export default function EmergencyRequests() {
     setRequests(updated);
   };
 
+  const BLOOD_TYPES: (BloodType | 'ALL')[] = ['ALL', 'O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'];
+
   const filteredRequests = requests.filter(r => {
-    if (filterStatus === 'ALL') return true;
-    return r.status === filterStatus;
+    // Highlighted emergency case bypasses active filters so user always lands directly on it
+    if (highlightParam && r.id === highlightParam) return true;
+
+    // 1. Triage Status filter
+    if (filterStatus !== 'ALL' && r.status !== filterStatus) return false;
+
+    // 2. Blood Group filter
+    if (selectedBloodFilter !== 'ALL' && r.bloodType !== selectedBloodFilter) return false;
+
+    // 3. Search Query filter (Case ID, patient name, locality/hospital, contact, blood group)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchesName = r.patientName?.toLowerCase().includes(q);
+      const matchesBlood = r.bloodType?.toLowerCase().includes(q);
+      const matchesHospital = r.hospital?.toLowerCase().includes(q) || r.hospitalCity?.toLowerCase().includes(q);
+      const matchesContact = r.contactName?.toLowerCase().includes(q) || r.contactNumber?.toLowerCase().includes(q);
+      const matchesId = r.id?.toLowerCase().includes(q);
+      if (!matchesName && !matchesBlood && !matchesHospital && !matchesContact && !matchesId) {
+        return false;
+      }
+    }
+
+    return true;
   });
 
   const handleCloseModal = () => {
@@ -757,6 +1088,7 @@ export default function EmergencyRequests() {
     };
 
     // 1. Save locally to immediate UI board
+    saveCustomPhone(fullPhone);
     const updated = [newRequest, ...requests];
     saveEmergencyRequests(updated, currentUserEmail);
     setRequests(updated);
@@ -877,8 +1209,11 @@ export default function EmergencyRequests() {
           patientAge: patientAge ? Number(patientAge) : undefined,
           unitsNeeded: unitsNeeded ? Number(unitsNeeded) : undefined,
           urgency,
+          hospitalName: 'Emergency Trauma Network',
           hospitalLocality: customLocalityInput.trim() || selectedLocality,
           searchCoordinates: userCoords,
+          emergencyPhone: `${countryDialCode} ${contactPhone.trim()}`,
+          contactName: contactName.trim() || currentUserName,
           timestamp: new Date().toISOString(),
           autoDownload: false
         },
@@ -900,6 +1235,31 @@ export default function EmergencyRequests() {
         pdf_base64: pdfResult.base64,
         pdf_filename: pdfResult.filename,
         dispatch_id: pdfResult.uniqueId
+      });
+
+      // Persist PDF docket to Cloudflare R2 object storage for this user
+      if (pdfResult.base64 && currentUserEmail) {
+        saveEmergencyDocketApi({
+          user_email: currentUserEmail,
+          filename: pdfResult.filename,
+          pdf_base64: pdfResult.base64
+        }).catch(() => {});
+      }
+
+      setLastGeneratedPdf({
+        uniqueId: pdfResult.uniqueId,
+        filename: pdfResult.filename,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        patientName: patientName.trim() || 'Emergency Patient',
+        patientAge: Number(patientAge) || 35,
+        bloodType: (bloodType || 'O+') as BloodType,
+        unitsNeeded: Number(unitsNeeded) || 1,
+        urgency: urgency,
+        locality: customLocalityInput.trim() || selectedLocality || 'Emergency Triage',
+        emergencyPhone: `${countryDialCode} ${contactPhone.trim()}`,
+        contactName: contactName.trim() || currentUserName,
+        donorCount: donorItems.length,
+        persistedToR2: Boolean(currentUserEmail)
       });
 
       if (res.ok) {
@@ -952,11 +1312,38 @@ export default function EmergencyRequests() {
           hospitalName: 'Emergency Trauma Network',
           hospitalLocality: customLocalityInput.trim() || selectedLocality,
           searchCoordinates: userCoords,
+          emergencyPhone: `${countryDialCode} ${contactPhone.trim()}`,
+          contactName: contactName.trim() || currentUserName,
           timestamp: new Date().toISOString(),
           autoDownload: true
         },
         donorItems
       );
+
+      // Persist PDF docket to Cloudflare R2 object storage for this user
+      if (pdfResult.base64 && currentUserEmail) {
+        saveEmergencyDocketApi({
+          user_email: currentUserEmail,
+          filename: pdfResult.filename,
+          pdf_base64: pdfResult.base64
+        }).catch(() => {});
+      }
+
+      setLastGeneratedPdf({
+        uniqueId: pdfResult.uniqueId,
+        filename: pdfResult.filename,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        patientName: patientName.trim() || 'Emergency Patient',
+        patientAge: Number(patientAge) || 35,
+        bloodType: (bloodType || 'O+') as BloodType,
+        unitsNeeded: Number(unitsNeeded) || 1,
+        urgency: urgency,
+        locality: customLocalityInput.trim() || selectedLocality || 'Emergency Triage',
+        emergencyPhone: `${countryDialCode} ${contactPhone.trim()}`,
+        contactName: contactName.trim() || currentUserName,
+        donorCount: donorItems.length,
+        persistedToR2: Boolean(currentUserEmail)
+      });
 
       setModalNotification({
         message: `Clinical Emergency Docket #${pdfResult.uniqueId} downloaded successfully!`,
@@ -985,13 +1372,13 @@ export default function EmergencyRequests() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/30 mb-2">
             <BarChart3 className="w-3.5 h-3.5 text-[#D72638]" />
-            <span>Power BI Triage Stream</span>
+            <span>Live Emergency Requests</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-black text-[#1A1D20] tracking-tight">
-            Transfusion Blood Requests
+            Emergency Blood Requests
           </h1>
           <p className="text-xs sm:text-sm text-[#5A626A] mt-1 max-w-xl">
-            Live triage board of urgent patient transfusion requirements with real-time geospatial proximity matching.
+            Manage urgent blood requests, match nearby compatible donors, and dispatch transfusion dockets.
           </p>
         </div>
 
@@ -1169,16 +1556,22 @@ export default function EmergencyRequests() {
         <div className="flex flex-col gap-3.5 w-full">
           {filteredRequests.map(req => {
             const matches = getMatchesForRequest(req);
-            const isExpanded = expandedRequestId === req.id;
+            const isExpanded = expandedRequestIds.has(req.id);
             const isFulfilled = req.status === 'fulfilled';
+            const isTargetHighlighted = (highlightedId === req.id || highlightParam === req.id) && isBlinking;
 
             return (
               <motion.div
                 key={req.id}
+                id={`request-row-${req.id}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`rounded-2xl bg-white border transition-all duration-200 overflow-hidden shadow-xs ${
-                  isFulfilled ? 'border-emerald-200' : 'border-[#D9C7C2] hover:border-[#D72638]/50'
+                className={`rounded-2xl border transition-all duration-300 overflow-hidden shadow-xs relative ${
+                  isTargetHighlighted
+                    ? 'animate-target-blink-2s ring-4 ring-[#D72638]/40 border-[#D72638] bg-[#FFF5F6] z-10'
+                    : isFulfilled
+                    ? 'bg-white border-emerald-200'
+                    : 'bg-white border-[#D9C7C2] hover:border-[#D72638]/50'
                 }`}
               >
                 {/* Horizontal Primary Row */}
@@ -1207,6 +1600,12 @@ export default function EmergencyRequests() {
                         }`}>
                           {isFulfilled ? '✓ FULFILLED' : req.urgency}
                         </span>
+                        {isTargetHighlighted && (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#D72638] text-white inline-flex items-center gap-1 shadow-xs animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping inline-block" />
+                            <span>Matched Focus</span>
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-2.5 text-xs text-[#5A626A] mt-1 flex-wrap">
@@ -1278,7 +1677,7 @@ export default function EmergencyRequests() {
 
                     {/* Expandable Dropdown Toggle Button */}
                     <button
-                      onClick={() => setExpandedRequestId(isExpanded ? null : req.id)}
+                      onClick={() => toggleRequestExpanded(req.id)}
                       className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border ${
                         isExpanded
                           ? 'bg-[#1A1D20] text-white border-[#1A1D20]'
@@ -1647,339 +2046,386 @@ export default function EmergencyRequests() {
               )}
             </AnimatePresence>
 
-            {/* PHASE 1: HORIZONTAL INPUT FORM */}
+            {/* PHASE 1: HORIZONTAL ROW-BASED INPUT FORM (ONE ITEM PER HORIZONTAL ROW) */}
             {modalPhase === 'INPUT' && (
               <div>
                 <div className="mb-4 pb-3 border-b border-[#D9C7C2]/60">
                   <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-bold mb-1">
                     <Radio className="w-3.5 h-3.5 text-red-600 animate-pulse" />
-                    <span>Real-Time Geospatial Mobilization Engine</span>
+                    <span>Emergency Blood Dispatch System</span>
                   </div>
                   <h2 className="text-xl sm:text-2xl font-black text-[#1A1D20] flex items-center gap-2">
                     <AlertTriangle className="w-6 h-6 text-[#D72638]" />
-                    <span>Broadcast Emergency Transfusion Request</span>
+                    <span>Emergency Transfusion Request &amp; Donor Check</span>
                   </h2>
                   <p className="text-xs text-[#5A626A] mt-0.5">
-                    Enter patient criteria, target location, and authorization. Zero non-essential fields.
+                    Enter patient details, required blood group, and location to immediately test and find nearby matching donors.
                   </p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* Horizontal 2-Column Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-                    {/* LEFT COLUMN: Patient & Blood Specifications */}
-                    <div className="space-y-3.5 bg-[#F5F1EF]/60 p-4 rounded-2xl border border-[#D9C7C2]/80">
-                      <div className="flex items-center gap-2 pb-2 border-b border-[#D9C7C2]/60">
-                        <User className="w-4 h-4 text-[#D72638]" />
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-[#1A1D20]">
-                          1. Patient &amp; Blood Specifications
-                        </h3>
+                <form onSubmit={handleSubmit} className="space-y-3">
+                  {/* Row 1: Authorized Clinician Account */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
+                    <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                        <Mail className="w-4 h-4" />
                       </div>
-
-                      {/* Authorized Clinician Account Preview */}
-                      <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
-                            <Mail className="w-3.5 h-3.5" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider">
-                              Authorized Clinician Account
-                            </div>
-                            <div className="text-xs font-mono font-bold text-emerald-950 truncate">
-                              {currentUserEmail}
-                            </div>
-                          </div>
-                        </div>
-                        <span className="hidden sm:inline-block px-2 py-0.5 rounded-md bg-emerald-200/60 text-emerald-900 text-[10px] font-bold shrink-0">
-                          Active Account
-                        </span>
-                      </div>
-
-                      {/* Patient Name & Age Row */}
-                      <div className="grid grid-cols-3 gap-2.5">
-                        <div className="col-span-2">
-                          <label className="block text-xs font-bold text-[#1A1D20] mb-1">
-                            Patient Full Name <span className="text-[#D72638]">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            value={patientName}
-                            onChange={(e) => {
-                              setPatientName(e.target.value);
-                              if (formErrors.patientName) setFormErrors(prev => ({ ...prev, patientName: '' }));
-                            }}
-                            placeholder="Enter patient full legal name..."
-                            className={`w-full px-3 py-2 rounded-xl bg-white border ${
-                              formErrors.patientName ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                            } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
-                          />
-                          {formErrors.patientName && (
-                            <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.patientName}</p>
-                          )}
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-bold text-[#1A1D20] mb-1">
-                            Age <span className="text-[#D72638]">*</span>
-                          </label>
-                          <input
-                            type="number"
-                            min="1"
-                            max="120"
-                            value={patientAge === '' ? '' : patientAge}
-                            placeholder="e.g. 35"
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setPatientAge(val === '' ? '' : Number(val));
-                              if (formErrors.patientAge) setFormErrors(prev => ({ ...prev, patientAge: '' }));
-                            }}
-                            className={`w-full px-3 py-2 rounded-xl bg-white border ${
-                              formErrors.patientAge ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                            } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638]`}
-                          />
-                          {formErrors.patientAge && (
-                            <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.patientAge}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Interactive Blood Group Selection Matrix */}
                       <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <label className="block text-xs font-bold text-[#1A1D20]">
-                            Recipient Required Blood Group <span className="text-[#D72638]">*</span>
-                          </label>
-                          <span className={`text-[10px] font-mono font-bold ${bloodType ? 'text-[#D72638]' : 'text-slate-400'}`}>
-                            Selected: {bloodType || 'None (Select Group)'}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-4 gap-1.5">
-                          {bloodTypes.map((type) => {
-                            const isSelected = bloodType === type;
-                            return (
-                              <button
-                                key={type}
-                                type="button"
-                                onClick={() => {
-                                  setBloodType(type);
-                                  if (formErrors.bloodType) setFormErrors(prev => ({ ...prev, bloodType: '' }));
-                                }}
-                                className={`h-9 rounded-xl font-black text-xs transition-colors border cursor-pointer flex items-center justify-center ${
-                                  isSelected
-                                    ? 'bg-[#D72638] text-white border-[#D72638] shadow-xs'
-                                    : 'bg-white text-[#4A5568] border-[#D9C7C2] hover:bg-slate-100'
-                                }`}
-                              >
-                                {type}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        {formErrors.bloodType && (
-                          <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.bloodType}</p>
-                        )}
-
-                        {/* Compatible Donor Indicator (Fixed Height to prevent any modal shifting) */}
-                        <div className="mt-2 px-3 py-2 rounded-xl bg-red-50/80 border border-red-100 h-10 min-h-[40px] max-h-[40px] flex items-center justify-between gap-2 text-2xs overflow-hidden">
-                          <span className="font-bold text-red-900 flex items-center gap-1 shrink-0">
-                            <ShieldCheck className="w-3.5 h-3.5 text-red-600 shrink-0" />
-                            <span>Compatible Donors:</span>
-                          </span>
-                          <span className="font-bold text-red-700 text-right text-xs truncate max-w-[62%]" title={bloodType ? compatibleBloodTypes.join(', ') : 'None'}>
-                            {bloodType ? compatibleBloodTypes.join(', ') : 'Select blood group above'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Units Needed */}
-                      <div>
-                        <label className="block text-xs font-bold text-[#1A1D20] mb-1">
-                          Units Needed (Pints) <span className="text-[#D72638]">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          min="1"
-                          max="50"
-                          value={unitsNeeded === '' ? '' : unitsNeeded}
-                          placeholder="e.g. 2"
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            setUnitsNeeded(val === '' ? '' : Number(val));
-                            if (formErrors.unitsNeeded) setFormErrors(prev => ({ ...prev, unitsNeeded: '' }));
-                          }}
-                          className={`w-full px-3 py-2 rounded-xl bg-white border ${
-                            formErrors.unitsNeeded ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                          } text-xs text-[#1A1D20] outline-none focus:border-[#D72638]`}
-                        />
-                        {formErrors.unitsNeeded && (
-                          <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.unitsNeeded}</p>
-                        )}
+                        <div className="text-xs font-bold text-[#1A1D20]">Authorized Clinician</div>
+                        <div className="text-[10px] text-[#5A626A]">Session security credential</div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2 min-w-0 flex-1 sm:max-w-xl justify-end">
+                      <span className="font-mono text-xs font-bold text-emerald-950 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg truncate">
+                        {currentUserEmail}
+                      </span>
+                      <span className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold shrink-0">
+                        Active Account
+                      </span>
+                    </div>
+                  </div>
 
-                    {/* RIGHT COLUMN: Target Location & Emergency Contact Channels */}
-                    <div className="space-y-3.5 bg-[#F5F1EF]/60 p-4 rounded-2xl border border-[#D9C7C2]/80 flex flex-col justify-between">
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between pb-2 border-b border-[#D9C7C2]/60">
-                          <div className="flex items-center gap-2">
-                            <Crosshair className="w-4 h-4 text-[#D72638]" />
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-[#1A1D20]">
-                              2. Target Triage Location
-                            </h3>
-                          </div>
-                          {/* Live GPS Detection Button */}
-                          <button
-                            type="button"
-                            onClick={handleDetectGps}
-                            disabled={isDetectingGps}
-                            className="inline-flex items-center gap-1 text-xs font-bold text-[#D72638] hover:text-[#b51d2c] transition-colors cursor-pointer"
-                          >
-                            <Navigation className={`w-3.5 h-3.5 ${isDetectingGps ? 'animate-spin' : ''}`} />
-                            <span>{isDetectingGps ? 'Pinpointing...' : 'Detect My Location'}</span>
-                          </button>
-                        </div>
-
-                        {gpsMessage && (
-                          <div className="text-2xs text-emerald-800 bg-emerald-50 border border-emerald-200 p-2 rounded-lg font-mono">
-                            {gpsMessage}
-                          </div>
-                        )}
-
-                        {/* Worldwide Locality Selector & Search */}
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <label className="block text-xs font-bold text-[#1A1D20]">
-                              Target Locality / Nearest Area (Worldwide) <span className="text-[#D72638]">*</span>
-                            </label>
-                            <span className="text-[10px] text-[#5A626A] font-semibold">
-                              Worldwide Match
-                            </span>
-                          </div>
-
-                          <div className="relative">
-                            <input
-                              type="text"
-                              list="global-locality-datalist"
-                              value={customLocalityInput || selectedLocality}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setCustomLocalityInput(val);
-                                setSelectedLocality(val);
-                                if (formErrors.locality) {
-                                  setFormErrors(prev => ({ ...prev, locality: '' }));
-                                }
-                              }}
-                              placeholder="Type locality or click Detect My Location..."
-                              className={`w-full px-3 py-2 rounded-xl bg-white border ${
-                                formErrors.locality ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                              } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638]`}
-                            />
-                            <datalist id="global-locality-datalist">
-                              {GLOBAL_LOCALITY_NAMES.map((name: string) => (
-                                <option key={name} value={name} />
-                              ))}
-                            </datalist>
-                          </div>
-                          {formErrors.locality && (
-                            <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.locality}</p>
-                          )}
-
-                          {/* Quick Dynamic Locality Pills (Shown ONLY after detecting location) */}
-                          {detectedPills.length > 0 && (
-                            <div className="pt-2">
-                              <span className="text-[10px] font-bold text-[#7A0C17] uppercase tracking-wider block mb-1">
-                                Detected Area Suggestions:
-                              </span>
-                              <div className="flex flex-wrap gap-1.5">
-                                {detectedPills.map((pill: string) => {
-                                  const active = (customLocalityInput || selectedLocality).toLowerCase().includes(pill.toLowerCase());
-                                  return (
-                                    <button
-                                      key={pill}
-                                      type="button"
-                                      onClick={() => {
-                                        setSelectedLocality(pill);
-                                        setCustomLocalityInput(pill);
-                                        if (formErrors.locality) {
-                                          setFormErrors(prev => ({ ...prev, locality: '' }));
-                                        }
-                                      }}
-                                      className={`text-2xs font-semibold px-2 py-0.5 rounded-lg border transition-all cursor-pointer ${
-                                        active
-                                          ? 'bg-[#D72638] text-white border-[#D72638]'
-                                          : 'bg-white text-[#4A5568] border-[#D9C7C2] hover:bg-slate-100'
-                                      }`}
-                                    >
-                                      {pill}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Contact Person & Emergency Number */}
-                        <div>
-                          <label className="block text-xs font-bold text-[#1A1D20] mb-1">
-                            Emergency Contact Number <span className="text-[#D72638]">*</span>
-                          </label>
-                          <div className="flex gap-1.5">
-                            <select
-                              value={countryDialCode}
-                              onChange={(e) => {
-                                setCountryDialCode(e.target.value);
-                                if (formErrors.contactPhone) setFormErrors(prev => ({ ...prev, contactPhone: '' }));
-                              }}
-                              className="px-2 py-2 rounded-xl bg-white border border-[#D9C7C2] text-xs font-bold text-[#1A1D20] outline-hidden focus:border-[#D72638] shrink-0 cursor-pointer max-w-[100px]"
-                            >
-                              {COUNTRY_CODES.map((c) => (
-                                <option key={c.code} value={c.dialCode}>
-                                  {c.flag} {c.dialCode}
-                                </option>
-                              ))}
-                            </select>
-
-                            <input
-                              type="tel"
-                              value={contactPhone}
-                              onChange={(e) => {
-                                setContactPhone(e.target.value);
-                                if (formErrors.contactPhone) setFormErrors(prev => ({ ...prev, contactPhone: '' }));
-                              }}
-                              placeholder={countryDialCode === '+91' ? '98765 43210' : 'Emergency number'}
-                              className={`w-full px-3 py-2 rounded-xl bg-white border ${
-                                formErrors.contactPhone ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                              } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
-                            />
-                          </div>
-                          {formErrors.contactPhone && (
-                            <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.contactPhone}</p>
-                          )}
-                        </div>
+                  {/* Row 2: Patient Full Legal Name */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
+                    <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
+                        <User className="w-4 h-4" />
                       </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#1A1D20]">
+                          Patient Name <span className="text-[#D72638]">*</span>
+                        </div>
+                        <div className="text-[10px] text-[#5A626A]">Full name of the patient receiving blood</div>
+                      </div>
+                    </div>
+                    <div className="flex-1 sm:max-w-xl w-full">
+                      <input
+                        type="text"
+                        value={patientName}
+                        onChange={(e) => {
+                          setPatientName(e.target.value);
+                          if (formErrors.patientName) setFormErrors(prev => ({ ...prev, patientName: '' }));
+                        }}
+                        placeholder="e.g. Farhan Khalid"
+                        className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${
+                          formErrors.patientName ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                        } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                      />
+                      {formErrors.patientName && (
+                        <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.patientName}</p>
+                      )}
+                    </div>
+                  </div>
 
-                      {/* Confirmation Checkbox */}
-                      <div className="pt-2 border-t border-[#D9C7C2]/60">
-                        <label className="flex items-start gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={emergencyConfirmed}
-                            onChange={(e) => {
-                              setEmergencyConfirmed(e.target.checked);
-                              if (formErrors.emergencyConfirmed) setFormErrors(prev => ({ ...prev, emergencyConfirmed: '' }));
-                            }}
-                            className="mt-0.5 w-4 h-4 rounded-sm border-[#D9C7C2] text-[#D72638] focus:ring-[#D72638] cursor-pointer shrink-0"
-                          />
-                          <span className="text-[11px] text-[#5A626A] leading-tight">
-                            I confirm this is an authentic clinical transfusion emergency authorized for immediate donor dispatch. <span className="text-[#D72638]">*</span>
+                  {/* Row 3: Patient Age */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
+                    <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
+                        <Activity className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#1A1D20]">
+                          Patient Age (Years) <span className="text-[#D72638]">*</span>
+                        </div>
+                        <div className="text-[10px] text-[#5A626A]">Age of the patient in years (1 - 120)</div>
+                      </div>
+                    </div>
+                    <div className="flex-1 sm:max-w-xl w-full">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={3}
+                        autoComplete="off"
+                        value={patientAge}
+                        placeholder="e.g. 35"
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/\D/g, '');
+                          const clean = raw.replace(/^0+/, '');
+                          setPatientAge(clean);
+                          if (formErrors.patientAge) setFormErrors(prev => ({ ...prev, patientAge: '' }));
+                        }}
+                        className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${
+                          formErrors.patientAge ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                        } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                      />
+                      {formErrors.patientAge && (
+                        <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.patientAge}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Row 4: Recipient Blood Group (Custom Animated Blur Dropdown) */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
+                    <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
+                        <Droplet className="w-4 h-4 fill-current" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#1A1D20]">
+                          Recipient Blood Group <span className="text-[#D72638]">*</span>
+                        </div>
+                        <div className="text-[10px] text-[#5A626A]">Blood group needed for transfusion</div>
+                      </div>
+                    </div>
+                    <div className="flex-1 sm:max-w-xl w-full">
+                      <BlurDropdown
+                        value={bloodType}
+                        onChange={(val) => {
+                          setBloodType(val);
+                          if (formErrors.bloodType) setFormErrors(prev => ({ ...prev, bloodType: '' }));
+                        }}
+                        options={bloodTypeOptions}
+                        placeholder="Select Recipient Blood Group..."
+                        hasError={Boolean(formErrors.bloodType)}
+                      />
+                      {formErrors.bloodType && (
+                        <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.bloodType}</p>
+                      )}
+                      {bloodType && (
+                        <div className="mt-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-100 flex items-center justify-between text-2xs">
+                          <span className="font-bold text-red-900 flex items-center gap-1">
+                            <ShieldCheck className="w-3.5 h-3.5 text-red-600" />
+                            <span>Safely Accepts RBC From:</span>
                           </span>
-                        </label>
-                        {formErrors.emergencyConfirmed && (
-                          <p className="text-red-500 text-[10px] font-semibold mt-1 ml-6">{formErrors.emergencyConfirmed}</p>
-                        )}
+                          <span className="font-mono font-bold text-red-700">
+                            {compatibleBloodTypes.join(', ')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Row 5: Units Needed (Pints) */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
+                    <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
+                        <Radio className="w-4 h-4" />
                       </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#1A1D20]">
+                          Units Needed (Pints) <span className="text-[#D72638]">*</span>
+                        </div>
+                        <div className="text-[10px] text-[#5A626A]">Number of blood units needed (1 - 50)</div>
+                      </div>
+                    </div>
+                    <div className="flex-1 sm:max-w-xl w-full">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={2}
+                        autoComplete="off"
+                        value={unitsNeeded}
+                        placeholder="e.g. 2"
+                        onChange={(e) => {
+                          const raw = e.target.value.replace(/\D/g, '');
+                          const clean = raw.replace(/^0+/, '');
+                          setUnitsNeeded(clean);
+                          if (formErrors.unitsNeeded) setFormErrors(prev => ({ ...prev, unitsNeeded: '' }));
+                        }}
+                        className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${
+                          formErrors.unitsNeeded ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                        } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                      />
+                      {formErrors.unitsNeeded && (
+                        <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.unitsNeeded}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Row 6: Triage Urgency Tier (Custom Animated Blur Dropdown) */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
+                    <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                        <Clock className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#1A1D20]">
+                          Urgency Level <span className="text-[#D72638]">*</span>
+                        </div>
+                        <div className="text-[10px] text-[#5A626A]">How quickly the blood is required</div>
+                      </div>
+                    </div>
+                    <div className="flex-1 sm:max-w-xl w-full">
+                      <BlurDropdown
+                        value={urgency}
+                        onChange={(val) => setUrgency(val)}
+                        options={urgencyOptions}
+                        placeholder="Select Urgency Level..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 7: Target Area / Locality (Worldwide + GPS Detector) */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
+                    <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
+                        <MapPin className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#1A1D20]">
+                          Hospital or Area Locality <span className="text-[#D72638]">*</span>
+                        </div>
+                        <div className="text-[10px] text-[#5A626A]">City, hospital area, or click Detect GPS</div>
+                      </div>
+                    </div>
+                    <div className="flex-1 sm:max-w-xl w-full space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <input
+                            type="text"
+                            list="global-locality-datalist"
+                            value={customLocalityInput || selectedLocality}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setCustomLocalityInput(val);
+                              setSelectedLocality(val);
+                              if (formErrors.locality) {
+                                setFormErrors(prev => ({ ...prev, locality: '' }));
+                              }
+                            }}
+                            placeholder="Type locality or click Detect My Location..."
+                            className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${
+                              formErrors.locality ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                            } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638]`}
+                          />
+                          <datalist id="global-locality-datalist">
+                            {GLOBAL_LOCALITY_NAMES.map((name: string) => (
+                              <option key={name} value={name} />
+                            ))}
+                          </datalist>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleDetectGps}
+                          disabled={isDetectingGps}
+                          className="px-3 py-2.5 rounded-xl bg-white border border-[#D9C7C2] hover:border-[#D72638] text-xs font-bold text-[#D72638] hover:text-[#b51d2c] transition-all cursor-pointer flex items-center gap-1.5 shrink-0 shadow-2xs"
+                        >
+                          <Navigation className={`w-3.5 h-3.5 ${isDetectingGps ? 'animate-spin' : ''}`} />
+                          <span className="hidden sm:inline">{isDetectingGps ? 'Pinpointing...' : 'Detect GPS'}</span>
+                        </button>
+                      </div>
+                      {formErrors.locality && (
+                        <p className="text-red-500 text-[10px] font-semibold">{formErrors.locality}</p>
+                      )}
+                      {detectedPills.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {detectedPills.map((pill: string) => (
+                            <button
+                              key={pill}
+                              type="button"
+                              onClick={() => {
+                                setSelectedLocality(pill);
+                                setCustomLocalityInput(pill);
+                                if (formErrors.locality) setFormErrors(prev => ({ ...prev, locality: '' }));
+                              }}
+                              className="text-2xs font-semibold px-2 py-0.5 rounded-lg border bg-white text-[#4A5568] border-[#D9C7C2] hover:bg-slate-100 cursor-pointer"
+                            >
+                              {pill}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Row 8: Emergency Contact Number (Custom Animated Blur Country Selector) */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
+                    <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
+                        <Phone className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#1A1D20]">
+                          Emergency Contact Number <span className="text-[#D72638]">*</span>
+                        </div>
+                        <div className="text-[10px] text-[#5A626A]">Phone number for donor coordination</div>
+                      </div>
+                    </div>
+                    <div className="flex-1 sm:max-w-xl w-full">
+                      <div className="flex gap-2">
+                        <BlurDropdown
+                          value={countryDialCode}
+                          onChange={(val) => {
+                            setCountryDialCode(val);
+                            if (formErrors.contactPhone) setFormErrors(prev => ({ ...prev, contactPhone: '' }));
+                          }}
+                          options={countryOptions}
+                          className="w-32 shrink-0"
+                        />
+                        <input
+                          type="tel"
+                          value={contactPhone}
+                          onChange={(e) => {
+                            setContactPhone(e.target.value);
+                            if (formErrors.contactPhone) setFormErrors(prev => ({ ...prev, contactPhone: '' }));
+                          }}
+                          placeholder={countryDialCode === '+91' ? '98765 43210' : 'Emergency phone number'}
+                          className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${
+                            formErrors.contactPhone ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                          } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-all duration-300 ${
+                            phoneAnimate ? 'ring-2 ring-emerald-500 bg-emerald-50/60 scale-[1.01]' : ''
+                          }`}
+                        />
+                      </div>
+                      {savedPhones.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                          <span className="text-[10px] font-bold text-[#7A0C17] uppercase tracking-wider">Saved Numbers:</span>
+                          {savedPhones.map((p, idx) => (
+                            <button
+                              key={p + idx}
+                              type="button"
+                              onClick={() => handleSelectPhone(p)}
+                              className="group inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white hover:bg-emerald-50 border border-[#D9C7C2] hover:border-emerald-300 text-[11px] font-medium text-[#1A1D20] hover:text-emerald-900 transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+                              title="Click to fill into emergency contact phone field"
+                            >
+                              <Phone className="w-2.5 h-2.5 text-[#D72638] group-hover:text-emerald-600 transition-colors" />
+                              <span className="font-mono">{p}</span>
+                              <span className="text-[9px] px-1 rounded bg-[#F5F1EF] text-slate-500 font-mono">
+                                {idx === 0 ? 'Account' : `Saved #${idx + 1}`}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {formErrors.contactPhone && (
+                        <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.contactPhone}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Row 9: Clinical Authorization */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
+                    <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                        <ShieldCheck className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-bold text-[#1A1D20]">
+                          Emergency Confirmation <span className="text-[#D72638]">*</span>
+                        </div>
+                        <div className="text-[10px] text-[#5A626A]">Confirm this is an urgent transfusion request</div>
+                      </div>
+                    </div>
+                    <div className="flex-1 sm:max-w-xl w-full">
+                      <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={emergencyConfirmed}
+                          onChange={(e) => {
+                            setEmergencyConfirmed(e.target.checked);
+                            if (formErrors.emergencyConfirmed) setFormErrors(prev => ({ ...prev, emergencyConfirmed: '' }));
+                          }}
+                          className="mt-0.5 w-4 h-4 rounded-sm border-[#D9C7C2] text-[#D72638] focus:ring-[#D72638] cursor-pointer shrink-0"
+                        />
+                        <span className="text-xs text-[#5A626A] leading-tight">
+                          I confirm this is an authentic emergency blood request authorized for immediate donor dispatch.
+                        </span>
+                      </label>
+                      {formErrors.emergencyConfirmed && (
+                        <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.emergencyConfirmed}</p>
+                      )}
                     </div>
                   </div>
 
@@ -1996,8 +2442,8 @@ export default function EmergencyRequests() {
                       type="submit"
                       className="px-6 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold shadow-md shadow-[#D72638]/25 cursor-pointer active:scale-95 transition-all flex items-center gap-2"
                     >
-                      <Plus className="w-4 h-4" />
-                      <span>Confirm &amp; Broadcast Request</span>
+                      <Activity className="w-4 h-4 animate-pulse" />
+                      <span>Run Emergency Check Test &amp; Match Donors</span>
                     </button>
                   </div>
                 </form>
@@ -2039,25 +2485,37 @@ export default function EmergencyRequests() {
                   <div>
                     <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold mb-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span>{rankedDonors.length} Compatible Donors Ranked By Proximity</span>
+                      <span>Emergency Check Passed: {rankedDonors.length} Compatible Donors Ranked</span>
                     </div>
                     <h3 className="text-lg font-black text-[#1A1D20]">
-                      Nearest Lifesavers for {patientName} ({bloodType})
+                      Nearest Lifesavers for {patientName || 'Emergency Patient'} ({bloodType})
                     </h3>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
+                      type="button"
+                      onClick={() => setModalPhase('INPUT')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#1A1D20] bg-white border border-[#D9C7C2] hover:bg-[#F5F1EF] transition-all cursor-pointer shadow-2xs"
+                      title="Modify parameters and re-run check"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-[#5A626A]" />
+                      <span>Modify &amp; Re-Test</span>
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={handleEmailRoster}
                       disabled={isEmailingRoster || rankedDonors.length === 0}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#4A5568] bg-[#F5F1EF] border border-[#D9C7C2] hover:bg-slate-200 transition-all cursor-pointer"
                       title="Transmit ranked roster with attached PDF docket to your email"
                     >
                       {isEmailingRoster ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5 text-[#D72638]" />}
-                      <span>Email Roster & PDF</span>
+                      <span>Email Roster &amp; PDF</span>
                     </button>
 
                     <button
+                      type="button"
                       onClick={handleDownloadPdf}
                       disabled={isGeneratingPdf || rankedDonors.length === 0}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-[#D72638] hover:bg-[#b51d2c] shadow-xs transition-all cursor-pointer"
@@ -2069,8 +2527,127 @@ export default function EmergencyRequests() {
                   </div>
                 </div>
 
+                {/* COMPREHENSIVE EMERGENCY CHECK CASE DOSSIER */}
+                <div className="p-4 rounded-2xl bg-white border border-[#D9C7C2] shadow-xs space-y-3">
+                  <div className="flex items-center justify-between pb-2 border-b border-[#D9C7C2]/60">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#1A1D20]">
+                        Emergency Check Test Dossier
+                      </span>
+                    </div>
+                    <span className="font-mono text-xs font-bold text-[#D72638] bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">
+                      Live Test Case Completed
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="p-2.5 rounded-xl bg-[#F5F1EF]/60 border border-[#D9C7C2]/60">
+                      <div className="text-[10px] uppercase font-bold text-[#5A626A]">Patient Identifier</div>
+                      <div className="font-bold text-[#1A1D20] truncate">{patientName || 'Emergency Patient'}</div>
+                      <div className="text-[11px] text-[#5A626A]">{patientAge ? `${patientAge} Years` : 'Age Unspecified'}</div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-[#F5F1EF]/60 border border-[#D9C7C2]/60 flex items-center justify-between">
+                      <div>
+                        <div className="text-[10px] uppercase font-bold text-[#5A626A]">Required Group</div>
+                        <div className="font-black text-sm text-[#D72638]">{bloodType}</div>
+                        <div className="text-[10px] text-[#5A626A]">{unitsNeeded || 1} Pints Needed</div>
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-[#D72638] text-white flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
+                        {bloodType}
+                      </div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-[#F5F1EF]/60 border border-[#D9C7C2]/60">
+                      <div className="text-[10px] uppercase font-bold text-[#5A626A]">Triage Urgency</div>
+                      <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold mt-0.5 ${
+                        urgency === 'CRITICAL' ? 'bg-red-100 text-[#D72638] border border-red-200' :
+                        urgency === 'URGENT' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                        'bg-blue-100 text-blue-800 border border-blue-200'
+                      }`}>
+                        {urgency}
+                      </span>
+                      <div className="text-[10px] text-[#5A626A] mt-1 truncate">{customLocalityInput.trim() || selectedLocality || 'Worldwide'}</div>
+                    </div>
+
+                    <div className="p-2.5 rounded-xl bg-[#F5F1EF]/60 border border-[#D9C7C2]/60">
+                      <div className="text-[10px] uppercase font-bold text-[#5A626A]">Emergency Phone</div>
+                      <div className="font-mono font-bold text-[#1A1D20] text-xs truncate">
+                        {countryDialCode} {contactPhone}
+                      </div>
+                      <div className="text-[10px] text-emerald-700 font-semibold truncate">
+                        Clinician: {currentUserEmail}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-[#D9C7C2]/40 flex items-center justify-between text-2xs text-[#5A626A] flex-wrap gap-2">
+                    <span className="font-semibold">
+                      Acceptable Compatible Donor Groups: <span className="font-bold text-[#D72638]">{compatibleBloodTypes.join(', ')}</span>
+                    </span>
+                    <span className="font-mono text-slate-400">
+                      GPS Origin: {userCoords.latitude.toFixed(4)}°, {userCoords.longitude.toFixed(4)}°
+                    </span>
+                  </div>
+                </div>
+
+                {/* AFTER PDF GENERATED: SHOW EVERYTHING IN THE RESULT & PDF */}
+                {lastGeneratedPdf && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-300 shadow-sm space-y-3"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-emerald-200">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                        <div>
+                          <div className="text-xs font-bold text-emerald-950 flex items-center gap-2">
+                            <span>Official Clinical PDF Docket Generated &amp; Signed</span>
+                            <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-200 text-emerald-900 font-bold">
+                              #{lastGeneratedPdf.uniqueId}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-emerald-700">
+                            Generated at {lastGeneratedPdf.timestamp} • Cloudflare R2 Persistent Archive Active
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleDownloadPdf}
+                        className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs shrink-0 cursor-pointer"
+                      >
+                        <FileDown className="w-3.5 h-3.5" />
+                        <span>Re-Download PDF</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-2xs">
+                      <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/80">
+                        <span className="text-slate-400 block font-bold">PDF FILE IDENTIFIER</span>
+                        <span className="font-mono text-emerald-950 font-bold truncate block">{lastGeneratedPdf.filename}</span>
+                      </div>
+                      <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/80">
+                        <span className="text-slate-400 block font-bold">VERIFIED PATIENT &amp; GROUP</span>
+                        <span className="text-emerald-950 font-bold">{lastGeneratedPdf.patientName} ({lastGeneratedPdf.bloodType})</span>
+                      </div>
+                      <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/80">
+                        <span className="text-slate-400 block font-bold">DISPATCH LOCALITY &amp; CONTACT</span>
+                        <span className="text-emerald-950 font-bold truncate block">{lastGeneratedPdf.locality} • {lastGeneratedPdf.emergencyPhone}</span>
+                      </div>
+                      <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/80">
+                        <span className="text-slate-400 block font-bold">MATCHED LIFESAVERS IN DOCKET</span>
+                        <span className="text-emerald-950 font-bold">{lastGeneratedPdf.donorCount} Proximity Donors Included</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
                 {/* Ranked Donor List */}
-                <div className="space-y-2.5 max-h-[50vh] overflow-y-auto no-scrollbar pr-1">
+                <div className="space-y-2.5 max-h-[45vh] overflow-y-auto no-scrollbar pr-1">
                   {rankedDonors.length === 0 ? (
                     <div className="p-8 text-center rounded-2xl bg-[#F5F1EF] text-slate-500">
                       <Droplet className="w-10 h-10 text-slate-300 mx-auto mb-2" />

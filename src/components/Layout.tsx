@@ -562,7 +562,7 @@ export default function Layout() {
           <div className="flex items-center justify-between text-[#4A5568] mb-1">
             <span className="flex items-center gap-1.5 font-bold text-[#1A1D20] text-xs sm:text-xs group-hover:text-[#D72638] transition-colors">
               <Database className="w-3.5 h-3.5 text-[#D72638]" />
-              <span>Blood Bank Reserve</span>
+              <span>Blood Bank Stock</span>
             </span>
             <span className="text-[#7A0C17] bg-[#7A0C17]/10 border border-[#7A0C17]/20 font-bold text-[10px] sm:text-[11px] px-2 py-0.5 rounded-md">Live Stock</span>
           </div>
@@ -594,7 +594,7 @@ export default function Layout() {
           <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#D9C7C2]/40 text-[10px] text-[#4A5568]">
             <span className="flex items-center gap-1 font-semibold text-[#7A0C17]">
               <Database className="w-3 h-3 text-[#D72638]" />
-              <span>Inspect Blood Reserves</span>
+              <span>Inspect Blood Stock</span>
             </span>
             <span className="text-[10px] font-bold text-[#D72638] group-hover:underline flex items-center gap-0.5">
               <span>View</span>

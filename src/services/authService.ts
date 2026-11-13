@@ -317,6 +317,14 @@ export const authService = {
       sessionStorage.setItem('bloodmatch_user_role', data.user.role || 'Clinician');
       if (data.user.phone) {
         sessionStorage.setItem('bloodmatch_user_phone', data.user.phone);
+        localStorage.setItem('bloodmatch_user_phone', data.user.phone);
+      }
+      if (Array.isArray((data.user as any).saved_phones)) {
+        const userKey = `bloodmatch_saved_phones_${data.user.email.trim().toLowerCase()}`;
+        localStorage.setItem(userKey, JSON.stringify((data.user as any).saved_phones));
+      }
+      if (Array.isArray((data.user as any).verified_emails)) {
+        localStorage.setItem('bloodmatch_verified_emails', JSON.stringify((data.user as any).verified_emails));
       }
       if (data.user.photo_url) {
         const cacheBusted = `${data.user.photo_url}?v=${Date.now()}`;

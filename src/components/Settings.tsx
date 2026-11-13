@@ -429,7 +429,7 @@ export default function Settings() {
       setAvatar(result);
       localStorage.setItem('bloodmatch_user_avatar', result);
       window.dispatchEvent(new Event('bloodmatch_profile_updated'));
-      setProfileSuccess('Biometric clinician avatar updated successfully.');
+      setProfileSuccess('Profile picture updated successfully.');
       setTimeout(() => setProfileSuccess(null), 3500);
     };
     reader.readAsDataURL(file);
@@ -607,7 +607,7 @@ export default function Settings() {
       setEmailOtpStep('DONE');
       setEmailNewPassword('');
       setEmailConfirmPassword('');
-      setPasswordSuccess('Password successfully updated and previous credentials completely removed! A confirmation email with audit telemetry has been sent to your address.');
+      setPasswordSuccess('Password successfully updated and previous credentials completely removed! A confirmation email has been sent to your address.');
       setTimeout(() => setPasswordSuccess(null), 8000);
     } catch (err: any) {
       setIsSubmittingEmailPw(false);
@@ -763,7 +763,7 @@ export default function Settings() {
             Terminal Settings & Security Preferences
           </h1>
           <p className="text-xs sm:text-sm text-[#5A626A] mt-1 max-w-xl">
-            Manage personal clinician credentials, biometric avatar, multi-factor authorization channels, and active terminal sessions.
+            Manage your account details, profile picture, two-step security, and active sessions.
           </p>
         </div>
 
@@ -948,7 +948,7 @@ export default function Settings() {
           {/* Avatar Upload Section */}
           <div>
             <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-3">
-              Biometric Clinician Avatar
+              Profile Picture
             </label>
             <div className="flex flex-col sm:flex-row items-center gap-5 p-4 rounded-2xl bg-[#F5F1EF] border border-[#D9C7C2]">
               {/* Avatar Preview */}
@@ -2055,7 +2055,7 @@ export default function Settings() {
                   </span>
                 </div>
                 <p className="text-xs text-[#5A626A] leading-relaxed">
-                  Direct cellular carrier SMS gateway dispatch to verified mobile telephone <strong className="text-[#1A1D20]">{phone}</strong>. This multi-factor route is currently undergoing final AABB clinical telemetry and telecom compliance audit.
+                  Direct SMS notification to your mobile telephone <strong className="text-[#1A1D20]">{phone}</strong>. This feature is currently in testing and will be available soon.
                 </p>
                 <div className="pt-2">
                   <button
