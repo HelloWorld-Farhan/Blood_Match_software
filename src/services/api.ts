@@ -308,17 +308,25 @@ export async function dispatchEmergencyDonorApi(payload: {
   donor_name: string;
   donor_email: string;
   donor_phone?: string;
-  patient_name: string;
-  recipient_blood_type: string;
+  blood_type?: string;
+  patient_name?: string;
+  recipient_blood_type?: string;
   units_needed?: number;
-  hospital: string;
+  hospital?: string;
+  hospital_city?: string;
   locality?: string;
   urgency?: string;
-  clinician_name?: string;
+  contact_number?: string;
   emergency_contact?: string;
+  clinician_name?: string;
+  distance_km?: number;
+  custom_message?: string;
   message?: string;
+  requester_name?: string;
+  requester_email?: string;
+  requester_phone?: string;
 }) {
-  return apiClient.post<{ message: string; success: boolean }>('/api/emergency/dispatch-donor', payload);
+  return apiClient.post<{ message: string; success: boolean; ok?: boolean }>('/api/emergency/dispatch-donor', payload);
 }
 
 export async function emailEmergencyRosterApi(payload: {

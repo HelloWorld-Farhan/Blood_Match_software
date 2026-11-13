@@ -34,6 +34,7 @@ import { COUNTRY_CODES, validatePhoneNumber, validateEmail } from '../utils/coun
 import { BLOOD_COMPATIBILITY_TABLE } from '../utils/bloodCompatibility';
 import { reverseGeocodeCoordinates } from '../utils/geolocation';
 import ClinicalCallModal from './ClinicalCallModal';
+import SendAlertModal, { TargetDonorSummary } from './SendAlertModal';
 
 const scrollBlurVariants: Variants = {
   hidden: { 
@@ -88,6 +89,8 @@ export default function DonorRegistry() {
     location?: string;
     roleOrContext?: string;
   } | null>(null);
+  // State for in-app Send Alert modal (allows editing requester contact & phone while locking verified email)
+  const [alertModalTarget, setAlertModalTarget] = useState<TargetDonorSummary | null>(null);
   // Multi-card independent expansion tracking via Set so opening one does not close others
   const [expandedDonorIds, setExpandedDonorIds] = useState<Set<string>>(() => new Set(highlightParam ? [highlightParam] : []));
 
@@ -1541,6 +1544,15 @@ export default function DonorRegistry() {
           roleOrContext={callModalTarget.roleOrContext}
         />
       )}
+
+      {/* In-App Send Emergency Blood Alert Modal */}
+      {alertModalTarget && (
+        <SendAlertModal
+          isOpen={Boolean(alertModalTarget)}
+          onClose={() => setAlertModalTarget(null)}
+          targetDonor={alertModalTarget}
+        />
+      )}
     </div>
   );
 
@@ -1778,13 +1790,21 @@ export default function DonorRegistry() {
                       <Phone className="w-3 h-3" />
                       <span>Direct Mobilize Call</span>
                     </button>
-                    <a
-                      href={`mailto:${donor.email}?subject=Emergency%20Blood%20Transfusion%20Request%20-%20BloodMatch&body=Hello%20${encodeURIComponent(donor.fullName)},%20we%20have%20an%20urgent%20need%20for%20Group%20${donor.bloodType}%20blood%20in%20your%20area.`}
+                    <button
+                      type="button"
+                      onClick={() => setAlertModalTarget({
+                        id: donor.id,
+                        fullName: donor.fullName,
+                        email: donor.email,
+                        phone: donor.phone,
+                        bloodType: donor.bloodType,
+                        location: donor.location || `${donor.city}, ${donor.state}`,
+                      })}
                       className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] font-semibold text-xs transition-colors cursor-pointer"
                     >
                       <Mail className="w-3 h-3 text-[#D72638]" />
                       <span>Send Alert</span>
-                    </a>
+                    </button>
                   </div>
                 )}
               </div>

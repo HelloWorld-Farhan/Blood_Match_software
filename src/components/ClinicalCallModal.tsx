@@ -193,3 +193,4 @@ export default function ClinicalCallModal({
     document.body
   );
 }
+

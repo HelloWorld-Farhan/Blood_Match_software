@@ -59,6 +59,7 @@ import {
   RankedDonorItem 
 } from '../utils/docketPdfGenerator';
 import ClinicalCallModal from './ClinicalCallModal';
+import SendAlertModal, { TargetDonorSummary } from './SendAlertModal';
 
 const scrollBlurVariants: Variants = {
   hidden: { 
@@ -115,6 +116,14 @@ export default function EmergencyRequests() {
     bloodType?: string;
     location?: string;
     roleOrContext?: string;
+  } | null>(null);
+
+  // In-App Send Emergency Blood Alert modal state
+  const [alertModalTarget, setAlertModalTarget] = useState<{
+    donor: TargetDonorSummary;
+    patientName?: string;
+    hospital?: string;
+    customMessage?: string;
   } | null>(null);
 
   // Mark Fulfilled Confirmation Modal State
@@ -1428,8 +1437,21 @@ export default function EmergencyRequests() {
 
                                     <button
                                       type="button"
-                                      onClick={() => handleSendAlertForRequest(req, donor)}
-                                      disabled={isDispatching || isDispatched}
+                                      onClick={() => setAlertModalTarget({
+                                        donor: {
+                                          id: donor.id,
+                                          fullName: donor.fullName,
+                                          email: donor.email,
+                                          phone: donor.phone,
+                                          bloodType: donor.bloodType,
+                                          location: donor.location || donor.city,
+                                          distanceKm: donor.distanceKm
+                                        },
+                                        patientName: req.patientName,
+                                        hospital: req.hospital || 'Emergency Trauma Bay',
+                                        customMessage: `Urgent transfusion required for ${req.patientName} (Group ${req.bloodType}). Your compatible voluntary donation can save a life. Please contact our hotline immediately if you can donate.`
+                                      })}
+                                      disabled={isDispatched}
                                       className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-2xs ${
                                         isDispatched
                                           ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
@@ -1437,7 +1459,7 @@ export default function EmergencyRequests() {
                                       }`}
                                     >
                                       <Send className="w-3 h-3" />
-                                      <span>{isDispatching ? 'Transmitting...' : isDispatched ? 'Alert Sent ✓' : 'Send Alert'}</span>
+                                      <span>{isDispatched ? 'Alert Sent ✓' : 'Send Alert'}</span>
                                     </button>
                                   </div>
                                 )}
@@ -2131,17 +2153,28 @@ export default function EmergencyRequests() {
 
                               <button
                                 type="button"
-                                onClick={() => handleDispatchDonor(donor)}
-                                disabled={isDispatching || isDispatched}
+                                onClick={() => setAlertModalTarget({
+                                  donor: {
+                                    id: donor.id,
+                                    fullName: donor.fullName,
+                                    email: donor.email,
+                                    phone: donor.phone,
+                                    bloodType: donor.bloodType,
+                                    location: donor.location || donor.city || 'Delhi NCR',
+                                    distanceKm: donor.distanceKm
+                                  },
+                                  patientName: patientName,
+                                  hospital: 'Emergency Trauma Network',
+                                  customMessage: `Urgent transfusion needed for ${patientName} (Group ${bloodType}). Your compatible voluntary donation can save a life. Please contact our emergency hotline immediately if you can donate.`
+                                })}
+                                disabled={isDispatched}
                                 className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
                                   isDispatched
                                     ? 'bg-emerald-600 text-white cursor-default'
                                     : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer disabled:opacity-50'
                                 }`}
                               >
-                                {isDispatching ? (
-                                  <RefreshCw className="w-3 h-3 animate-spin" />
-                                ) : isDispatched ? (
+                                {isDispatched ? (
                                   <CheckCircle2 className="w-3 h-3" />
                                 ) : (
                                   <Send className="w-3 h-3" />
@@ -2185,6 +2218,23 @@ export default function EmergencyRequests() {
           bloodType={callModalTarget.bloodType}
           location={callModalTarget.location}
           roleOrContext={callModalTarget.roleOrContext}
+        />
+      )}
+
+      {/* In-App Send Emergency Blood Alert Modal */}
+      {alertModalTarget && (
+        <SendAlertModal
+          isOpen={Boolean(alertModalTarget)}
+          onClose={() => setAlertModalTarget(null)}
+          targetDonor={alertModalTarget.donor}
+          initialPatientName={alertModalTarget.patientName}
+          initialHospital={alertModalTarget.hospital}
+          initialMessage={alertModalTarget.customMessage}
+          onSuccess={() => {
+            if (alertModalTarget?.donor.id) {
+              setDispatchedDonorIds((prev) => ({ ...prev, [alertModalTarget.donor.id!]: true }));
+            }
+          }}
         />
       )}
     </div>
