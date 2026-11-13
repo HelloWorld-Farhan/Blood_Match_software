@@ -647,7 +647,7 @@ export default function DonorRegistry() {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.2 }}
-        className="p-6 sm:p-8 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
+        className="p-6 sm:p-8 rounded-2xl bg-white border border-[#D9C7C2] shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4"
       >
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] text-xs font-bold border border-[#D72638]/30 mb-2">
@@ -681,7 +681,7 @@ export default function DonorRegistry() {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.15 }}
-        className="p-5 sm:p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-hidden"
+        className="p-5 sm:p-6 rounded-2xl bg-white border border-[#D9C7C2] shadow-sm overflow-hidden"
       >
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
           <div 
@@ -774,7 +774,7 @@ export default function DonorRegistry() {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.2 }}
-        className="flex flex-col md:flex-row gap-4 items-center justify-between"
+        className="p-3.5 sm:p-4 rounded-2xl bg-white border border-[#D9C7C2] shadow-xs flex flex-col md:flex-row gap-3.5 items-center justify-between"
       >
         <div className="relative w-full md:w-96">
           <Search className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
@@ -783,11 +783,11 @@ export default function DonorRegistry() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name, locality, phone, blood group..."
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-white border border-[#D9C7C2] focus:border-[#D72638] text-xs text-[#1A1D20] placeholder-slate-400 outline-hidden shadow-xs"
+            className="w-full pl-10 pr-4 py-2 rounded-xl bg-[#F5F1EF] hover:bg-white focus:bg-white border border-[#D9C7C2] focus:border-[#D72638] text-xs text-[#1A1D20] placeholder-slate-400 outline-hidden shadow-2xs transition-colors"
           />
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full md:w-auto py-1">
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full md:w-auto py-0.5">
           {['ALL', ...bloodTypes].map(bt => (
             <button
               key={bt}
@@ -795,7 +795,7 @@ export default function DonorRegistry() {
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
                 selectedFilter === bt
                   ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/30 scale-105'
-                  : 'bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
+                  : 'bg-[#F5F1EF] hover:bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
               }`}
             >
               {bt}
@@ -824,15 +824,15 @@ export default function DonorRegistry() {
                 Your Registered Blood Pledges ({myPledges.length})
               </h2>
             </div>
-            <span className="text-[10px] sm:text-[11px] font-bold font-mono px-2.5 py-0.5 rounded-full bg-[#7A0C17]/10 text-[#7A0C17] border border-[#D72638]/20 truncate self-start sm:self-auto max-w-full">
+            <span className="text-[10px] sm:text-[11px] font-bold font-mono px-3 py-1 rounded-full bg-white text-[#7A0C17] border border-[#D9C7C2] shadow-2xs truncate self-start sm:self-auto max-w-full">
               Active Account: {currentUserEmail}
             </span>
           </div>
 
           {myPledges.length === 0 ? (
-            <div className="p-5 rounded-2xl bg-gradient-to-r from-red-50/50 via-white to-red-50/30 border border-[#D72638]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="p-5 rounded-2xl bg-white border border-[#D9C7C2] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white border border-[#D72638]/30 flex items-center justify-center text-[#D72638] shrink-0 shadow-xs">
+                <div className="w-10 h-10 rounded-xl bg-[#F5F1EF] border border-[#D72638]/30 flex items-center justify-center text-[#D72638] shrink-0 shadow-xs">
                   <Sparkles className="w-5 h-5 text-[#D72638]" />
                 </div>
                 <div>
@@ -880,14 +880,14 @@ export default function DonorRegistry() {
               Verified Community Donors ({communityDonors.length})
             </h2>
           </div>
-          <span className="text-[11px] font-mono font-semibold text-[#5A626A]">
+          <span className="text-[11px] font-mono font-bold text-[#5A626A] bg-white px-3 py-1 rounded-full border border-[#D9C7C2] shadow-2xs">
             Showing {filteredDonors.length} total matches
           </span>
         </div>
 
         {communityDonors.length === 0 ? (
-          <div className="p-10 text-center rounded-2xl bg-white/80 border border-dashed border-[#D9C7C2]">
-            <Heart className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+          <div className="p-10 text-center rounded-2xl bg-white border-2 border-dashed border-[#D9C7C2] shadow-xs">
+            <Heart className="w-10 h-10 text-[#D72638]/40 mx-auto mb-2" />
             <h3 className="text-sm font-bold text-[#1A1D20]">No community donors found</h3>
             <p className="text-xs text-[#5A626A] mt-1 max-w-sm mx-auto">
               {search || selectedFilter !== 'ALL'
@@ -1528,10 +1528,10 @@ export default function DonorRegistry() {
         whileHover={{ y: -2 }}
         className={`rounded-2xl transition-all duration-300 overflow-hidden ${
           isTargeted
-            ? 'ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/25 scale-[1.01] bg-gradient-to-br from-white via-red-50/40 to-white'
+            ? 'ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/25 scale-[1.01] bg-white'
             : isOwnPledge
-            ? 'bg-gradient-to-br from-white via-red-50/25 to-white border-2 border-[#D72638] shadow-md shadow-[#D72638]/10'
-            : 'bg-white/95 border border-[#D9C7C2] shadow-sm hover:border-[#D72638]/50'
+            ? 'bg-white border-2 border-[#D72638] shadow-md shadow-[#D72638]/10'
+            : 'bg-white border border-[#D9C7C2] shadow-xs hover:border-[#D72638]/50 hover:shadow-sm'
         }`}
       >
         {/* Card Header (Clickable for Dropdown Toggle) */}
@@ -1647,7 +1647,7 @@ export default function DonorRegistry() {
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.25, ease: 'easeInOut' }}
-              className="px-5 pb-5 pt-1 border-t border-[#D9C7C2]/60 bg-[#FDF9F8]/60 space-y-3.5 text-xs text-[#1A1D20]"
+              className="px-5 pb-5 pt-3 border-t border-[#D9C7C2] bg-[#FDF9F8] space-y-3.5 text-xs text-[#1A1D20]"
             >
               {/* Detailed Clinical Metrics Grid */}
               <div className="grid grid-cols-2 gap-2 pt-2">
