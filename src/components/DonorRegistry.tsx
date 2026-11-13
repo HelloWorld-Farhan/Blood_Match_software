@@ -79,13 +79,26 @@ export default function DonorRegistry() {
   const [donors, setDonors] = useState<Donor[]>([]);
   const [search, setSearch] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<string>('ALL');
-  const [expandedDonorId, setExpandedDonorId] = useState<string | null>(highlightParam);
+  // Multi-card independent expansion tracking via Set so opening one does not close others
+  const [expandedDonorIds, setExpandedDonorIds] = useState<Set<string>>(() => new Set(highlightParam ? [highlightParam] : []));
+
+  const toggleDonorExpanded = (id: string) => {
+    setExpandedDonorIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
 
   // Auto-scroll and highlight target donor when arriving via direct alert link or search
   useEffect(() => {
     if (highlightParam) {
       setHighlightedId(highlightParam);
-      setExpandedDonorId(highlightParam);
+      setExpandedDonorIds(prev => new Set(prev).add(highlightParam));
       setTimeout(() => {
         const el = document.getElementById(`donor-card-${highlightParam}`);
         if (el) {
@@ -600,7 +613,7 @@ export default function DonorRegistry() {
       }
       deleteDonorStorage(donorId);
       setDonors(prev => prev.filter(d => d.id !== donorId));
-      if (expandedDonorId === donorId) setExpandedDonorId(null);
+      setExpandedDonorIds(prev => { const n = new Set(prev); n.delete(donorId); return n; });
       // Strictly: Zero deletion notification is dispatched
     } catch {
       // Quiet background deletion fallback
@@ -854,7 +867,7 @@ export default function DonorRegistry() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-3.5 w-full">
               {myPledges.map((donor) => renderDonorCard(donor, true))}
             </div>
           )}
@@ -896,7 +909,7 @@ export default function DonorRegistry() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="flex flex-col gap-3.5 w-full">
             {communityDonors.map((donor) => renderDonorCard(donor, false))}
           </div>
         )}
@@ -1514,7 +1527,7 @@ export default function DonorRegistry() {
    * with priority styling and on-click expandable dropdown details
    */
   function renderDonorCard(donor: Donor, isOwnPledge: boolean) {
-    const isExpanded = expandedDonorId === donor.id;
+    const isExpanded = expandedDonorIds.has(donor.id);
     const isTargeted = highlightedId === donor.id;
     const compatibility = BLOOD_COMPATIBILITY_TABLE[donor.bloodType];
 
@@ -1522,135 +1535,115 @@ export default function DonorRegistry() {
       <motion.div
         id={`donor-card-${donor.id}`}
         key={donor.id}
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        whileHover={{ y: -2 }}
-        className={`rounded-2xl transition-all duration-300 overflow-hidden ${
+        transition={{ duration: 0.25 }}
+        className={`rounded-2xl transition-all duration-300 overflow-hidden w-full ${
           isTargeted
-            ? 'ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/25 scale-[1.01] bg-white'
+            ? 'ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/25 scale-[1.005] bg-white'
             : isOwnPledge
             ? 'bg-white border-2 border-[#D72638] shadow-md shadow-[#D72638]/10'
             : 'bg-white border border-[#D9C7C2] shadow-xs hover:border-[#D72638]/50 hover:shadow-sm'
         }`}
       >
-        {/* Card Header (Clickable for Dropdown Toggle) */}
+        {/* Card Header (Full-Width Horizontal Bar on One Line) */}
         <div 
           onClick={() => {
-            setExpandedDonorId(isExpanded ? null : donor.id);
+            toggleDonorExpanded(donor.id);
             if (isTargeted) setHighlightedId(null);
           }}
-          className="p-5 cursor-pointer select-none"
+          className="p-4 sm:p-5 cursor-pointer select-none flex flex-col md:flex-row md:items-center justify-between gap-3.5"
         >
-          {/* Top Pill / Badge */}
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {isTargeted && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D72638] text-white text-[10px] font-black uppercase tracking-wider animate-pulse shadow-xs">
-                  <Sparkles className="w-3 h-3" />
-                  <span>Targeted Record</span>
-                </span>
-              )}
-              {isOwnPledge ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#D72638] text-white text-[10px] font-black uppercase tracking-wider shadow-2xs">
-                  <Star className="w-3 h-3 fill-white" />
-                  <span>Your Registered Pledge</span>
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#F5F1EF] text-[#7A0C17] text-[10px] font-bold uppercase tracking-wider border border-[#D9C7C2]">
-                  <Users className="w-3 h-3 text-[#D72638]" />
-                  <span>Community Donor</span>
-                </span>
-              )}
+          {/* Left: Blood Badge & Primary Clinical Identity */}
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] flex flex-col items-center justify-center font-black text-white shadow-xs border border-[#D72638]/40 shrink-0">
+              <span className="text-[8px] uppercase font-bold text-red-100">Blood</span>
+              <span className="text-base">{donor.bloodType}</span>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border ${
-                donor.isAvailable 
-                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
-                  : 'bg-[#F5F1EF] text-slate-500 border-[#D9C7C2]'
-              }`}>
-                {donor.isAvailable ? '● Standby Ready' : 'Resting'}
-              </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-black text-[#1A1D20] text-base leading-tight truncate">
+                  {donor.fullName}
+                </h3>
+                {isOwnPledge && (
+                  <span className="text-[10px] font-bold text-white bg-[#D72638] px-2 py-0.5 rounded-full shadow-2xs shrink-0">
+                    You
+                  </span>
+                )}
+                {isTargeted && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D72638] text-white text-[10px] font-black uppercase tracking-wider animate-pulse shadow-xs shrink-0">
+                    <Sparkles className="w-3 h-3" />
+                    <span>Targeted</span>
+                  </span>
+                )}
+                <span className="font-mono text-xs text-[#7A0C17] bg-[#7A0C17]/10 px-2 py-0.5 rounded-md font-bold shrink-0">
+                  {donor.id}
+                </span>
+                <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border shrink-0 ${
+                  donor.isAvailable 
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                    : 'bg-[#F5F1EF] text-slate-500 border-[#D9C7C2]'
+                }`}>
+                  {donor.isAvailable ? '● Standby Ready' : 'Resting'}
+                </span>
+              </div>
 
-              {/* Owner-Only Delete Pledge Action */}
-              {isOwnPledge && (
-                <button
-                  type="button"
-                  onClick={(e) => handleDeleteDonor(donor.id, e)}
-                  disabled={isDeletingId === donor.id}
-                  className="px-2 py-0.5 rounded-lg bg-red-50 hover:bg-red-100 text-[#D72638] border border-red-200 text-[10px] font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                  title="Remove your blood donor pledge"
-                >
-                  <Trash2 className="w-3 h-3" />
-                  <span>Delete</span>
-                </button>
-              )}
+              <div className="text-xs text-[#5A626A] mt-1 flex items-center gap-2 flex-wrap">
+                <span>{donor.age} yrs</span>
+                <span>•</span>
+                <span>{donor.gender}</span>
+                <span>•</span>
+                <span className="flex items-center gap-1 font-semibold text-[#1A1D20]">
+                  <MapPin className="w-3.5 h-3.5 text-[#D72638] shrink-0" />
+                  <span className="truncate">{donor.location || `${donor.city}, ${donor.state}`}</span>
+                </span>
+                <span>•</span>
+                <span className="font-mono text-slate-600">Contact: {donor.phone}</span>
+              </div>
             </div>
           </div>
 
-          {/* Blood Type Badge & Primary Info */}
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] flex flex-col items-center justify-center font-black text-white shadow-md shadow-[#D72638]/20 border border-[#D72638]/40 shrink-0">
-                <span className="text-[9px] uppercase font-bold text-red-100">Blood</span>
-                <span className="text-base">{donor.bloodType}</span>
-              </div>
-              <div>
-                <h3 className="font-black text-[#1A1D20] text-base leading-tight flex items-center gap-1.5">
-                  <span>{donor.fullName}</span>
-                  {isOwnPledge && (
-                    <span className="text-[10px] font-semibold text-[#D72638] bg-red-100/70 px-1.5 py-0.2 rounded-md">
-                      You
-                    </span>
-                  )}
-                </h3>
-                <div className="text-xs text-[#5A626A] mt-0.5 flex items-center gap-2">
-                  <span>{donor.age} yrs</span>
-                  <span>•</span>
-                  <span>{donor.gender}</span>
-                  <span>•</span>
-                  <span className="font-mono text-[11px] text-[#7A0C17]">{donor.id}</span>
-                </div>
-              </div>
-            </div>
+          {/* Right: Actions & Expand Button */}
+          <div className="flex items-center gap-2.5 self-end md:self-center shrink-0">
+            {isOwnPledge && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteDonor(donor.id, e);
+                }}
+                disabled={isDeletingId === donor.id}
+                className="px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-[#D72638] border border-red-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Remove your blood donor pledge"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Pledge</span>
+              </button>
+            )}
 
             <button
               type="button"
-              className="p-1.5 rounded-xl bg-[#F5F1EF] text-[#5A626A] hover:text-[#1A1D20] transition-colors shrink-0"
-              title={isExpanded ? 'Collapse profile' : 'Expand full clinical profile'}
+              className="py-1.5 px-3.5 rounded-xl bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] text-xs font-bold transition-all flex items-center gap-1.5 border border-[#D9C7C2] cursor-pointer"
             >
-              {isExpanded ? <ChevronUp className="w-4 h-4 text-[#D72638]" /> : <ChevronDown className="w-4 h-4" />}
+              <span>{isExpanded ? 'Hide Details' : 'View Full Profile'}</span>
+              {isExpanded ? <ChevronUp className="w-3.5 h-3.5 text-[#D72638]" /> : <ChevronDown className="w-3.5 h-3.5 text-slate-500" />}
             </button>
-          </div>
-
-          {/* Locality & Quick Metrics */}
-          <div className="mt-3.5 pt-3 border-t border-[#D9C7C2]/50 text-xs space-y-1.5">
-            <div className="flex items-center gap-2 text-[#1A1D20] font-semibold">
-              <MapPin className="w-3.5 h-3.5 text-[#D72638] shrink-0" />
-              <span className="truncate">{donor.location || `${donor.city}, ${donor.state}`}</span>
-            </div>
-            <div className="flex items-center justify-between text-[#5A626A] text-[11px]">
-              <span className="truncate">Contact: {donor.phone}</span>
-              <span className="text-[#D72638] font-bold">
-                {isExpanded ? 'Hide Details' : 'View Full Profile ↓'}
-              </span>
-            </div>
           </div>
         </div>
 
-        {/* EXPANDABLE ACCORDION / ON-CLICK DROPDOWN DETAILS */}
+        {/* EXPANDABLE ACCORDION / ON-CLICK DROPDOWN DETAILS WITH ANIMATION AND BLUR EFFECT */}
         <AnimatePresence>
           {isExpanded && (
             <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              initial={{ height: 0, opacity: 0, filter: 'blur(8px)' }}
+              animate={{ height: 'auto', opacity: 1, filter: 'blur(0px)' }}
+              exit={{ height: 0, opacity: 0, filter: 'blur(8px)' }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
               className="px-5 pb-5 pt-3 border-t border-[#D9C7C2] bg-[#FDF9F8] space-y-3.5 text-xs text-[#1A1D20]"
             >
               {/* Detailed Clinical Metrics Grid */}
-              <div className="grid grid-cols-2 gap-2 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                 <div className="p-2.5 rounded-xl bg-white border border-[#D9C7C2]">
                   <span className="text-[10px] text-[#7A0C17] font-bold uppercase tracking-wider block">Verified Phone</span>
                   <a 
@@ -1716,33 +1709,41 @@ export default function DonorRegistry() {
                 </span>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#D9C7C2]/40">
-                <a
-                  href={`tel:${donor.phone}`}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
-                >
-                  <Phone className="w-3 h-3" />
-                  <span>Direct Mobilize Call</span>
-                </a>
-                <a
-                  href={`mailto:${donor.email}?subject=Emergency%20Blood%20Transfusion%20Request%20-%20BloodMatch&body=Hello%20${encodeURIComponent(donor.fullName)},%20we%20have%20an%20urgent%20need%20for%20Group%20${donor.bloodType}%20blood%20in%20your%20area.`}
-                  className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] font-semibold text-xs transition-colors cursor-pointer"
-                >
-                  <Mail className="w-3 h-3 text-[#D72638]" />
-                  <span>Send Alert</span>
-                </a>
-                {isOwnPledge && (
-                  <button
-                    type="button"
-                    onClick={(e) => handleDeleteDonor(donor.id, e)}
-                    disabled={isDeletingId === donor.id}
-                    className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-[#D72638] border border-red-200 font-bold text-xs transition-colors cursor-pointer"
-                    title="Remove your blood donor pledge"
-                  >
-                    <Trash2 className="w-3 h-3 text-[#D72638]" />
-                    <span>Delete Pledge</span>
-                  </button>
+              {/* Action Buttons: If own pledge, NEVER show self-call or self-alert buttons! */}
+              <div className="pt-2 border-t border-[#D9C7C2]/40">
+                {isOwnPledge ? (
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-emerald-900">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>You are registered as a Standby Voluntary Donor for Group <strong>{donor.bloodType}</strong>. In the event of a matching emergency transfusion demand in your area, attending clinicians will mobilize you.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteDonor(donor.id, e)}
+                      disabled={isDeletingId === donor.id}
+                      className="self-end sm:self-center px-3.5 py-1.5 rounded-lg bg-red-100 hover:bg-red-200 text-[#D72638] font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shrink-0"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete Pledge</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a
+                      href={`tel:${donor.phone}`}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                    >
+                      <Phone className="w-3 h-3" />
+                      <span>Direct Mobilize Call</span>
+                    </a>
+                    <a
+                      href={`mailto:${donor.email}?subject=Emergency%20Blood%20Transfusion%20Request%20-%20BloodMatch&body=Hello%20${encodeURIComponent(donor.fullName)},%20we%20have%20an%20urgent%20need%20for%20Group%20${donor.bloodType}%20blood%20in%20your%20area.`}
+                      className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] font-semibold text-xs transition-colors cursor-pointer"
+                    >
+                      <Mail className="w-3 h-3 text-[#D72638]" />
+                      <span>Send Alert</span>
+                    </a>
+                  </div>
                 )}
               </div>
             </motion.div>
