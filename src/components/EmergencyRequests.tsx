@@ -104,11 +104,11 @@ export default function EmergencyRequests() {
   const [modalPhase, setModalPhase] = useState<'INPUT' | 'SCANNING' | 'RESULTS'>('INPUT');
   const [scanStepIndex, setScanStepIndex] = useState(0);
 
-  // Form states (Hospital & Clinical Indication/Diagnosis completely removed)
+  // Form states (Form Neutrality with zero default prefilled inputs)
   const [patientName, setPatientName] = useState('');
-  const [patientAge, setPatientAge] = useState<number>(35);
-  const [bloodType, setBloodType] = useState<BloodType>('O+');
-  const [unitsNeeded, setUnitsNeeded] = useState<number>(2);
+  const [patientAge, setPatientAge] = useState<number | ''>('');
+  const [bloodType, setBloodType] = useState<BloodType | ''>('');
+  const [unitsNeeded, setUnitsNeeded] = useState<number | ''>('');
   const [urgency, setUrgency] = useState<UrgencyLevel>('CRITICAL');
   const [contactName, setContactName] = useState(currentUserName);
   const [countryDialCode, setCountryDialCode] = useState<string>('+91');
@@ -227,14 +227,27 @@ export default function EmergencyRequests() {
     };
   }, [isOpenModal]);
 
-  // GPS Browser Geolocation
-  const handleDetectGps = () => {
-    if (!navigator.geolocation) {
+  // GPS Browser Geolocation (Accurate 1-Click Permissions & Positioning)
+  const handleDetectGps = async () => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
       setGpsMessage('Geolocation is not supported by your browser.');
       return;
     }
     setIsDetectingGps(true);
     setGpsMessage('Detecting browser GPS coordinates...');
+
+    try {
+      if (navigator.permissions && navigator.permissions.query) {
+        const permissionStatus = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+        if (permissionStatus.state === 'denied') {
+          setIsDetectingGps(false);
+          setGpsMessage('Location access is blocked in your browser settings. Please enter your locality manually.');
+          return;
+        }
+      }
+    } catch {
+      // Permission query unsupported on some browsers
+    }
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -249,28 +262,31 @@ export default function EmergencyRequests() {
           const geo = await reverseGeocodeCoordinates(lat, lon);
           setSelectedLocality(geo.primaryLocality);
           setCustomLocalityInput(geo.primaryLocality);
-          setDetectedPills(geo.nearestPills);
-          setGpsMessage(`Live GPS Pinpointed: ${geo.displayName} (${lat.toFixed(4)}°, ${lon.toFixed(4)}°)`);
+          setDetectedPills(geo.nearestPills || []);
+          setGpsMessage(`Location locked: ${geo.primaryLocality}`);
+          if (formErrors.targetLocation) setFormErrors(prev => ({ ...prev, targetLocation: '' }));
         } catch {
           const gpsLabel = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
           setSelectedLocality(gpsLabel);
           setCustomLocalityInput(gpsLabel);
-          setGpsMessage(`Live GPS Pinpointed: (${lat.toFixed(4)}°, ${lon.toFixed(4)}°)`);
+          setGpsMessage(`GPS Coordinates locked: (${lat.toFixed(4)}°, ${lon.toFixed(4)}°)`);
+          if (formErrors.targetLocation) setFormErrors(prev => ({ ...prev, targetLocation: '' }));
         } finally {
           setIsDetectingGps(false);
         }
       },
       (err) => {
         setIsDetectingGps(false);
-        setGpsMessage(err.message || 'GPS location permission denied. You can select or search any locality worldwide.');
+        setGpsMessage(err.code === 1 ? 'Location permission was denied. Please enter your locality manually.' : 'Unable to acquire GPS signal. Please enter your locality manually.');
       },
-      { enableHighAccuracy: true, timeout: 8000 }
+      { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 }
     );
   };
 
   // Compatible donor types for selected blood group
   const compatibleBloodTypes = useMemo(() => {
-    return getCompatibleDonorTypes(bloodType);
+    if (!bloodType) return [];
+    return getCompatibleDonorTypes(bloodType as BloodType);
   }, [bloodType]);
 
   // Ranked Compatible Donors List
@@ -328,6 +344,11 @@ export default function EmergencyRequests() {
     setModalPhase('INPUT');
     setFormErrors({});
     setModalNotification(null);
+    setPatientName('');
+    setPatientAge('');
+    setBloodType('');
+    setUnitsNeeded('');
+    setEmergencyConfirmed(false);
     setSelectedLocality('');
     setCustomLocalityInput('');
     setDetectedPills([]);
@@ -338,14 +359,18 @@ export default function EmergencyRequests() {
     const errors: Record<string, string> = {};
 
     if (!patientName.trim() || patientName.trim().length < 2) {
-      errors.patientName = 'Patient name is required (at least 2 characters)';
+      errors.patientName = 'Patient full legal name is required (at least 2 characters)';
     }
 
-    if (!patientAge || patientAge < 1 || patientAge > 120) {
-      errors.patientAge = 'Please enter a valid age between 1 and 120';
+    if (!patientAge || Number(patientAge) < 1 || Number(patientAge) > 120) {
+      errors.patientAge = 'Please enter a valid patient age between 1 and 120';
     }
 
-    if (!unitsNeeded || unitsNeeded < 1 || unitsNeeded > 50) {
+    if (!bloodType) {
+      errors.bloodType = 'Recipient required blood group is required';
+    }
+
+    if (!unitsNeeded || Number(unitsNeeded) < 1 || Number(unitsNeeded) > 50) {
       errors.unitsNeeded = 'Units needed must be at least 1 pint';
     }
 
@@ -377,9 +402,9 @@ export default function EmergencyRequests() {
     const newRequest: EmergencyRequest = {
       id: `REQ-${Date.now().toString().slice(-6)}`,
       patientName: patientName.trim(),
-      patientAge,
-      bloodType,
-      unitsNeeded,
+      patientAge: Number(patientAge) || 35,
+      bloodType: bloodType as BloodType,
+      unitsNeeded: Number(unitsNeeded) || 1,
       hospital: 'Emergency Trauma Network',
       hospitalCity: locationString,
       ward: 'Emergency Triage',
@@ -401,8 +426,8 @@ export default function EmergencyRequests() {
         user_email: currentUserEmail,
         patient_name: patientName.trim(),
         hospital: 'Emergency Trauma Network',
-        blood_type: bloodType,
-        units_needed: unitsNeeded,
+        blood_type: bloodType as BloodType,
+        units_needed: Number(unitsNeeded) || 1,
         status: 'urgent',
         contact_person: contactName.trim() || currentUserName,
         contact_phone: fullPhone
@@ -441,8 +466,8 @@ export default function EmergencyRequests() {
         donor_email: donor.email,
         donor_phone: donor.phone,
         patient_name: patientName,
-        recipient_blood_type: bloodType,
-        units_needed: unitsNeeded,
+        recipient_blood_type: bloodType as BloodType,
+        units_needed: Number(unitsNeeded) || 1,
         hospital: 'Emergency Trauma Network',
         locality: customLocalityInput.trim() || selectedLocality,
         urgency: urgency,
@@ -505,10 +530,10 @@ export default function EmergencyRequests() {
       // 1. Generate minimal UI-aligned PDF docket with unique ID (autoDownload: false for email)
       const pdfResult = generateEmergencyDonorDocketPdf(
         {
-          recipientBloodType: bloodType,
+          recipientBloodType: (bloodType || 'O+') as BloodType,
           patientName,
-          patientAge,
-          unitsNeeded,
+          patientAge: patientAge ? Number(patientAge) : undefined,
+          unitsNeeded: unitsNeeded ? Number(unitsNeeded) : undefined,
           urgency,
           hospitalLocality: customLocalityInput.trim() || selectedLocality,
           searchCoordinates: userCoords,
@@ -523,8 +548,8 @@ export default function EmergencyRequests() {
         clinician_email: currentUserEmail,
         clinician_name: currentUserName,
         patient_name: patientName,
-        recipient_blood_type: bloodType,
-        units_needed: unitsNeeded,
+        recipient_blood_type: bloodType as BloodType,
+        units_needed: Number(unitsNeeded) || 1,
         hospital: 'Emergency Trauma Network',
         locality: customLocalityInput.trim() || selectedLocality,
         urgency: urgency,
@@ -577,10 +602,10 @@ export default function EmergencyRequests() {
 
       const pdfResult = generateEmergencyDonorDocketPdf(
         {
-          recipientBloodType: bloodType,
+          recipientBloodType: (bloodType || 'O+') as BloodType,
           patientName,
-          patientAge,
-          unitsNeeded,
+          patientAge: patientAge ? Number(patientAge) : undefined,
+          unitsNeeded: unitsNeeded ? Number(unitsNeeded) : undefined,
           urgency,
           hospitalName: 'Emergency Trauma Network',
           hospitalLocality: customLocalityInput.trim() || selectedLocality,
@@ -953,7 +978,7 @@ export default function EmergencyRequests() {
                               setPatientName(e.target.value);
                               if (formErrors.patientName) setFormErrors(prev => ({ ...prev, patientName: '' }));
                             }}
-                            placeholder="Marcus Vance"
+                            placeholder="Enter patient full legal name..."
                             className={`w-full px-3 py-2 rounded-xl bg-white border ${
                               formErrors.patientName ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
                             } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
@@ -971,9 +996,11 @@ export default function EmergencyRequests() {
                             type="number"
                             min="1"
                             max="120"
-                            value={patientAge}
+                            value={patientAge === '' ? '' : patientAge}
+                            placeholder="e.g. 35"
                             onChange={(e) => {
-                              setPatientAge(Number(e.target.value));
+                              const val = e.target.value;
+                              setPatientAge(val === '' ? '' : Number(val));
                               if (formErrors.patientAge) setFormErrors(prev => ({ ...prev, patientAge: '' }));
                             }}
                             className={`w-full px-3 py-2 rounded-xl bg-white border ${
@@ -992,8 +1019,8 @@ export default function EmergencyRequests() {
                           <label className="block text-xs font-bold text-[#1A1D20]">
                             Recipient Required Blood Group <span className="text-[#D72638]">*</span>
                           </label>
-                          <span className="text-[10px] font-mono font-bold text-[#D72638]">
-                            Selected: {bloodType}
+                          <span className={`text-[10px] font-mono font-bold ${bloodType ? 'text-[#D72638]' : 'text-slate-400'}`}>
+                            Selected: {bloodType || 'None (Select Group)'}
                           </span>
                         </div>
                         <div className="grid grid-cols-4 gap-1.5">
@@ -1003,7 +1030,10 @@ export default function EmergencyRequests() {
                               <button
                                 key={type}
                                 type="button"
-                                onClick={() => setBloodType(type)}
+                                onClick={() => {
+                                  setBloodType(type);
+                                  if (formErrors.bloodType) setFormErrors(prev => ({ ...prev, bloodType: '' }));
+                                }}
                                 className={`h-9 rounded-xl font-black text-xs transition-colors border cursor-pointer flex items-center justify-center ${
                                   isSelected
                                     ? 'bg-[#D72638] text-white border-[#D72638] shadow-xs'
@@ -1015,6 +1045,9 @@ export default function EmergencyRequests() {
                             );
                           })}
                         </div>
+                        {formErrors.bloodType && (
+                          <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.bloodType}</p>
+                        )}
 
                         {/* Compatible Donor Indicator (Fixed Height to prevent any modal shifting) */}
                         <div className="mt-2 px-3 py-2 rounded-xl bg-red-50/80 border border-red-100 h-10 min-h-[40px] max-h-[40px] flex items-center justify-between gap-2 text-2xs overflow-hidden">
@@ -1022,8 +1055,8 @@ export default function EmergencyRequests() {
                             <ShieldCheck className="w-3.5 h-3.5 text-red-600 shrink-0" />
                             <span>Compatible Donors:</span>
                           </span>
-                          <span className="font-bold text-red-700 text-right text-xs truncate max-w-[62%]" title={compatibleBloodTypes.join(', ')}>
-                            {compatibleBloodTypes.join(', ')}
+                          <span className="font-bold text-red-700 text-right text-xs truncate max-w-[62%]" title={bloodType ? compatibleBloodTypes.join(', ') : 'None'}>
+                            {bloodType ? compatibleBloodTypes.join(', ') : 'Select blood group above'}
                           </span>
                         </div>
                       </div>
@@ -1037,9 +1070,11 @@ export default function EmergencyRequests() {
                           type="number"
                           min="1"
                           max="50"
-                          value={unitsNeeded}
+                          value={unitsNeeded === '' ? '' : unitsNeeded}
+                          placeholder="e.g. 2"
                           onChange={(e) => {
-                            setUnitsNeeded(Number(e.target.value));
+                            const val = e.target.value;
+                            setUnitsNeeded(val === '' ? '' : Number(val));
                             if (formErrors.unitsNeeded) setFormErrors(prev => ({ ...prev, unitsNeeded: '' }));
                           }}
                           className={`w-full px-3 py-2 rounded-xl bg-white border ${

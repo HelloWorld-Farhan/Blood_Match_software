@@ -230,7 +230,7 @@ export async function fetchDonorsApi(bloodType?: string, userEmail?: string) {
 }
 
 export async function sendDonorOtpApi(email: string, name: string) {
-  return apiClient.post<{ message: string; success: boolean; cooldown_seconds: number }>(
+  return apiClient.post<{ message: string; success: boolean; cooldown_seconds: number; dev_otp?: string }>(
     '/api/donors/send-otp',
     { email, name }
   );

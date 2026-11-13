@@ -99,11 +99,11 @@ export default function DonorRegistry() {
   const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
   const [modalStep, setModalStep] = useState<'FORM' | 'OTP' | 'SUCCESS'>('FORM');
 
-  // Form input states
+  // Form input states (Neutral zero-default state)
   const [fullName, setFullName] = useState('');
-  const [bloodType, setBloodType] = useState<BloodType>('O+');
-  const [age, setAge] = useState<number>(28);
-  const [gender, setGender] = useState<Donor['gender']>('MALE');
+  const [bloodType, setBloodType] = useState<BloodType | ''>('');
+  const [age, setAge] = useState<number | ''>('');
+  const [gender, setGender] = useState<Donor['gender'] | ''>('');
   const [countryDialCode, setCountryDialCode] = useState<string>('+91');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -123,14 +123,47 @@ export default function DonorRegistry() {
   const [otpError, setOtpError] = useState<string>('');
   const [isSendingOtp, setIsSendingOtp] = useState<boolean>(false);
   const [isSubmittingOtp, setIsSubmittingOtp] = useState<boolean>(false);
+  const [isSubmittingDirect, setIsSubmittingDirect] = useState<boolean>(false);
   const [resendCooldown, setResendCooldown] = useState<number>(0);
   const [donorOtpExpirySeconds, setDonorOtpExpirySeconds] = useState<number>(600); // 10 minutes exact
+  const [devOtp, setDevOtp] = useState<string | null>(null);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Current logged in clinician / account email
   const currentUserEmail = typeof window !== 'undefined'
     ? (sessionStorage.getItem('bloodmatch_user_email') || localStorage.getItem('bloodmatch_user_email') || '').trim().toLowerCase()
     : '';
+
+  // Persistent verified emails memory
+  const [verifiedEmails, setVerifiedEmails] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('bloodmatch_verified_emails');
+      const list = stored ? JSON.parse(stored) : [];
+      return Array.isArray(list) ? list.map((e: string) => e.toLowerCase().trim()) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const isEmailVerified = Boolean(
+    email.trim() && (
+      (currentUserEmail && email.trim().toLowerCase() === currentUserEmail) ||
+      verifiedEmails.includes(email.trim().toLowerCase())
+    )
+  );
+
+  const saveVerifiedEmail = (em: string) => {
+    const clean = em.trim().toLowerCase();
+    if (!clean) return;
+    setVerifiedEmails(prev => {
+      if (prev.includes(clean)) return prev;
+      const updated = [...prev, clean];
+      try {
+        localStorage.setItem('bloodmatch_verified_emails', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
 
   const bloodTypes: BloodType[] = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
@@ -227,8 +260,8 @@ export default function DonorRegistry() {
     return () => clearInterval(timer);
   }, [isOpenModal, modalStep]);
 
-  // Browser Geolocation Detector (Worldwide with Reverse Geocoding)
-  const handleDetectLocation = () => {
+  // Browser Geolocation Detector (Worldwide with Instant 1-Click Permissions & Positioning)
+  const handleDetectLocation = async () => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
       setFormErrors(prev => ({
         ...prev,
@@ -239,6 +272,22 @@ export default function DonorRegistry() {
 
     setIsDetectingLocation(true);
     setLocationDetectionSuccess(false);
+
+    try {
+      if (navigator.permissions && navigator.permissions.query) {
+        const permissionStatus = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+        if (permissionStatus.state === 'denied') {
+          setIsDetectingLocation(false);
+          setFormErrors(prev => ({
+            ...prev,
+            location: 'Location access is blocked in your browser settings. Please allow location permissions or enter your locality manually.',
+          }));
+          return;
+        }
+      }
+    } catch {
+      // Permission query not supported on older browsers, proceed to navigator.geolocation
+    }
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -264,10 +313,12 @@ export default function DonorRegistry() {
         setIsDetectingLocation(false);
         setFormErrors(prev => ({
           ...prev,
-          location: 'Location access was blocked or timed out. Please enter your locality or area manually.',
+          location: err.code === 1 
+            ? 'Location permission was denied. Please allow access in your browser or enter your locality manually.'
+            : 'Unable to retrieve GPS coordinates. Please enter your locality manually.',
         }));
       },
-      { enableHighAccuracy: true, timeout: 9000, maximumAge: 60000 }
+      { enableHighAccuracy: false, timeout: 6000, maximumAge: 300000 }
     );
   };
 
@@ -277,6 +328,13 @@ export default function DonorRegistry() {
     setFormErrors({});
     setOtpDigits(['', '', '', '', '', '']);
     setOtpError('');
+    setDevOtp(null);
+    setBloodType('');
+    setAge('');
+    setGender('');
+    setFullName('');
+    setPhone('');
+    setEmail('');
     setLocation('');
     setCity('');
     setState('');
@@ -291,7 +349,15 @@ export default function DonorRegistry() {
       errors.fullName = 'Full legal name is required (at least 2 characters)';
     }
 
-    if (!age || age < 18 || age > 65) {
+    if (!bloodType) {
+      errors.bloodType = 'Please select a blood group';
+    }
+
+    if (!gender) {
+      errors.gender = 'Please select biological gender';
+    }
+
+    if (!age || Number(age) < 18 || Number(age) > 65) {
       errors.age = 'Donor age must be strictly between 18 and 65 years';
     }
 
@@ -321,17 +387,67 @@ export default function DonorRegistry() {
     return Object.keys(errors).length === 0;
   };
 
-  // Form submit -> initiates Email OTP Verification
+  // Direct registration handler for pre-verified contact emails (zero OTP required)
+  const handleRegisterDirectly = async () => {
+    if (!validateForm()) return;
+    setIsSubmittingDirect(true);
+    setFormErrors({});
+
+    try {
+      const res = await registerDonorApi({
+        name: fullName.trim(),
+        blood_type: bloodType as BloodType,
+        phone: `${countryDialCode} ${phone.trim()}`,
+        email: email.trim().toLowerCase(),
+        city: city.trim(),
+        location: location.trim(),
+        hospital: 'BloodMatch Emergency Network',
+        age: Number(age),
+        gender: gender as Donor['gender'],
+        user_email: currentUserEmail || email.trim().toLowerCase(),
+        otp_code: '', // Verified account bypass
+      });
+
+      if (res.ok && res.data) {
+        saveVerifiedEmail(email);
+        setModalStep('SUCCESS');
+        await loadDonors();
+      } else {
+        setFormErrors(prev => ({
+          ...prev,
+          email: res.error || 'Failed to complete registration. Please check your credentials.',
+        }));
+      }
+    } catch {
+      setFormErrors(prev => ({
+        ...prev,
+        email: 'Network error during donor registration. Please try again.',
+      }));
+    } finally {
+      setIsSubmittingDirect(false);
+    }
+  };
+
+  // Form submit -> initiates Email OTP Verification or directly registers if already verified
   const handleProceedToOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isEmailVerified) {
+      await handleRegisterDirectly();
+      return;
+    }
+
     if (!validateForm()) return;
 
     setIsSendingOtp(true);
     setOtpError('');
+    setDevOtp(null);
 
     try {
       const res = await sendDonorOtpApi(email.trim().toLowerCase(), fullName.trim());
       if (res.ok) {
+        if (res.data?.dev_otp) {
+          setDevOtp(res.data.dev_otp);
+        }
         setModalStep('OTP');
         setResendCooldown(res.data?.cooldown_seconds || 30);
         setDonorOtpExpirySeconds(600);
@@ -392,6 +508,9 @@ export default function DonorRegistry() {
     try {
       const res = await sendDonorOtpApi(email.trim().toLowerCase(), fullName.trim());
       if (res.ok) {
+        if (res.data?.dev_otp) {
+          setDevOtp(res.data.dev_otp);
+        }
         setResendCooldown(30);
         setDonorOtpExpirySeconds(600);
       } else {
@@ -419,20 +538,21 @@ export default function DonorRegistry() {
     try {
       const res = await registerDonorApi({
         name: fullName.trim(),
-        blood_type: bloodType,
+        blood_type: bloodType as BloodType,
         phone: `${countryDialCode} ${phone.trim()}`,
         email: email.trim().toLowerCase(),
         city: city.trim(),
         location: location.trim(),
         hospital: 'BloodMatch Emergency Network',
-        age,
-        gender,
+        age: Number(age),
+        gender: gender as Donor['gender'],
         user_email: currentUserEmail || email.trim().toLowerCase(),
         otp_code: code,
       });
 
       if (res.ok && res.data) {
-        // Successful registration & verification
+        // Successful registration & verification - save email to verified registry!
+        saveVerifiedEmail(email);
         setModalStep('SUCCESS');
         await loadDonors();
       } else {
@@ -448,16 +568,22 @@ export default function DonorRegistry() {
   // Reset form upon successful registration
   const handleFinishSuccess = () => {
     setFullName('');
+    setBloodType('');
+    setAge('');
+    setGender('');
     setPhone('');
     setEmail('');
     setLocation('');
-    setCity('Delhi');
-    setState('Delhi');
+    setCity('');
+    setState('');
+    setDetectedSuggestions([]);
+    setLocationDetectionSuccess(false);
     setConsentChecked(false);
     setFormErrors({});
     setIsOpenModal(false);
     setModalStep('FORM');
     setOtpDigits(['', '', '', '', '', '']);
+    setDevOtp(null);
   };
 
   // Owner-Only Donor Deletion Handler (Zero deletion notification dispatched)
@@ -854,26 +980,46 @@ export default function DonorRegistry() {
                           </label>
                           <select
                             value={bloodType}
-                            onChange={(e) => setBloodType(e.target.value as BloodType)}
-                            className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9C7C2] text-xs text-[#1A1D20] font-bold outline-hidden focus:border-[#D72638] cursor-pointer"
+                            onChange={(e) => {
+                              setBloodType(e.target.value as BloodType);
+                              if (formErrors.bloodType) setFormErrors(prev => ({ ...prev, bloodType: '' }));
+                            }}
+                            className={`w-full px-3 py-2 rounded-xl bg-white border ${
+                              formErrors.bloodType ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                            } text-xs text-[#1A1D20] font-bold outline-hidden focus:border-[#D72638] cursor-pointer`}
                           >
+                            <option value="" disabled>Select Blood Group</option>
                             {bloodTypes.map(t => (
                               <option key={t} value={t}>{t}</option>
                             ))}
                           </select>
+                          {formErrors.bloodType && (
+                            <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.bloodType}</p>
+                          )}
                         </div>
 
                         <div>
-                          <label className="block text-xs font-semibold text-[#1A1D20] mb-1">Biological Gender</label>
+                          <label className="block text-xs font-semibold text-[#1A1D20] mb-1">
+                            Biological Gender <span className="text-[#D72638]">*</span>
+                          </label>
                           <select
                             value={gender}
-                            onChange={(e) => setGender(e.target.value as Donor['gender'])}
-                            className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9C7C2] text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] cursor-pointer"
+                            onChange={(e) => {
+                              setGender(e.target.value as Donor['gender']);
+                              if (formErrors.gender) setFormErrors(prev => ({ ...prev, gender: '' }));
+                            }}
+                            className={`w-full px-3 py-2 rounded-xl bg-white border ${
+                              formErrors.gender ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                            } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] cursor-pointer`}
                           >
+                            <option value="" disabled>Select Gender</option>
                             <option value="MALE">Male</option>
                             <option value="FEMALE">Female</option>
                             <option value="OTHER">Other</option>
                           </select>
+                          {formErrors.gender && (
+                            <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.gender}</p>
+                          )}
                         </div>
                       </div>
 
@@ -886,9 +1032,11 @@ export default function DonorRegistry() {
                           type="number"
                           min="18"
                           max="65"
-                          value={age}
+                          value={age === '' ? '' : age}
+                          placeholder="e.g. 28"
                           onChange={(e) => {
-                            setAge(Number(e.target.value));
+                            const val = e.target.value;
+                            setAge(val === '' ? '' : Number(val));
                             if (formErrors.age) setFormErrors(prev => ({ ...prev, age: '' }));
                           }}
                           className={`w-full px-3 py-2 rounded-xl bg-white border ${
@@ -941,9 +1089,17 @@ export default function DonorRegistry() {
 
                       {/* Email Address */}
                       <div>
-                        <label className="block text-xs font-semibold text-[#1A1D20] mb-1">
-                          Email Address (Requires OTP) <span className="text-[#D72638]">*</span>
-                        </label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-semibold text-[#1A1D20]">
+                            Email Address {isEmailVerified ? '(Verified)' : '(Requires OTP)'} <span className="text-[#D72638]">*</span>
+                          </label>
+                          {isEmailVerified && (
+                            <span className="px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-300 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              Verified Contact (No OTP required)
+                            </span>
+                          )}
+                        </div>
                         <input
                           type="email"
                           value={email}
@@ -956,6 +1112,21 @@ export default function DonorRegistry() {
                             formErrors.email ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
                           } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
                         />
+                        {currentUserEmail && email.trim().toLowerCase() !== currentUserEmail && (
+                          <div className="mt-1.5 flex items-center justify-between">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEmail(currentUserEmail);
+                                if (formErrors.email) setFormErrors(prev => ({ ...prev, email: '' }));
+                              }}
+                              className="text-[11px] font-bold text-[#D72638] hover:underline flex items-center gap-1 cursor-pointer"
+                            >
+                              <Sparkles className="w-3 h-3 text-[#D72638]" />
+                              Use verified account email ({currentUserEmail})
+                            </button>
+                          </div>
+                        )}
                         {formErrors.email && (
                           <p className="text-red-500 text-[11px] font-semibold mt-1">{formErrors.email}</p>
                         )}
@@ -1109,15 +1280,28 @@ export default function DonorRegistry() {
                         >
                           Cancel
                         </button>
-                        <button
-                          type="submit"
-                          disabled={isSendingOtp}
-                          className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold shadow-md shadow-[#D72638]/25 cursor-pointer active:scale-95 transition-all disabled:opacity-50"
-                        >
-                          {isSendingOtp && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                          <span>{isSendingOtp ? 'Sending Verification OTP...' : 'Verify Email & Pledge'}</span>
-                          {!isSendingOtp && <ArrowRight className="w-3.5 h-3.5" />}
-                        </button>
+                        {isEmailVerified ? (
+                          <button
+                            type="button"
+                            onClick={handleRegisterDirectly}
+                            disabled={isSubmittingDirect}
+                            className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold shadow-md shadow-[#D72638]/25 cursor-pointer active:scale-95 transition-all disabled:opacity-50"
+                          >
+                            {isSubmittingDirect && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                            <span>{isSubmittingDirect ? 'Registering Pledge...' : 'Confirm & Register Pledge'}</span>
+                            {!isSubmittingDirect && <ArrowRight className="w-3.5 h-3.5" />}
+                          </button>
+                        ) : (
+                          <button
+                            type="submit"
+                            disabled={isSendingOtp}
+                            className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold shadow-md shadow-[#D72638]/25 cursor-pointer active:scale-95 transition-all disabled:opacity-50"
+                          >
+                            {isSendingOtp && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                            <span>{isSendingOtp ? 'Sending Verification OTP...' : 'Verify Email & Pledge'}</span>
+                            {!isSendingOtp && <ArrowRight className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1158,14 +1342,14 @@ export default function DonorRegistry() {
 
                     <div className="flex items-center gap-3 pt-1">
                       <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#7A0C17] to-[#D72638] text-white flex items-center justify-center text-lg font-black shadow-sm">
-                        {bloodType}
+                        {bloodType || 'Pending'}
                       </div>
                       <div>
                         <div className="text-base font-extrabold text-[#1A1D20]">
                           {fullName || 'Prospective Donor'}
                         </div>
                         <div className="text-xs text-[#5A626A]">
-                          {gender} • {age} Years • {city}
+                          {gender || 'Donor'} • {age || '--'} Years • {city || 'Locality'}
                         </div>
                       </div>
                     </div>
@@ -1173,7 +1357,7 @@ export default function DonorRegistry() {
                     <div className="pt-2 border-t border-[#D9C7C2]/50 space-y-1.5 text-xs text-[#5A626A]">
                       <div className="flex items-center justify-between">
                         <span className="font-medium">Locality:</span>
-                        <span className="font-semibold text-[#1A1D20] truncate max-w-[200px]">{location}</span>
+                        <span className="font-semibold text-[#1A1D20] truncate max-w-[200px]">{location || 'Area'}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="font-medium">Contact:</span>
@@ -1184,6 +1368,25 @@ export default function DonorRegistry() {
                         <span className="font-bold text-[#D72638] truncate max-w-[200px]">{email}</span>
                       </div>
                     </div>
+
+                    {/* Development / Gateway Fallback Helper */}
+                    {devOtp && (
+                      <div
+                        onClick={() => {
+                          const digits = devOtp.split('').slice(0, 6);
+                          setOtpDigits(digits);
+                          otpInputRefs.current[5]?.focus();
+                        }}
+                        className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-mono flex items-center justify-between cursor-pointer hover:bg-amber-100/80 transition-colors"
+                        title="Click to auto-fill code"
+                      >
+                        <span className="flex items-center gap-1.5 font-bold">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Code: {devOtp}</span>
+                        </span>
+                        <span className="text-[10px] uppercase font-bold text-amber-700 underline">Auto-fill</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Right Column: 6-Digit Code Input & Verification Action */}
