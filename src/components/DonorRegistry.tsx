@@ -33,6 +33,7 @@ import { fetchDonorsApi, sendDonorOtpApi, registerDonorApi, deleteDonorApi } fro
 import { COUNTRY_CODES, validatePhoneNumber, validateEmail } from '../utils/countryCodes';
 import { BLOOD_COMPATIBILITY_TABLE } from '../utils/bloodCompatibility';
 import { reverseGeocodeCoordinates } from '../utils/geolocation';
+import ClinicalCallModal from './ClinicalCallModal';
 
 const scrollBlurVariants: Variants = {
   hidden: { 
@@ -79,6 +80,14 @@ export default function DonorRegistry() {
   const [donors, setDonors] = useState<Donor[]>([]);
   const [search, setSearch] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<string>('ALL');
+  // State for in-app Clinical Mobilize Call modal (eliminates native browser OS prompt)
+  const [callModalTarget, setCallModalTarget] = useState<{
+    contactName: string;
+    phoneNumber: string;
+    bloodType?: string;
+    location?: string;
+    roleOrContext?: string;
+  } | null>(null);
   // Multi-card independent expansion tracking via Set so opening one does not close others
   const [expandedDonorIds, setExpandedDonorIds] = useState<Set<string>>(() => new Set(highlightParam ? [highlightParam] : []));
 
@@ -1519,6 +1528,19 @@ export default function DonorRegistry() {
         </div>,
         document.body
       )}
+
+      {/* Clinical Mobilize Call In-App Modal (eliminates browser OS pick-an-app dialog) */}
+      {callModalTarget && (
+        <ClinicalCallModal
+          isOpen={Boolean(callModalTarget)}
+          onClose={() => setCallModalTarget(null)}
+          contactName={callModalTarget.contactName}
+          phoneNumber={callModalTarget.phoneNumber}
+          bloodType={callModalTarget.bloodType}
+          location={callModalTarget.location}
+          roleOrContext={callModalTarget.roleOrContext}
+        />
+      )}
     </div>
   );
 
@@ -1530,6 +1552,12 @@ export default function DonorRegistry() {
     const isExpanded = expandedDonorIds.has(donor.id);
     const isTargeted = highlightedId === donor.id;
     const compatibility = BLOOD_COMPATIBILITY_TABLE[donor.bloodType];
+    const isSelfDonor = isOwnPledge || Boolean(
+      currentUserEmail && (
+        (donor.email && donor.email.trim().toLowerCase() === currentUserEmail) ||
+        (donor.user_email && donor.user_email.trim().toLowerCase() === currentUserEmail)
+      )
+    );
 
     return (
       <motion.div
@@ -1541,7 +1569,7 @@ export default function DonorRegistry() {
         className={`rounded-2xl transition-all duration-300 overflow-hidden w-full ${
           isTargeted
             ? 'ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/25 scale-[1.005] bg-white'
-            : isOwnPledge
+            : isSelfDonor
             ? 'bg-white border-2 border-[#D72638] shadow-md shadow-[#D72638]/10'
             : 'bg-white border border-[#D9C7C2] shadow-xs hover:border-[#D72638]/50 hover:shadow-sm'
         }`}
@@ -1646,12 +1674,19 @@ export default function DonorRegistry() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                 <div className="p-2.5 rounded-xl bg-white border border-[#D9C7C2]">
                   <span className="text-[10px] text-[#7A0C17] font-bold uppercase tracking-wider block">Verified Phone</span>
-                  <a 
-                    href={`tel:${donor.phone}`} 
-                    className="font-mono font-bold text-emerald-700 hover:underline mt-0.5 block truncate"
+                  <button 
+                    type="button"
+                    onClick={() => setCallModalTarget({
+                      contactName: donor.fullName,
+                      phoneNumber: donor.phone,
+                      bloodType: donor.bloodType,
+                      location: donor.location || `${donor.city}, ${donor.state}`,
+                      roleOrContext: `Voluntary Blood Donor (Group ${donor.bloodType})`
+                    })}
+                    className="font-mono font-bold text-emerald-700 hover:underline mt-0.5 block truncate text-left cursor-pointer"
                   >
                     {donor.phone}
-                  </a>
+                  </button>
                 </div>
 
                 <div className="p-2.5 rounded-xl bg-white border border-[#D9C7C2]">
@@ -1711,7 +1746,7 @@ export default function DonorRegistry() {
 
               {/* Action Buttons: If own pledge, NEVER show self-call or self-alert buttons! */}
               <div className="pt-2 border-t border-[#D9C7C2]/40">
-                {isOwnPledge ? (
+                {isSelfDonor ? (
                   <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-emerald-900">
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -1729,13 +1764,20 @@ export default function DonorRegistry() {
                   </div>
                 ) : (
                   <div className="flex flex-wrap items-center gap-2">
-                    <a
-                      href={`tel:${donor.phone}`}
+                    <button
+                      type="button"
+                      onClick={() => setCallModalTarget({
+                        contactName: donor.fullName,
+                        phoneNumber: donor.phone,
+                        bloodType: donor.bloodType,
+                        location: donor.location || `${donor.city}, ${donor.state}`,
+                        roleOrContext: `Voluntary Blood Donor (Group ${donor.bloodType})`
+                      })}
                       className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
                     >
                       <Phone className="w-3 h-3" />
                       <span>Direct Mobilize Call</span>
-                    </a>
+                    </button>
                     <a
                       href={`mailto:${donor.email}?subject=Emergency%20Blood%20Transfusion%20Request%20-%20BloodMatch&body=Hello%20${encodeURIComponent(donor.fullName)},%20we%20have%20an%20urgent%20need%20for%20Group%20${donor.bloodType}%20blood%20in%20your%20area.`}
                       className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] font-semibold text-xs transition-colors cursor-pointer"

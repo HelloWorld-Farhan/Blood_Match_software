@@ -58,6 +58,7 @@ import {
   generateEmergencyDonorDocketPdf, 
   RankedDonorItem 
 } from '../utils/docketPdfGenerator';
+import ClinicalCallModal from './ClinicalCallModal';
 
 const scrollBlurVariants: Variants = {
   hidden: { 
@@ -106,6 +107,15 @@ export default function EmergencyRequests() {
 
   // Expanded horizontal triage bar request ID (for in-board matched lifesavers dropdown)
   const [expandedRequestId, setExpandedRequestId] = useState<string | null>(null);
+
+  // In-App Clinical Mobilize Call modal state (eliminates browser OS pick-an-app dialog)
+  const [callModalTarget, setCallModalTarget] = useState<{
+    contactName: string;
+    phoneNumber: string;
+    bloodType?: string;
+    location?: string;
+    roleOrContext?: string;
+  } | null>(null);
 
   // Mark Fulfilled Confirmation Modal State
   const [fulfillmentModalReq, setFulfillmentModalReq] = useState<EmergencyRequest | null>(null);
@@ -1207,9 +1217,19 @@ export default function EmergencyRequests() {
 
                       <div className="text-[11px] text-[#5A626A] mt-1 flex items-center gap-2 flex-wrap">
                         <span>Contact: <strong>{req.contactName}</strong></span>
-                        <a href={`tel:${req.contactNumber}`} className="font-mono text-[#D72638] font-bold hover:underline">
+                        <button 
+                          type="button"
+                          onClick={() => setCallModalTarget({
+                            contactName: req.contactName,
+                            phoneNumber: req.contactNumber,
+                            bloodType: req.bloodType,
+                            location: req.hospitalCity || 'Delhi NCR',
+                            roleOrContext: `Emergency Transfusion Hotline • Patient: ${req.patientName}`
+                          })}
+                          className="font-mono text-[#D72638] font-bold hover:underline cursor-pointer"
+                        >
                           {req.contactNumber}
-                        </a>
+                        </button>
                         {isFulfilled && req.fulfilledByDonorName && (
                           <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                             Fulfilled by: {req.fulfilledByDonorName}
@@ -1223,13 +1243,20 @@ export default function EmergencyRequests() {
                   <div className="flex items-center gap-2 self-end lg:self-center shrink-0 flex-wrap">
                     {!isFulfilled && (
                       <>
-                        <a
-                          href={`tel:${req.contactNumber}`}
-                          className="py-2 px-3.5 rounded-xl bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] text-xs font-bold transition-all flex items-center gap-1.5 border border-[#D9C7C2]"
+                        <button
+                          type="button"
+                          onClick={() => setCallModalTarget({
+                            contactName: req.contactName,
+                            phoneNumber: req.contactNumber,
+                            bloodType: req.bloodType,
+                            location: req.hospitalCity || 'Delhi NCR',
+                            roleOrContext: `Emergency Transfusion Hotline • Patient: ${req.patientName}`
+                          })}
+                          className="py-2 px-3.5 rounded-xl bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] text-xs font-bold transition-all flex items-center gap-1.5 border border-[#D9C7C2] cursor-pointer"
                         >
                           <Phone className="w-3.5 h-3.5 text-emerald-600" />
                           <span>Call Hotline</span>
-                        </a>
+                        </button>
                         <button
                           onClick={() => handleOpenFulfillModal(req)}
                           className="py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
@@ -1311,10 +1338,23 @@ export default function EmergencyRequests() {
                             const isDispatched = dispatchedDonorIds[donor.id] || false;
                             const isDispatching = dispatchingDonorId === donor.id;
 
+                            const isSelf = Boolean(
+                              currentUserEmail && (
+                                (donor.email && donor.email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase()) ||
+                                (donor.user_email && donor.user_email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase())
+                              )
+                            );
+
                             return (
                               <div
                                 key={donor.id}
-                                className="p-3.5 rounded-xl bg-white border border-[#D9C7C2] shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-[#D72638]/40 transition-colors"
+                                className={`p-3.5 rounded-xl border shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+                                  isDispatched 
+                                    ? 'bg-emerald-50/60 border-emerald-200' 
+                                    : isSelf
+                                    ? 'bg-emerald-50/30 border-emerald-300 ring-1 ring-emerald-300'
+                                    : 'bg-white border-[#D9C7C2] hover:border-[#D72638]/40'
+                                }`}
                               >
                                 <div className="flex items-center gap-3 min-w-0">
                                   <div className="w-8 h-8 rounded-lg bg-[#F5F1EF] border border-[#D9C7C2] flex items-center justify-center font-mono font-bold text-xs text-[#7A0C17] shrink-0">
@@ -1328,6 +1368,11 @@ export default function EmergencyRequests() {
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <span className="font-bold text-xs text-[#1A1D20]">{donor.fullName}</span>
+                                      {isSelf && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] border border-red-200">
+                                          You
+                                        </span>
+                                      )}
                                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${donor.tier.badgeClass}`}>
                                         {donor.tier.label} • {donor.distanceKm < 1 ? '< 1 km' : `${donor.distanceKm.toFixed(1)} km`}
                                       </span>
@@ -1338,36 +1383,64 @@ export default function EmergencyRequests() {
                                         <span>{donor.location || donor.city}</span>
                                       </span>
                                       <span>•</span>
-                                      <span className="font-mono text-slate-500">{donor.phone}</span>
+                                      <button 
+                                        type="button"
+                                        onClick={() => setCallModalTarget({
+                                          contactName: donor.fullName,
+                                          phoneNumber: donor.phone,
+                                          bloodType: donor.bloodType,
+                                          location: donor.location || donor.city,
+                                          roleOrContext: `Voluntary Blood Donor (Group ${donor.bloodType}) • Matched for ${req.patientName}`
+                                        })}
+                                        className="font-mono text-slate-600 hover:text-[#D72638] hover:underline cursor-pointer"
+                                      >
+                                        {donor.phone}
+                                      </button>
                                       <span>•</span>
                                       <span className="text-[#5A626A]">{donor.email}</span>
                                     </div>
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                                  <a
-                                    href={`tel:${donor.phone}`}
-                                    className="px-3 py-1.5 rounded-lg bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] font-bold text-xs flex items-center gap-1 transition-colors border border-[#D9C7C2]"
-                                  >
-                                    <Phone className="w-3 h-3 text-emerald-600" />
-                                    <span>Call</span>
-                                  </a>
+                                {isSelf ? (
+                                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                                    <span className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-1 shadow-2xs">
+                                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                      <span>You (Your Standby Pledge)</span>
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => setCallModalTarget({
+                                        contactName: donor.fullName,
+                                        phoneNumber: donor.phone,
+                                        bloodType: donor.bloodType,
+                                        location: donor.location || donor.city,
+                                        roleOrContext: `Voluntary Blood Donor (Group ${donor.bloodType}) • Matched for ${req.patientName}`
+                                      })}
+                                      className="px-3 py-1.5 rounded-lg bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] font-bold text-xs flex items-center gap-1 transition-colors border border-[#D9C7C2] cursor-pointer"
+                                    >
+                                      <Phone className="w-3 h-3 text-emerald-600" />
+                                      <span>Call</span>
+                                    </button>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => handleSendAlertForRequest(req, donor)}
-                                    disabled={isDispatching || isDispatched}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-2xs ${
-                                      isDispatched
-                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                        : 'bg-[#D72638] hover:bg-[#b51d2c] text-white'
-                                    }`}
-                                  >
-                                    <Send className="w-3 h-3" />
-                                    <span>{isDispatching ? 'Transmitting...' : isDispatched ? 'Alert Sent ✓' : 'Send Alert'}</span>
-                                  </button>
-                                </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSendAlertForRequest(req, donor)}
+                                      disabled={isDispatching || isDispatched}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-2xs ${
+                                        isDispatched
+                                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                          : 'bg-[#D72638] hover:bg-[#b51d2c] text-white'
+                                      }`}
+                                    >
+                                      <Send className="w-3 h-3" />
+                                      <span>{isDispatching ? 'Transmitting...' : isDispatched ? 'Alert Sent ✓' : 'Send Alert'}</span>
+                                    </button>
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
@@ -1987,6 +2060,12 @@ export default function EmergencyRequests() {
                       const isImmediate = donor.distanceKm <= 3.0;
                       const isDispatched = dispatchedDonorIds[donor.id];
                       const isDispatching = dispatchingDonorId === donor.id;
+                      const isSelf = Boolean(
+                        currentUserEmail && (
+                          (donor.email && donor.email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase()) ||
+                          (donor.user_email && donor.user_email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase())
+                        )
+                      );
 
                       return (
                         <div
@@ -2008,6 +2087,11 @@ export default function EmergencyRequests() {
                             <div>
                               <div className="flex items-center gap-2">
                                 <h4 className="text-xs font-bold text-[#1A1D20]">{donor.fullName}</h4>
+                                {isSelf && (
+                                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] border border-red-200">
+                                    You
+                                  </span>
+                                )}
                                 <span className={`text-2xs font-bold px-1.5 py-0.5 rounded-md border ${donor.tier.badgeClass}`}>
                                   {donor.tier.label} • {donor.distanceKm.toFixed(1)} km
                                 </span>
@@ -2021,35 +2105,51 @@ export default function EmergencyRequests() {
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <a
-                              href={`tel:${donor.phone}`}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#1A1D20] bg-white border border-[#D9C7C2] hover:bg-slate-100 transition-all"
-                            >
-                              <Phone className="w-3 h-3 text-emerald-600" />
-                              <span>Call</span>
-                            </a>
+                          {isSelf ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-2xs">
+                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Your Standby Pledge</span>
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setCallModalTarget({
+                                  contactName: donor.fullName,
+                                  phoneNumber: donor.phone,
+                                  bloodType: donor.bloodType,
+                                  location: donor.location || donor.city || 'Delhi NCR',
+                                  roleOrContext: `Voluntary Standby Donor (Group ${donor.bloodType})`
+                                })}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#1A1D20] bg-white border border-[#D9C7C2] hover:bg-slate-100 transition-all cursor-pointer"
+                              >
+                                <Phone className="w-3 h-3 text-emerald-600" />
+                                <span>Call</span>
+                              </button>
 
-                            <button
-                              type="button"
-                              onClick={() => handleDispatchDonor(donor)}
-                              disabled={isDispatching || isDispatched}
-                              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                                isDispatched
-                                  ? 'bg-emerald-600 text-white cursor-default'
-                                  : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer disabled:opacity-50'
-                              }`}
-                            >
-                              {isDispatching ? (
-                                <RefreshCw className="w-3 h-3 animate-spin" />
-                              ) : isDispatched ? (
-                                <CheckCircle2 className="w-3 h-3" />
-                              ) : (
-                                <Send className="w-3 h-3" />
-                              )}
-                              <span>{isDispatched ? 'Dispatched' : 'Send Alert'}</span>
-                            </button>
-                          </div>
+                              <button
+                                type="button"
+                                onClick={() => handleDispatchDonor(donor)}
+                                disabled={isDispatching || isDispatched}
+                                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                                  isDispatched
+                                    ? 'bg-emerald-600 text-white cursor-default'
+                                    : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer disabled:opacity-50'
+                                }`}
+                              >
+                                {isDispatching ? (
+                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                ) : isDispatched ? (
+                                  <CheckCircle2 className="w-3 h-3" />
+                                ) : (
+                                  <Send className="w-3 h-3" />
+                                )}
+                                <span>{isDispatched ? 'Dispatched' : 'Send Alert'}</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })
@@ -2073,6 +2173,19 @@ export default function EmergencyRequests() {
           </div>
         </div>,
         document.body
+      )}
+
+      {/* Clinical Mobilize Call In-App Modal (eliminates browser OS pick-an-app dialog) */}
+      {callModalTarget && (
+        <ClinicalCallModal
+          isOpen={Boolean(callModalTarget)}
+          onClose={() => setCallModalTarget(null)}
+          contactName={callModalTarget.contactName}
+          phoneNumber={callModalTarget.phoneNumber}
+          bloodType={callModalTarget.bloodType}
+          location={callModalTarget.location}
+          roleOrContext={callModalTarget.roleOrContext}
+        />
       )}
     </div>
   );
