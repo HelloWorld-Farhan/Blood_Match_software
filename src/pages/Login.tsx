@@ -1135,7 +1135,8 @@ export default function Login() {
       <ForgotPasswordModal
         isOpen={isForgotModalOpen}
         onClose={() => setIsForgotModalOpen(false)}
-        defaultEmail={!isPhoneMode && identifier.includes('@') ? identifier.trim() : ''}
+        defaultIdentifier={identifier.trim()}
+        defaultEmail={identifier.trim()}
       />
     </div>
   );

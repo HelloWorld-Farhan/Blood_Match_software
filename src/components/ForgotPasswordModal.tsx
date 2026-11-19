@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, 
   Mail, 
-  Smartphone, 
+  Smartphone,
+  Phone,
   Lock, 
   ArrowRight, 
   ShieldCheck, 
@@ -18,12 +19,14 @@ import {
   Check,
   Clock
 } from 'lucide-react';
-import { validateEmail, checkPasswordCriteria } from '../utils/countryCodes';
+import { validateEmail, checkPasswordCriteria, COUNTRY_CODES, parsePhoneNumberWithCountry } from '../utils/countryCodes';
+import { CountryFlagIcon } from '../pages/Login';
 import { apiClient } from '../services/api';
 
 interface ForgotPasswordModalProps {
   isOpen: boolean;
   onClose: () => void;
+  defaultIdentifier?: string;
   defaultEmail?: string;
   onSuccess?: () => void;
 }
@@ -33,13 +36,25 @@ type RecoveryStep = 'CHANNEL_OR_EMAIL' | 'OTP_VERIFICATION' | 'NEW_PASSWORD' | '
 export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   isOpen,
   onClose,
+  defaultIdentifier = '',
   defaultEmail = '',
   onSuccess,
 }) => {
   const [step, setStep] = useState<RecoveryStep>('CHANNEL_OR_EMAIL');
-  const [email, setEmail] = useState(defaultEmail);
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [matchedUser, setMatchedUser] = useState<{ found: boolean; userName: string } | null>(null);
+  const initialRaw = (defaultIdentifier || defaultEmail || '').trim();
+  const [identifier, setIdentifier] = useState(initialRaw);
+  const [isPhoneMode, setIsPhoneMode] = useState(false);
+  const [detectedCountry, setDetectedCountry] = useState<{
+    dialCode: string;
+    flag: string;
+    countryCode: string;
+    matchedInDb: boolean;
+  }>({ dialCode: '+91', flag: '🇮🇳', countryCode: 'IN', matchedInDb: false });
+
+  const [resolvedEmail, setResolvedEmail] = useState('');
+  const [maskedEmail, setMaskedEmail] = useState('');
+  const [identifierError, setIdentifierError] = useState<string | null>(null);
+  const [matchedUser, setMatchedUser] = useState<{ found: boolean; userName: string; email?: string } | null>(null);
 
   // OTP states
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -67,15 +82,54 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   const passwordCriteria = useMemo(() => checkPasswordCriteria(newPassword), [newPassword]);
   const passwordsMatch = newPassword.length > 0 && newPassword === confirmPassword;
 
-  // Strict dual-tier background screen scroll lock
+  // Handle identifier change with smart phone vs email detection
+  const handleIdentifierChange = (value: string) => {
+    setIdentifier(value);
+    if (identifierError) setIdentifierError(null);
+
+    const clean = value.trim();
+    if (!clean) {
+      setIsPhoneMode(false);
+      setDetectedCountry(prev => ({ ...prev, matchedInDb: false }));
+      setMatchedUser(null);
+      return;
+    }
+
+    const hasAlpha = /[a-zA-Z@]/.test(clean);
+    const hasDigits = /\d/.test(clean);
+
+    if (hasDigits && !hasAlpha) {
+      setIsPhoneMode(true);
+      if (clean.startsWith('+')) {
+        const parsed = parsePhoneNumberWithCountry(clean);
+        const match = COUNTRY_CODES.find(c => c.dialCode === parsed.dialCode);
+        if (match) {
+          setDetectedCountry(prev => ({
+            dialCode: match.dialCode,
+            flag: match.flag,
+            countryCode: match.code,
+            matchedInDb: prev.matchedInDb
+          }));
+        }
+      }
+    } else {
+      setIsPhoneMode(false);
+      setDetectedCountry(prev => ({ ...prev, matchedInDb: false }));
+    }
+  };
+
+  // Strict dual-tier background screen scroll lock and state initialization
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
       // Reset flow
       setStep('CHANNEL_OR_EMAIL');
-      setEmail(defaultEmail);
-      setEmailError(null);
+      const initial = (defaultIdentifier || defaultEmail || '').trim();
+      setIdentifier(initial);
+      setIdentifierError(null);
+      setResolvedEmail('');
+      setMaskedEmail('');
       setOtp(['', '', '', '', '', '']);
       setOtpError(null);
       setNewPassword('');
@@ -85,6 +139,19 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
       setResendTimer(30);
       setCanResend(false);
       setMatchedUser(null);
+
+      // Trigger detection on initial value
+      if (initial) {
+        const hasAlpha = /[a-zA-Z@]/.test(initial);
+        const hasDigits = /\d/.test(initial);
+        if (hasDigits && !hasAlpha) {
+          setIsPhoneMode(true);
+        } else {
+          setIsPhoneMode(false);
+        }
+      } else {
+        setIsPhoneMode(false);
+      }
     } else {
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
@@ -93,35 +160,91 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
     };
-  }, [isOpen, defaultEmail]);
+  }, [isOpen, defaultIdentifier, defaultEmail]);
 
-  // Real-time background database lookup for recovery email verification
+  // Real-time background database lookup for recovery credential verification
   useEffect(() => {
     if (step !== 'CHANNEL_OR_EMAIL') return;
-    const clean = email.trim();
-    if (!clean || !clean.includes('@') || !clean.includes('.') || clean.length < 5) {
+    const clean = identifier.trim();
+    if (!clean) {
       setMatchedUser(null);
+      setDetectedCountry(prev => ({ ...prev, matchedInDb: false }));
       return;
     }
 
-    const timer = setTimeout(async () => {
-      try {
-        const res = await apiClient.get<any>(`/api/auth/credential-lookup?identifier=${encodeURIComponent(clean)}`);
-        if (res.ok && res.data?.found) {
-          setMatchedUser({
-            found: true,
-            userName: res.data.user_name || res.data.first_name || 'Clinician'
-          });
-        } else {
-          setMatchedUser(null);
-        }
-      } catch {
-        // Quiet fallback
+    if (isPhoneMode) {
+      const cleanDigits = clean.replace(/\D/g, '');
+      if (cleanDigits.length < 7) {
+        setDetectedCountry(prev => ({ ...prev, matchedInDb: false }));
+        setMatchedUser(null);
+        return;
       }
-    }, 250);
 
-    return () => clearTimeout(timer);
-  }, [email, step]);
+      const timer = setTimeout(async () => {
+        try {
+          const res = await apiClient.get<any>(`/api/auth/credential-lookup?identifier=${encodeURIComponent(cleanDigits)}`);
+          if (res.ok && res.data) {
+            const matchedCountry = COUNTRY_CODES.find(c => c.dialCode === res.data.dial_code) || {
+              dialCode: res.data.dial_code || '+91',
+              flag: res.data.country_code === 'US' ? '🇺🇸' : '🇮🇳',
+              code: res.data.country_code || 'IN'
+            };
+            const isFound = Boolean(res.data.found);
+            setDetectedCountry({
+              dialCode: matchedCountry.dialCode,
+              flag: matchedCountry.flag,
+              countryCode: matchedCountry.code,
+              matchedInDb: isFound
+            });
+            if (isFound) {
+              setMatchedUser({
+                found: true,
+                userName: res.data.user_name || res.data.first_name || 'Clinician',
+                email: res.data.email
+              });
+              if (res.data.email) {
+                setResolvedEmail(res.data.email);
+              }
+            } else {
+              setMatchedUser(null);
+            }
+          }
+        } catch {
+          // Quiet fallback
+        }
+      }, 250);
+
+      return () => clearTimeout(timer);
+    } else {
+      // Email Mode
+      if (!clean.includes('@') || !clean.includes('.') || clean.length < 5) {
+        setMatchedUser(null);
+        return;
+      }
+
+      const timer = setTimeout(async () => {
+        try {
+          const res = await apiClient.get<any>(`/api/auth/credential-lookup?identifier=${encodeURIComponent(clean)}`);
+          if (res.ok && res.data?.found) {
+            setMatchedUser({
+              found: true,
+              userName: res.data.user_name || res.data.first_name || 'Clinician',
+              email: res.data.email
+            });
+            if (res.data.email) {
+              setResolvedEmail(res.data.email);
+            }
+          } else {
+            setMatchedUser(null);
+          }
+        } catch {
+          // Quiet fallback
+        }
+      }, 250);
+
+      return () => clearTimeout(timer);
+    }
+  }, [identifier, isPhoneMode, step]);
 
   // Resend cooldown timer (30s) + strict token expiry (10 minutes)
   useEffect(() => {
@@ -166,26 +289,51 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Handle Step 1: Send OTP to Email
+  // Handle Step 1: Send Recovery OTP
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setEmailError(null);
+    setIdentifierError(null);
 
-    const emailCheck = validateEmail(email);
-    if (!emailCheck.isValid) {
-      setEmailError(emailCheck.message || 'Please enter a valid clinician email address');
+    const clean = identifier.trim();
+    if (!clean) {
+      setIdentifierError('Please enter your clinician email address or mobile number');
       return;
+    }
+
+    if (isPhoneMode) {
+      const digits = clean.replace(/\D/g, '');
+      if (digits.length < 7 || digits.length > 15) {
+        setIdentifierError('Please enter a valid mobile number (e.g. 10 digits for India)');
+        return;
+      }
+    } else {
+      const emailCheck = validateEmail(clean);
+      if (!emailCheck.isValid) {
+        setIdentifierError(emailCheck.message || 'Please enter a valid clinician email address');
+        return;
+      }
     }
 
     setIsLoading(true);
 
     try {
-      const res = await apiClient.post('/api/auth/password-reset/request', { email: email.trim() });
+      const res = await apiClient.post<any>('/api/auth/password-reset/request', {
+        identifier: clean,
+        email: clean,
+        phone: isPhoneMode ? clean : undefined
+      });
       setIsLoading(false);
 
       if (!res.ok) {
-        setEmailError(res.error || 'Failed to dispatch reset code.');
+        setIdentifierError(res.error || 'Failed to dispatch reset code.');
         return;
+      }
+
+      if (res.data?.email) {
+        setResolvedEmail(res.data.email);
+      }
+      if (res.data?.masked_email) {
+        setMaskedEmail(res.data.masked_email);
       }
 
       setStep('OTP_VERIFICATION');
@@ -195,7 +343,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
       setTimeout(() => otpInputRefs.current[0]?.focus(), 150);
     } catch (err: any) {
       setIsLoading(false);
-      setEmailError(err?.message || 'Connection failure.');
+      setIdentifierError(err?.message || 'Connection failure.');
     }
   };
 
@@ -228,7 +376,10 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     otpInputRefs.current[0]?.focus();
 
     try {
-      const res = await apiClient.post('/api/auth/password-reset/request', { email: email.trim() });
+      const res = await apiClient.post<any>('/api/auth/password-reset/request', {
+        identifier: identifier.trim(),
+        email: resolvedEmail || identifier.trim()
+      });
       if (!res.ok) {
         setOtpError(res.error || 'Could not resend reset code.');
       }
@@ -249,8 +400,9 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     setIsLoading(true);
 
     try {
-      const res = await apiClient.post('/api/auth/password-reset/verify', {
-        email: email.trim(),
+      const res = await apiClient.post<any>('/api/auth/password-reset/verify', {
+        identifier: identifier.trim(),
+        email: resolvedEmail || identifier.trim(),
         otp_code: fullCode
       });
       setIsLoading(false);
@@ -294,8 +446,9 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     setIsLoading(true);
 
     try {
-      const res = await apiClient.post('/api/auth/password-reset/confirm', {
-        email: email.trim(),
+      const res = await apiClient.post<any>('/api/auth/password-reset/confirm', {
+        identifier: identifier.trim(),
+        email: resolvedEmail || identifier.trim(),
         reset_token: resetSessionToken,
         reset_session_token: resetSessionToken,
         new_password: newPassword
@@ -416,8 +569,8 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                 {step === 'SUCCESS' && 'Access Restored'}
               </h1>
               <p className="text-xs sm:text-sm text-[#5A626A] mt-1">
-                {step === 'CHANNEL_OR_EMAIL' && 'Select your verification channel and provide your registered work email.'}
-                {step === 'OTP_VERIFICATION' && `Enter the 6-digit transfusion authorization token sent to ${email}.`}
+                {step === 'CHANNEL_OR_EMAIL' && 'Provide your registered work email or mobile number to receive your emergency recovery code.'}
+                {step === 'OTP_VERIFICATION' && `Enter the 6-digit transfusion authorization token sent to ${maskedEmail || resolvedEmail || identifier}.`}
                 {step === 'NEW_PASSWORD' && 'Configure a new 256-bit compliant security password for clinical operations.'}
                 {step === 'SUCCESS' && 'Your clinical terminal credentials have been successfully updated.'}
               </p>
@@ -437,8 +590,8 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                         <Mail className="w-4 h-4" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-[#1A1D20]">Email OTP</div>
-                        <div className="text-[10px] text-emerald-700 font-semibold">Instant Dispatch</div>
+                        <div className="text-xs font-bold text-[#1A1D20]">Email OTP Dispatch</div>
+                        <div className="text-[10px] text-emerald-700 font-semibold">Sent to linked account email</div>
                       </div>
                     </div>
                     <span className="w-2 h-2 rounded-full bg-[#D72638]" />
@@ -451,8 +604,8 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                         <Smartphone className="w-4 h-4" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-slate-600">Mobile OTP</div>
-                        <div className="text-[10px] text-slate-500">SMS cellular gateway</div>
+                        <div className="text-xs font-bold text-slate-600">Direct Cellular SMS</div>
+                        <div className="text-[10px] text-slate-500">Carrier gateway compliance</div>
                       </div>
                     </div>
                     <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[9px] font-black tracking-wider">
@@ -464,35 +617,82 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
             )}
 
             {/* =====================================================================
-                STEP 1: EMAIL INPUT FORM
+                STEP 1: EMAIL OR MOBILE INPUT FORM
                 ===================================================================== */}
             {step === 'CHANNEL_OR_EMAIL' && (
               <form onSubmit={handleSendOtp} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
-                    Registered Clinician Email
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
+                      Clinician Work Email or Mobile
+                    </label>
+                    {isPhoneMode ? (
+                      <span className="text-[10px] font-bold text-[#D72638] bg-red-50 px-2 py-0.5 rounded-md border border-red-200 flex items-center gap-1 transition-all">
+                        <Phone className="w-2.5 h-2.5" /> Mobile Number
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 flex items-center gap-1">
+                        <Mail className="w-2.5 h-2.5" /> Work Email
+                      </span>
+                    )}
+                  </div>
+
                   <div className="relative group">
-                    <Mail className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
-                      emailError ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
-                    }`} />
+                    {/* Left Icon / Badge Anchor with Pure Flex Centering */}
+                    <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none z-10">
+                      <AnimatePresence mode="wait">
+                        {isPhoneMode ? (
+                          <motion.div
+                            key="phone-badge"
+                            initial={{ opacity: 0, filter: 'blur(8px)', scale: 0.94 }}
+                            animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
+                            exit={{ opacity: 0, filter: 'blur(8px)', scale: 0.94 }}
+                            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-2xs select-none"
+                          >
+                            <CountryFlagIcon code={detectedCountry.countryCode} flagEmoji={detectedCountry.flag} />
+                            <span className="text-xs font-bold text-[#1A1D20] font-mono tracking-tight">{detectedCountry.dialCode}</span>
+                            {detectedCountry.matchedInDb && (
+                              <span title="Account Matched in Database">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              </span>
+                            )}
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="mail-icon"
+                            initial={{ opacity: 0, filter: 'blur(4px)' }}
+                            animate={{ opacity: 1, filter: 'blur(0px)' }}
+                            exit={{ opacity: 0, filter: 'blur(4px)' }}
+                            transition={{ duration: 0.15 }}
+                            className="pl-1"
+                          >
+                            <Mail className={`w-4 h-4 transition-colors ${
+                              identifierError ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                            }`} />
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
                     <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        if (emailError) setEmailError(null);
-                      }}
-                      placeholder="doctor@bloodmatch.org"
-                      className={`w-full pl-10 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
-                        matchedUser?.found ? 'pr-10' : 'pr-4'
+                      type={isPhoneMode ? 'tel' : 'text'}
+                      value={identifier}
+                      onChange={(e) => handleIdentifierChange(e.target.value)}
+                      placeholder={isPhoneMode ? '98765 43210 (No country code required)' : 'doctor@bloodmatch.org or 9876543210'}
+                      className={`w-full py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                        isPhoneMode 
+                          ? (detectedCountry.matchedInDb ? 'pl-[126px] pr-4' : 'pl-[104px] pr-4') 
+                          : (matchedUser?.found ? 'pl-10 pr-10' : 'pl-10 pr-4')
                       } ${
-                        emailError 
+                        identifierError 
                           ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
                           : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
                       }`}
                     />
-                    {matchedUser?.found && (
+
+                    {/* Email Verified Checkmark Badge */}
+                    {!isPhoneMode && matchedUser?.found && (
                       <motion.div
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -502,17 +702,19 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                       </motion.div>
                     )}
                   </div>
+
                   {/* Inline Error Below Field */}
-                  {emailError && (
+                  {identifierError && (
                     <motion.p
                       initial={{ opacity: 0, y: -4 }}
                       animate={{ opacity: 1, y: 0 }}
                       className="text-xs text-[#D72638] mt-1.5 flex items-center gap-1.5 font-semibold"
                     >
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      <span>{emailError}</span>
+                      <span>{identifierError}</span>
                     </motion.p>
                   )}
+
                   {/* Real-time Personalized Welcome & Account Match Notice */}
                   {matchedUser?.found && (
                     <motion.div
@@ -520,8 +722,17 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                       animate={{ opacity: 1, y: 0 }}
                       className="text-[11px] text-emerald-800 mt-2 flex items-center gap-1.5 font-semibold bg-emerald-50/80 border border-emerald-200/70 px-2.5 py-1.5 rounded-lg shadow-2xs"
                     >
+                      {isPhoneMode ? (
+                        <CountryFlagIcon code={detectedCountry.countryCode} flagEmoji={detectedCountry.flag} className="w-3.5 h-2.5" />
+                      ) : (
+                        <Mail className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                      )}
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                      <span>Hello {matchedUser.userName}! Verified clinical account found. Ready to recover access.</span>
+                      <span>
+                        {isPhoneMode
+                          ? `Hello ${matchedUser.userName}! Emergency reset code will be dispatched to your linked secure email.`
+                          : `Hello ${matchedUser.userName}! Verified clinical account found. Ready to recover access.`}
+                      </span>
                     </motion.div>
                   )}
                 </div>
@@ -581,7 +792,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 
                   <p className="text-xs text-[#5A626A] text-center">
                     Enter the 6-digit verification code dispatched to <br />
-                    <span className="font-bold text-[#1A1D20]">{email}</span>
+                    <span className="font-bold text-[#1A1D20]">{maskedEmail || resolvedEmail || identifier}</span>
                   </p>
                 </div>
 
