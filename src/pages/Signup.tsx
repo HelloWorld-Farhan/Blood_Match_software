@@ -23,7 +23,7 @@ import {
 import { BloodDropsCanvas } from '../components/BloodDropsCanvas';
 import { AmbientBackgroundVideo } from '../components/AmbientBackgroundVideo';
 import { COUNTRY_CODES, validatePhoneNumber, validateEmail, checkPasswordCriteria } from '../utils/countryCodes';
-import { apiClient } from '../services/api';
+import { apiClient, getPersistentDeviceId } from '../services/api';
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -269,9 +269,11 @@ export default function Signup() {
     setIsLoading(true);
 
     try {
+      const deviceId = getPersistentDeviceId();
       const res = await apiClient.post('/api/auth/verify-otp', {
         email: email.trim(),
-        otp_code: fullCode
+        otp_code: fullCode,
+        device_id: deviceId
       });
 
       setIsLoading(false);

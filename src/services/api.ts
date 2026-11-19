@@ -197,6 +197,31 @@ export const apiClient = {
     }
   },
 
+  async patch<T = any>(endpoint: string, body?: any, options?: ApiRequestOptions): Promise<ApiResponse<T>> {
+    try {
+      const isFormData = typeof FormData !== 'undefined' && body instanceof FormData;
+      const res = await fetchWithRetry(endpoint, {
+        ...options,
+        method: 'PATCH',
+        body: isFormData ? body : (body !== undefined ? JSON.stringify(body) : undefined)
+      });
+      const data = await res.json().catch(() => null);
+      return {
+        data,
+        error: res.ok ? null : (parseErrorMessage(data) || 'Request failed'),
+        status: res.status,
+        ok: res.ok
+      };
+    } catch (err: any) {
+      return {
+        data: null,
+        error: err?.message || 'Connection failure. Please check your network.',
+        status: 0,
+        ok: false
+      };
+    }
+  },
+
   async delete<T = any>(endpoint: string, options?: ApiRequestOptions): Promise<ApiResponse<T>> {
     try {
       const res = await fetchWithRetry(endpoint, { ...options, method: 'DELETE' });
@@ -371,6 +396,23 @@ export async function revokeSessionApi(sessionId: string) {
 
 export async function revokeOtherSessionsApi() {
   return apiClient.delete<{ message: string; terminated_count: number }>('/api/sessions/others');
+}
+
+export const getPersistentDeviceId = (): string => {
+  if (typeof window === 'undefined') return 'terminal-default';
+  let devId = localStorage.getItem('bloodmatch_client_device_id');
+  if (!devId) {
+    devId = 'dev-' + Math.random().toString(36).substring(2, 12);
+    localStorage.setItem('bloodmatch_client_device_id', devId);
+  }
+  return devId;
+};
+
+export async function toggleSessionPrimaryApi(sessionId: string, isPrimary: boolean) {
+  return apiClient.patch<{ status: string; session_id: string; is_primary: boolean; primary_device_ids: string[] }>(
+    `/api/sessions/${encodeURIComponent(sessionId)}/primary`,
+    { is_primary: isPrimary }
+  );
 }
 
 export async function fetchSavedPhonesApi(email?: string) {

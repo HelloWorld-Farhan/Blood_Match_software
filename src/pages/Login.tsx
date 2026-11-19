@@ -22,17 +22,7 @@ import { BloodDropsCanvas } from '../components/BloodDropsCanvas';
 import { AmbientBackgroundVideo } from '../components/AmbientBackgroundVideo';
 import { validateEmail, COUNTRY_CODES, parsePhoneNumberWithCountry } from '../utils/countryCodes';
 import { ForgotPasswordModal } from '../components/ForgotPasswordModal';
-import { apiClient } from '../services/api';
-
-const getPersistentDeviceId = (): string => {
-  if (typeof window === 'undefined') return 'terminal-default';
-  let devId = localStorage.getItem('bloodmatch_client_device_id');
-  if (!devId) {
-    devId = 'dev-' + Math.random().toString(36).substring(2, 12);
-    localStorage.setItem('bloodmatch_client_device_id', devId);
-  }
-  return devId;
-};
+import { apiClient, getPersistentDeviceId } from '../services/api';
 
 export default function Login() {
   const navigate = useNavigate();
