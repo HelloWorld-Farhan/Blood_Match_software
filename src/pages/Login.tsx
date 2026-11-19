@@ -1068,6 +1068,19 @@ export default function Login() {
                             <span>{isResending2FA ? 'Sending...' : !canResend2FA ? `Resend Code (${twoFactorResendTimer}s)` : 'Resend Code'}</span>
                           </button>
                         </div>
+
+                        {/* Remember Device Checkbox on Step-Up Verification */}
+                        <div className="pt-2 max-w-xs mx-auto">
+                          <label className="flex items-center gap-2 text-xs text-[#5A626A] cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={rememberMe}
+                              onChange={(e) => setRememberMe(e.target.checked)}
+                              className="w-4 h-4 rounded text-[#D72638] focus:ring-[#D72638] border-gray-300 cursor-pointer"
+                            />
+                            <span className="font-medium text-[#1A1D20]">Remember this workstation (Trust device)</span>
+                          </label>
+                        </div>
                       </div>
 
                       <button
