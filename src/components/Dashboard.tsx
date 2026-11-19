@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Droplet, 
@@ -100,12 +100,16 @@ export const Dashboard: React.FC = () => {
   const [donorType, setDonorType] = useState<BloodType>('O-');
 
   const matchResult = checkCompatibility(donorType, recipientType);
+  const isInitialMountRef = useRef(true);
 
   const loadData = async (isManual = false) => {
-    // 1. Instant immediate local storage presentation (strictly isolated per user account)
-    setRequests(getEmergencyRequests(currentUserEmail));
-    setDonors(getDonors());
-    setInventory(getInventory());
+    // 1. Instant immediate local storage presentation (strictly on cold start or manual refresh to prevent interval flickering)
+    if (isInitialMountRef.current || isManual) {
+      setRequests(getEmergencyRequests(currentUserEmail));
+      setDonors(getDonors());
+      setInventory(getInventory());
+      isInitialMountRef.current = false;
+    }
 
     // 2. Silent cross-device background sync from backend database
     try {
@@ -135,7 +139,7 @@ export const Dashboard: React.FC = () => {
           unitsDonatedTotal: d.units_donated_total ?? d.unitsDonatedTotal ?? 0,
         }));
         setDonors(mappedDonors);
-        saveDonors(mappedDonors, false);
+        saveDonors(mappedDonors, true);
       }
 
       if (invRes.status === 'fulfilled' && invRes.value.ok && Array.isArray(invRes.value.data)) {
@@ -149,7 +153,7 @@ export const Dashboard: React.FC = () => {
           temperatureCelsius: item.temperature_celsius ?? 4.0,
         }));
         setInventory(mappedInv);
-        saveInventory(mappedInv, false);
+        saveInventory(mappedInv, true);
       }
 
       if (reqRes.status === 'fulfilled' && reqRes.value.ok && Array.isArray(reqRes.value.data)) {
@@ -170,7 +174,7 @@ export const Dashboard: React.FC = () => {
           createdAt: r.created_at || r.createdAt || new Date().toISOString(),
         }));
         setRequests(mappedReqs);
-        saveEmergencyRequests(mappedReqs, currentUserEmail, false);
+        saveEmergencyRequests(mappedReqs, currentUserEmail, true);
       }
     } catch {
       // Quiet background fallback to cached state

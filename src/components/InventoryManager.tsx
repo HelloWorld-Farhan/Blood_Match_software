@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, Variants } from 'framer-motion';
 import { BloodInventoryUnit, BloodType } from '../types';
 import { 
@@ -59,11 +59,15 @@ export default function InventoryManager() {
   const [selectedFilter, setSelectedFilter] = useState<'ALL' | 'CRITICAL' | 'RH_NEG' | 'RH_POS' | 'UNIVERSAL'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
+  const isInitialMountRef = useRef(true);
 
   const loadData = async () => {
-    // 1. Initial immediate presentation from local storage combined with registered donors
-    const local = getInventory();
-    setInventory(local);
+    // 1. Initial immediate presentation from local storage on cold start only
+    if (isInitialMountRef.current) {
+      const local = getInventory();
+      setInventory(local);
+      isInitialMountRef.current = false;
+    }
 
     // 2. Fetch fresh live inventory from backend database
     try {
@@ -79,7 +83,7 @@ export default function InventoryManager() {
           temperatureCelsius: item.temperature_celsius ?? 4.0,
         }));
         setInventory(mapped);
-        saveInventory(mapped, false);
+        saveInventory(mapped, true);
       }
     } catch {
       // Quiet background fallback to local cache

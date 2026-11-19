@@ -195,7 +195,8 @@ export const BloodStorage = {
       const result: BloodInventoryUnit[] = bloodTypes.map(type => {
         const existing = savedMap.get(type);
         const donorUnits = donorPledgedCounts[type] || 0;
-        const totalUnits = donorUnits;
+        // Prioritize actual donor units or server-synchronized inventory units
+        const totalUnits = donorUnits > 0 ? donorUnits : (existing?.unitsAvailable ?? 0);
         return {
           id: existing?.id || `INV-${type}`,
           bloodType: type,

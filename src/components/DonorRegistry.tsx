@@ -423,8 +423,10 @@ export default function DonorRegistry() {
         if (force || !areDonorsIdentical(donorsRef.current, mapped)) {
           donorsRef.current = mapped;
           setDonors(mapped);
-          saveDonors(mapped, false);
-          saveInventory(getInventory(), false);
+          if (selectedFilter === 'ALL') {
+            saveDonors(mapped, true);
+            saveInventory(getInventory(), true);
+          }
         }
       }
     } catch {

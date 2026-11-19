@@ -30,7 +30,7 @@ import { BloodDropsCanvas } from './BloodDropsCanvas';
 import { AmbientBackgroundVideo } from './AmbientBackgroundVideo';
 import { AvatarUploadModal } from './AvatarUploadModal';
 import { getDonors, getEmergencyRequests, getInventory } from '../services/storage';
-import { apiClient, fetchAlertsApi } from '../services/api';
+import { apiClient, fetchAlertsApi, fetchInventoryApi, fetchDonorsApi } from '../services/api';
 import { getInitials } from '../utils/countryCodes';
 import { Donor } from '../types';
 
@@ -319,14 +319,36 @@ export default function Layout() {
       setTotalUnits(inv.reduce((sum, item) => sum + item.unitsAvailable, 0));
     };
 
+    const syncLiveBackendStats = async () => {
+      try {
+        const [invRes, donorsRes] = await Promise.allSettled([
+          fetchInventoryApi(),
+          fetchDonorsApi('ALL')
+        ]);
+        if (invRes.status === 'fulfilled' && invRes.value.ok && Array.isArray(invRes.value.data)) {
+          const total = invRes.value.data.reduce((sum: number, item: any) => sum + (item.units_available ?? item.unitsAvailable ?? 0), 0);
+          setTotalUnits(total);
+        }
+        if (donorsRes.status === 'fulfilled' && donorsRes.value.ok && Array.isArray(donorsRes.value.data)) {
+          setDonorsCount(donorsRes.value.data.length);
+        }
+      } catch {}
+    };
+
     updateStats();
+    syncLiveBackendStats();
+
     window.addEventListener('storage', updateStats);
     window.addEventListener('bloodmatch_donors_updated', updateStats);
     window.addEventListener('bloodmatch_inventory_updated', updateStats);
+    window.addEventListener('bloodmatch_requests_updated', updateStats);
+    window.addEventListener('focus', updateStats);
     return () => {
       window.removeEventListener('storage', updateStats);
       window.removeEventListener('bloodmatch_donors_updated', updateStats);
       window.removeEventListener('bloodmatch_inventory_updated', updateStats);
+      window.removeEventListener('bloodmatch_requests_updated', updateStats);
+      window.removeEventListener('focus', updateStats);
     };
   }, []);
 
