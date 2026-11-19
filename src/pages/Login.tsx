@@ -90,6 +90,11 @@ export default function Login() {
     matchedInDb: boolean;
   }>({ dialCode: '+91', flag: '🇮🇳', countryCode: 'IN', matchedInDb: false });
   const [verifiedEmailFor2FA, setVerifiedEmailFor2FA] = useState<string>('');
+  const [matchedUser, setMatchedUser] = useState<{
+    found: boolean;
+    userName: string;
+    email?: string;
+  } | null>(null);
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -154,6 +159,7 @@ export default function Login() {
     if (!clean) {
       setIsPhoneMode(false);
       setDetectedCountry(prev => ({ ...prev, matchedInDb: false }));
+      setMatchedUser(null);
       return;
     }
 
@@ -180,37 +186,81 @@ export default function Login() {
     }
   };
 
-  // Real-time background database lookup for phone number & country code resolution
+  // Real-time background database lookup for phone number & email resolution
   useEffect(() => {
-    if (!isPhoneMode) return;
-    const cleanDigits = identifier.replace(/\D/g, '');
-    if (cleanDigits.length < 7) {
+    const clean = identifier.trim();
+    if (!clean) {
+      setMatchedUser(null);
       setDetectedCountry(prev => ({ ...prev, matchedInDb: false }));
       return;
     }
 
-    const timer = setTimeout(async () => {
-      try {
-        const res = await apiClient.get<any>(`/api/auth/phone-lookup?phone=${encodeURIComponent(cleanDigits)}`);
-        if (res.ok && res.data) {
-          const matchedCountry = COUNTRY_CODES.find(c => c.dialCode === res.data.dial_code) || {
-            dialCode: res.data.dial_code || '+91',
-            flag: res.data.country_code === 'US' ? '🇺🇸' : '🇮🇳',
-            code: res.data.country_code || 'IN'
-          };
-          setDetectedCountry({
-            dialCode: matchedCountry.dialCode,
-            flag: matchedCountry.flag,
-            countryCode: matchedCountry.code,
-            matchedInDb: Boolean(res.data.found)
-          });
-        }
-      } catch {
-        // Quiet fallback
+    if (isPhoneMode) {
+      const cleanDigits = clean.replace(/\D/g, '');
+      if (cleanDigits.length < 7) {
+        setDetectedCountry(prev => ({ ...prev, matchedInDb: false }));
+        setMatchedUser(null);
+        return;
       }
-    }, 250);
 
-    return () => clearTimeout(timer);
+      const timer = setTimeout(async () => {
+        try {
+          const res = await apiClient.get<any>(`/api/auth/credential-lookup?identifier=${encodeURIComponent(cleanDigits)}`);
+          if (res.ok && res.data) {
+            const matchedCountry = COUNTRY_CODES.find(c => c.dialCode === res.data.dial_code) || {
+              dialCode: res.data.dial_code || '+91',
+              flag: res.data.country_code === 'US' ? '🇺🇸' : '🇮🇳',
+              code: res.data.country_code || 'IN'
+            };
+            const isFound = Boolean(res.data.found);
+            setDetectedCountry({
+              dialCode: matchedCountry.dialCode,
+              flag: matchedCountry.flag,
+              countryCode: matchedCountry.code,
+              matchedInDb: isFound
+            });
+            if (isFound) {
+              setMatchedUser({
+                found: true,
+                userName: res.data.user_name || res.data.first_name || 'Clinician',
+                email: res.data.email
+              });
+            } else {
+              setMatchedUser(null);
+            }
+          }
+        } catch {
+          // Quiet fallback
+        }
+      }, 250);
+
+      return () => clearTimeout(timer);
+    } else {
+      // Email Mode: Real-time debounced verification when valid email pattern detected
+      if (!clean.includes('@') || !clean.includes('.') || clean.length < 5) {
+        setMatchedUser(null);
+        return;
+      }
+
+      const timer = setTimeout(async () => {
+        try {
+          const res = await apiClient.get<any>(`/api/auth/credential-lookup?identifier=${encodeURIComponent(clean)}`);
+          if (res.ok && res.data?.found) {
+            setMatchedUser({
+              found: true,
+              userName: res.data.user_name || res.data.first_name || 'Clinician',
+              email: res.data.email
+            });
+          } else {
+            setMatchedUser(null);
+          }
+        } catch {
+          // Quiet fallback
+        }
+      }, 250);
+
+      return () => clearTimeout(timer);
+    }
   }, [identifier, isPhoneMode]);
 
   // Guard against browser Back button navigating back to logged out dashboard sessions
@@ -770,13 +820,24 @@ export default function Login() {
                             onChange={(e) => handleIdentifierChange(e.target.value)}
                             placeholder={isPhoneMode ? '98765 43210 (No country code required)' : 'clinician@bloodmatch.io or 9876543210'}
                             className={`w-full py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
-                              isPhoneMode ? (detectedCountry.matchedInDb ? 'pl-[126px] pr-4' : 'pl-[104px] pr-4') : 'pl-10 pr-4'
+                              isPhoneMode ? (detectedCountry.matchedInDb ? 'pl-[126px] pr-4' : 'pl-[104px] pr-4') : (matchedUser?.found ? 'pl-10 pr-10' : 'pl-10 pr-4')
                             } ${
                               emailError 
                                 ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
                                 : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
                             }`}
                           />
+
+                          {/* Email Verified Checkmark Badge */}
+                          {!isPhoneMode && matchedUser?.found && (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              className="absolute inset-y-0 right-3 flex items-center pointer-events-none"
+                            >
+                              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                            </motion.div>
+                          )}
                         </div>
 
                         {emailError && (
@@ -789,15 +850,22 @@ export default function Login() {
                             <span>{emailError}</span>
                           </motion.p>
                         )}
-                        {isPhoneMode && detectedCountry.matchedInDb && (
+                        {matchedUser?.found && (
                           <motion.div
                             initial={{ opacity: 0, y: -2 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="text-[11px] text-emerald-800 mt-1.5 flex items-center gap-1.5 font-semibold bg-emerald-50/80 border border-emerald-200/70 px-2.5 py-1 rounded-lg shadow-2xs"
+                            className="text-[11px] text-emerald-800 mt-1.5 flex items-center gap-1.5 font-semibold bg-emerald-50/80 border border-emerald-200/70 px-2.5 py-1.5 rounded-lg shadow-2xs"
                           >
-                            <CountryFlagIcon code={detectedCountry.countryCode} flagEmoji={detectedCountry.flag} className="w-3.5 h-2.5" />
+                            {isPhoneMode ? (
+                              <CountryFlagIcon code={detectedCountry.countryCode} flagEmoji={detectedCountry.flag} className="w-3.5 h-2.5" />
+                            ) : (
+                              <Mail className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                            )}
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                            <span>Verified clinical account found in system ({detectedCountry.dialCode})</span>
+                            <span>
+                              Hello {matchedUser.userName}! Welcome back.
+                              {isPhoneMode ? ` (${detectedCountry.dialCode})` : ''}
+                            </span>
                           </motion.div>
                         )}
                       </div>
@@ -1067,6 +1135,7 @@ export default function Login() {
       <ForgotPasswordModal
         isOpen={isForgotModalOpen}
         onClose={() => setIsForgotModalOpen(false)}
+        defaultEmail={!isPhoneMode && identifier.includes('@') ? identifier.trim() : ''}
       />
     </div>
   );

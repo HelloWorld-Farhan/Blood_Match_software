@@ -39,6 +39,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   const [step, setStep] = useState<RecoveryStep>('CHANNEL_OR_EMAIL');
   const [email, setEmail] = useState(defaultEmail);
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [matchedUser, setMatchedUser] = useState<{ found: boolean; userName: string } | null>(null);
 
   // OTP states
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -83,6 +84,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
       setConfirmPasswordError(null);
       setResendTimer(30);
       setCanResend(false);
+      setMatchedUser(null);
     } else {
       document.body.style.overflow = '';
       document.documentElement.style.overflow = '';
@@ -92,6 +94,34 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
       document.documentElement.style.overflow = '';
     };
   }, [isOpen, defaultEmail]);
+
+  // Real-time background database lookup for recovery email verification
+  useEffect(() => {
+    if (step !== 'CHANNEL_OR_EMAIL') return;
+    const clean = email.trim();
+    if (!clean || !clean.includes('@') || !clean.includes('.') || clean.length < 5) {
+      setMatchedUser(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await apiClient.get<any>(`/api/auth/credential-lookup?identifier=${encodeURIComponent(clean)}`);
+        if (res.ok && res.data?.found) {
+          setMatchedUser({
+            found: true,
+            userName: res.data.user_name || res.data.first_name || 'Clinician'
+          });
+        } else {
+          setMatchedUser(null);
+        }
+      } catch {
+        // Quiet fallback
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [email, step]);
 
   // Resend cooldown timer (30s) + strict token expiry (10 minutes)
   useEffect(() => {
@@ -454,12 +484,23 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                         if (emailError) setEmailError(null);
                       }}
                       placeholder="doctor@bloodmatch.org"
-                      className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                      className={`w-full pl-10 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                        matchedUser?.found ? 'pr-10' : 'pr-4'
+                      } ${
                         emailError 
                           ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
                           : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
                       }`}
                     />
+                    {matchedUser?.found && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="absolute inset-y-0 right-3 flex items-center pointer-events-none"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      </motion.div>
+                    )}
                   </div>
                   {/* Inline Error Below Field */}
                   {emailError && (
@@ -471,6 +512,17 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                       <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                       <span>{emailError}</span>
                     </motion.p>
+                  )}
+                  {/* Real-time Personalized Welcome & Account Match Notice */}
+                  {matchedUser?.found && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -2 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-[11px] text-emerald-800 mt-2 flex items-center gap-1.5 font-semibold bg-emerald-50/80 border border-emerald-200/70 px-2.5 py-1.5 rounded-lg shadow-2xs"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Hello {matchedUser.userName}! Verified clinical account found. Ready to recover access.</span>
+                    </motion.div>
                   )}
                 </div>
 
