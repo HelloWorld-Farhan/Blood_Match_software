@@ -965,7 +965,13 @@ export default function Layout() {
                               onClick={() => {
                                 markAlertAsRead(a.id);
                                 setNotificationsOpen(false);
-                                navigate(`/dashboard/donors?highlight=${encodeURIComponent(a.donor_id)}`);
+                                const targetUrl = `/dashboard/donors?highlight=${encodeURIComponent(a.donor_id)}&t=${Date.now()}`;
+                                navigate(targetUrl);
+                                if (typeof window !== 'undefined') {
+                                  window.dispatchEvent(new CustomEvent('bloodmatch:highlight-donor', {
+                                    detail: { donorId: a.donor_id }
+                                  }));
+                                }
                               }}
                               className="sm:self-center shrink-0 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-[#D72638] hover:bg-[#b51d2c] active:scale-95 text-white font-bold text-[11px] shadow-xs transition-colors cursor-pointer"
                             >

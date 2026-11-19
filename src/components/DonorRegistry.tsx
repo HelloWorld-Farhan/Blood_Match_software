@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
@@ -91,6 +91,7 @@ export default function DonorRegistry() {
   const [searchParams] = useSearchParams();
   const highlightParam = searchParams.get('highlight');
   const [highlightedId, setHighlightedId] = useState<string | null>(highlightParam);
+  const [isBlinking, setIsBlinking] = useState<boolean>(Boolean(highlightParam));
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
 
   const [donors, setDonors] = useState<Donor[]>([]);
@@ -124,26 +125,68 @@ export default function DonorRegistry() {
     });
   };
 
-  // Auto-scroll and highlight target donor when arriving via direct alert link or search
+  // High-reliability smooth scroll and high-visibility blinking highlight orchestrator
+  const triggerScrollAndHighlight = useCallback((targetId: string) => {
+    if (!targetId) return;
+    setHighlightedId(targetId);
+    setIsBlinking(true);
+    // Ensure card is never hidden by active blood type or text filters
+    setSelectedFilter('ALL');
+    setSearch('');
+    setExpandedDonorIds(prev => new Set(prev).add(targetId));
+
+    let attempts = 0;
+    const maxAttempts = 35; // Poll up to 3.5s to ensure dynamic donor records have finished rendering
+    const pollInterval = setInterval(() => {
+      attempts++;
+      const el = document.getElementById(`donor-card-${targetId}`);
+      if (el) {
+        clearInterval(pollInterval);
+        // Smoothly scroll target card into center of view
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const mainContainer = document.querySelector('main');
+        if (mainContainer) {
+          const rect = el.getBoundingClientRect();
+          const containerRect = mainContainer.getBoundingClientRect();
+          const targetScrollTop = mainContainer.scrollTop + (rect.top - containerRect.top) - (containerRect.height / 2) + (rect.height / 2);
+          mainContainer.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
+        }
+      } else if (attempts >= maxAttempts) {
+        clearInterval(pollInterval);
+      }
+    }, 100);
+
+    const blinkTimer = setTimeout(() => {
+      setIsBlinking(false);
+    }, 4500);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(blinkTimer);
+    };
+  }, []);
+
+  // Listen to searchParams on mount or update
   useEffect(() => {
     if (highlightParam) {
-      setHighlightedId(highlightParam);
-      setExpandedDonorIds(prev => new Set(prev).add(highlightParam));
-      const scrollTimer = setTimeout(() => {
-        const el = document.getElementById(`donor-card-${highlightParam}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 400);
-      const unhighlightTimer = setTimeout(() => {
-        setHighlightedId(null);
-      }, 2500);
-      return () => {
-        clearTimeout(scrollTimer);
-        clearTimeout(unhighlightTimer);
-      };
+      const cleanup = triggerScrollAndHighlight(highlightParam);
+      return cleanup;
     }
-  }, [highlightParam]);
+  }, [highlightParam, triggerScrollAndHighlight]);
+
+  // Listen to window-level custom event dispatched when clicking "View Record" from notifications dropdown
+  useEffect(() => {
+    const handleCustomHighlight = (e: any) => {
+      const donorId = e.detail?.donorId;
+      if (donorId) {
+        triggerScrollAndHighlight(donorId);
+      }
+    };
+    window.addEventListener('bloodmatch:highlight-donor', handleCustomHighlight);
+    return () => {
+      window.removeEventListener('bloodmatch:highlight-donor', handleCustomHighlight);
+    };
+  }, [triggerScrollAndHighlight]);
 
   // Modal lifecycle states: FORM -> OTP -> SUCCESS
   const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
@@ -1894,7 +1937,7 @@ export default function DonorRegistry() {
    */
   function renderDonorCard(donor: Donor, isOwnPledge: boolean) {
     const isExpanded = expandedDonorIds.has(donor.id);
-    const isTargeted = highlightedId === donor.id;
+    const isTargeted = Boolean(highlightedId && highlightedId === donor.id && isBlinking);
     const compatibility = BLOOD_COMPATIBILITY_TABLE[donor.bloodType];
     const isSelfDonor = isOwnPledge || Boolean(
       currentUserEmail && (
@@ -1907,31 +1950,36 @@ export default function DonorRegistry() {
       <div
         id={`donor-card-${donor.id}`}
         key={donor.id}
-        className={`rounded-2xl transition-all duration-300 overflow-hidden w-full ${isTargeted
-            ? 'ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/25 scale-[1.005] bg-white animate-pulse'
+        className={`rounded-2xl transition-all duration-300 overflow-hidden w-full relative ${
+          isTargeted
+            ? 'animate-target-record-blink ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/40 scale-[1.01] bg-[#FFF2F4] z-20'
             : isSelfDonor
               ? 'bg-white border-2 border-[#D72638] shadow-md shadow-[#D72638]/10'
               : 'bg-white border border-[#D9C7C2] shadow-xs hover:border-[#D72638]/50 hover:shadow-sm'
-          }`}
+        }`}
       >
         {/* Card Header (Full-Width Horizontal Bar on One Line) */}
         <div
           onClick={() => {
             toggleDonorExpanded(donor.id);
-            if (isTargeted) setHighlightedId(null);
+            if (isTargeted) setIsBlinking(false);
           }}
           className="p-4 sm:p-5 cursor-pointer select-none flex flex-col md:flex-row md:items-center justify-between gap-3.5"
         >
           {/* Left: Blood Badge & Primary Clinical Identity */}
           <div className="flex items-center gap-3.5 min-w-0 flex-1">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] flex flex-col items-center justify-center font-black text-white shadow-xs border border-[#D72638]/40 shrink-0">
+            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] flex flex-col items-center justify-center font-black text-white shadow-xs border shrink-0 transition-all ${
+              isTargeted ? 'ring-3 ring-[#D72638] ring-offset-2 scale-110 shadow-lg shadow-[#D72638]/50' : 'border-[#D72638]/40'
+            }`}>
               <span className="text-[8px] uppercase font-bold text-red-100">Blood</span>
               <span className="text-base">{donor.bloodType}</span>
             </div>
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-black text-[#1A1D20] text-base leading-tight truncate">
+                <h3 className={`font-black text-base leading-tight truncate transition-colors ${
+                  isTargeted ? 'text-[#D72638] font-black drop-shadow-xs' : 'text-[#1A1D20]'
+                }`}>
                   {donor.fullName}
                 </h3>
                 {isOwnPledge && (
@@ -1940,9 +1988,10 @@ export default function DonorRegistry() {
                   </span>
                 )}
                 {isTargeted && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#D72638] text-white text-[10px] font-black uppercase tracking-wider animate-pulse shadow-xs shrink-0">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D72638] text-white text-[10px] font-black uppercase tracking-wider shadow-md shadow-[#D72638]/40 shrink-0 animate-bounce">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
                     <Sparkles className="w-3 h-3" />
-                    <span>Targeted</span>
+                    <span>Targeted Record</span>
                   </span>
                 )}
                 <span className="font-mono text-xs text-[#7A0C17] bg-[#7A0C17]/10 px-2 py-0.5 rounded-md font-bold shrink-0">

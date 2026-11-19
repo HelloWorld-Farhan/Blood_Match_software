@@ -20,6 +20,10 @@ function ScrollToTop() {
   const { pathname, search } = useLocation();
 
   useEffect(() => {
+    // If arriving with a target record highlight parameter, do not force scroll to top
+    if (search.includes('highlight=') || (typeof window !== 'undefined' && window.location.hash)) {
+      return;
+    }
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
