@@ -25,6 +25,12 @@ import { AmbientBackgroundVideo } from '../components/AmbientBackgroundVideo';
 import { COUNTRY_CODES, validatePhoneNumber, validateEmail, checkPasswordCriteria } from '../utils/countryCodes';
 import { apiClient, getPersistentDeviceId } from '../services/api';
 
+const cleanClinicianName = (rawName?: string | null): string => {
+  if (!rawName) return 'Clinician';
+  const stripped = rawName.replace(/^(?:Dr\.?|Doctor|Prof\.?|Mr\.?|Mrs\.?|Ms\.?)\s+/i, '').trim();
+  return stripped || 'Clinician';
+};
+
 export default function Signup() {
   const navigate = useNavigate();
   const [step, setStep] = useState<'FORM' | 'OTP_VERIFY'>('FORM');
@@ -196,7 +202,7 @@ export default function Signup() {
 
     try {
       const res = await apiClient.post('/api/auth/register', {
-        full_name: name.trim(),
+        full_name: cleanClinicianName(name),
         email: email.trim(),
         phone: `${countryDialCode} ${phone.trim()}`,
         password
@@ -304,13 +310,13 @@ export default function Signup() {
         localStorage.setItem('bloodmatch_auth_token', res.data.access_token);
       }
       sessionStorage.setItem('bloodmatch_user_email', registeredEmail);
-      sessionStorage.setItem('bloodmatch_user_name', registeredName);
+      sessionStorage.setItem('bloodmatch_user_name', cleanClinicianName(registeredName));
       sessionStorage.setItem('bloodmatch_user_phone', registeredPhone);
       const memberId = res.data?.user?.member_id || ('BM-' + (res.data?.user?.id || '9481NX01').replace(/-/g, '').slice(0, 8).toUpperCase());
       sessionStorage.setItem('bloodmatch_member_id', memberId);
       localStorage.setItem('bloodmatch_member_id', memberId);
       localStorage.setItem('bloodmatch_user_email', registeredEmail);
-      localStorage.setItem('bloodmatch_user_name', registeredName);
+      localStorage.setItem('bloodmatch_user_name', cleanClinicianName(registeredName));
       localStorage.setItem('bloodmatch_user_phone', registeredPhone);
 
       navigate('/dashboard');

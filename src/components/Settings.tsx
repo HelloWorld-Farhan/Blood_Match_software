@@ -79,7 +79,7 @@ export default function Settings() {
 
   // Profile details state (loaded from sessionStorage / localStorage)
   const [name, setName] = useState(
-    () => (sessionStorage.getItem('bloodmatch_user_name') || localStorage.getItem('bloodmatch_user_name') || 'Farhan Khalid').replace(/^Dr\.\s+/i, '')
+    () => (sessionStorage.getItem('bloodmatch_user_name') || localStorage.getItem('bloodmatch_user_name') || 'Farhan Khalid').replace(/^(?:Dr\.?|Doctor|Prof\.?|Mr\.?|Mrs\.?|Ms\.?)\s+/i, '').trim()
   );
   const [email, setEmail] = useState(
     () => sessionStorage.getItem('bloodmatch_user_email') || localStorage.getItem('bloodmatch_user_email') || ''

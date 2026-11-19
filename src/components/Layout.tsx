@@ -147,7 +147,7 @@ export default function Layout() {
 
   // Authentic User session details (no fake fallback clinician identity)
   const rawUserName = sessionStorage.getItem('bloodmatch_user_name') || localStorage.getItem('bloodmatch_user_name') || 'Farhan Khalid';
-  const userName = rawUserName.replace(/^Dr\.\s+/i, '');
+  const userName = rawUserName.replace(/^(?:Dr\.?|Doctor|Prof\.?|Mr\.?|Mrs\.?|Ms\.?)\s+/i, '').trim();
   const userEmail = sessionStorage.getItem('bloodmatch_user_email') || localStorage.getItem('bloodmatch_user_email') || '';
   const userMemberId = sessionStorage.getItem('bloodmatch_member_id') || localStorage.getItem('bloodmatch_member_id') || 'BM-9481-NX';
 

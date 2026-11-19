@@ -78,6 +78,12 @@ export const CountryFlagIcon: React.FC<{ code: string; flagEmoji?: string; class
   return <span className="text-sm leading-none shrink-0">{flagEmoji || '🇮🇳'}</span>;
 };
 
+const cleanClinicianName = (name?: string | null): string => {
+  if (!name) return 'Clinician';
+  const stripped = name.replace(/^(?:Dr\.?|Doctor|Prof\.?|Mr\.?|Mrs\.?|Ms\.?)\s+/i, '').trim();
+  return stripped || 'Clinician';
+};
+
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -222,7 +228,7 @@ export default function Login() {
             if (isFound) {
               setMatchedUser({
                 found: true,
-                userName: res.data.user_name || res.data.first_name || 'Clinician',
+                userName: cleanClinicianName(res.data.user_name || res.data.first_name),
                 email: res.data.email
               });
             } else {
@@ -248,7 +254,7 @@ export default function Login() {
           if (res.ok && res.data?.found) {
             setMatchedUser({
               found: true,
-              userName: res.data.user_name || res.data.first_name || 'Clinician',
+              userName: cleanClinicianName(res.data.user_name || res.data.first_name),
               email: res.data.email
             });
           } else {
@@ -448,14 +454,14 @@ export default function Login() {
         sessionStorage.setItem('bloodmatch_auth_token', res.data.access_token);
         localStorage.setItem('bloodmatch_auth', 'true');
         localStorage.setItem('bloodmatch_auth_token', res.data.access_token);
+        const cleanName = cleanClinicianName(res.data.user?.full_name);
         sessionStorage.setItem('bloodmatch_user_email', userEmail);
-        sessionStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
+        sessionStorage.setItem('bloodmatch_user_name', cleanName);
         const memberId = res.data.user?.member_id || ('BM-' + (res.data.user?.id || '9481NX01').replace(/-/g, '').slice(0, 8).toUpperCase());
         sessionStorage.setItem('bloodmatch_member_id', memberId);
         localStorage.setItem('bloodmatch_member_id', memberId);
         localStorage.setItem('bloodmatch_user_email', userEmail);
-        localStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
-        localStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
+        localStorage.setItem('bloodmatch_user_name', cleanName);
         if (typeof res.data.user?.is_2fa_enabled === 'boolean') {
           localStorage.setItem('bloodmatch_2fa_enabled', res.data.user.is_2fa_enabled ? 'true' : 'false');
           sessionStorage.setItem('bloodmatch_2fa_enabled', res.data.user.is_2fa_enabled ? 'true' : 'false');
@@ -526,13 +532,14 @@ export default function Login() {
         sessionStorage.setItem('bloodmatch_auth_token', res.data.access_token);
         localStorage.setItem('bloodmatch_auth', 'true');
         localStorage.setItem('bloodmatch_auth_token', res.data.access_token);
+        const cleanName = cleanClinicianName(res.data.user?.full_name);
         sessionStorage.setItem('bloodmatch_user_email', res.data.user?.email || email.trim());
-        sessionStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
+        sessionStorage.setItem('bloodmatch_user_name', cleanName);
         const memberId = res.data.user?.member_id || ('BM-' + (res.data.user?.id || '9481NX01').replace(/-/g, '').slice(0, 8).toUpperCase());
         sessionStorage.setItem('bloodmatch_member_id', memberId);
         localStorage.setItem('bloodmatch_member_id', memberId);
         localStorage.setItem('bloodmatch_user_email', res.data.user?.email || email.trim());
-        localStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
+        localStorage.setItem('bloodmatch_user_name', cleanName);
         localStorage.setItem('bloodmatch_2fa_enabled', 'true');
         sessionStorage.setItem('bloodmatch_2fa_enabled', 'true');
 

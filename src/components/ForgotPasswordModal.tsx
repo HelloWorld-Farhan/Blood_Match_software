@@ -33,6 +33,12 @@ interface ForgotPasswordModalProps {
 
 type RecoveryStep = 'CHANNEL_OR_EMAIL' | 'OTP_VERIFICATION' | 'NEW_PASSWORD' | 'SUCCESS';
 
+const cleanClinicianName = (name?: string | null): string => {
+  if (!name) return 'Clinician';
+  const stripped = name.replace(/^(?:Dr\.?|Doctor|Prof\.?|Mr\.?|Mrs\.?|Ms\.?)\s+/i, '').trim();
+  return stripped || 'Clinician';
+};
+
 export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   isOpen,
   onClose,
@@ -199,7 +205,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
             if (isFound) {
               setMatchedUser({
                 found: true,
-                userName: res.data.user_name || res.data.first_name || 'Clinician',
+                userName: cleanClinicianName(res.data.user_name || res.data.first_name),
                 email: res.data.email
               });
               if (res.data.email) {
@@ -228,7 +234,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
           if (res.ok && res.data?.found) {
             setMatchedUser({
               found: true,
-              userName: res.data.user_name || res.data.first_name || 'Clinician',
+              userName: cleanClinicianName(res.data.user_name || res.data.first_name),
               email: res.data.email
             });
             if (res.data.email) {
