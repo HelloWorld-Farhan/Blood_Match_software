@@ -24,6 +24,60 @@ import { validateEmail, COUNTRY_CODES, parsePhoneNumberWithCountry } from '../ut
 import { ForgotPasswordModal } from '../components/ForgotPasswordModal';
 import { apiClient, getPersistentDeviceId } from '../services/api';
 
+export const CountryFlagIcon: React.FC<{ code: string; flagEmoji?: string; className?: string }> = ({ code, flagEmoji, className = "w-4 h-3" }) => {
+  if (code === 'IN') {
+    return (
+      <svg className={`${className} rounded-[2px] shrink-0 shadow-2xs`} viewBox="0 0 900 600" aria-label="India Flag">
+        <rect width="900" height="200" fill="#FF9933" />
+        <rect y="200" width="900" height="200" fill="#FFFFFF" />
+        <rect y="400" width="900" height="200" fill="#138808" />
+        <circle cx="450" cy="300" r="80" fill="none" stroke="#000080" strokeWidth="14" />
+        <circle cx="450" cy="300" r="16" fill="#000080" />
+        <g stroke="#000080" strokeWidth="5">
+          {[...Array(24)].map((_, i) => (
+            <line key={i} x1="450" y1="300" x2="450" y2="220" transform={`rotate(${i * 15} 450 300)`} />
+          ))}
+        </g>
+      </svg>
+    );
+  }
+  if (code === 'US') {
+    return (
+      <svg className={`${className} rounded-[2px] shrink-0 shadow-2xs`} viewBox="0 0 7410 3900" aria-label="USA Flag">
+        <rect width="7410" height="3900" fill="#B22234" />
+        <path d="M0,450H7410M0,1050H7410M0,1650H7410M0,2250H7410M0,2850H7410M0,3450H7410" stroke="#FFFFFF" strokeWidth="300" />
+        <rect width="2964" height="2100" fill="#3C3B6E" />
+      </svg>
+    );
+  }
+  if (code === 'GB') {
+    return (
+      <svg className={`${className} rounded-[2px] shrink-0 shadow-2xs`} viewBox="0 0 60 30" aria-label="UK Flag">
+        <clipPath id="uk-clip"><path d="M0,0 v30 h60 v-30 z"/></clipPath>
+        <clipPath id="uk-diag"><path d="M0,0 L60,30 M60,0 L0,30"/></clipPath>
+        <g clipPath="url(#uk-clip)">
+          <path d="M0,0 v30 h60 v-30 z" fill="#012169"/>
+          <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" strokeWidth="6"/>
+          <path d="M0,0 L60,30 M60,0 L0,30" stroke="#C8102E" strokeWidth="4" clipPath="url(#uk-diag)"/>
+          <path d="M30,0 v30 M0,15 h60" stroke="#fff" strokeWidth="10"/>
+          <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" strokeWidth="6"/>
+        </g>
+      </svg>
+    );
+  }
+  if (code === 'AE') {
+    return (
+      <svg className={`${className} rounded-[2px] shrink-0 shadow-2xs`} viewBox="0 0 1200 600" aria-label="UAE Flag">
+        <rect width="1200" height="200" fill="#00732F" />
+        <rect y="200" width="1200" height="200" fill="#FFFFFF" />
+        <rect y="400" width="1200" height="200" fill="#000000" />
+        <rect width="300" height="600" fill="#FF0000" />
+      </svg>
+    );
+  }
+  return <span className="text-sm leading-none shrink-0">{flagEmoji || '🇮🇳'}</span>;
+};
+
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -673,39 +727,42 @@ export default function Login() {
                         </div>
 
                         <div className="relative group">
-                          <AnimatePresence mode="wait">
-                            {isPhoneMode ? (
-                              <motion.div
-                                key="phone-badge"
-                                initial={{ opacity: 0, filter: 'blur(8px)', scale: 0.92, x: -6 }}
-                                animate={{ opacity: 1, filter: 'blur(0px)', scale: 1, x: 0 }}
-                                exit={{ opacity: 0, filter: 'blur(8px)', scale: 0.92, x: -6 }}
-                                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                                className="absolute left-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-2xs select-none z-10 pointer-events-none"
-                              >
-                                <span className="text-sm leading-none">{detectedCountry.flag}</span>
-                                <span className="text-xs font-bold text-[#1A1D20] font-mono tracking-tight">{detectedCountry.dialCode}</span>
-                                {detectedCountry.matchedInDb && (
-                                  <span title="Account Matched in Database">
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 ml-0.5 shrink-0" />
-                                  </span>
-                                )}
-                              </motion.div>
-                            ) : (
-                              <motion.div
-                                key="mail-icon"
-                                initial={{ opacity: 0, filter: 'blur(4px)' }}
-                                animate={{ opacity: 1, filter: 'blur(0px)' }}
-                                exit={{ opacity: 0, filter: 'blur(4px)' }}
-                                transition={{ duration: 0.15 }}
-                                className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10"
-                              >
-                                <Mail className={`w-4 h-4 transition-colors ${
-                                  emailError ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
-                                }`} />
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
+                          {/* Left Icon / Badge Anchor with Pure Flex Centering (Zero Transform Overflow) */}
+                          <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none z-10">
+                            <AnimatePresence mode="wait">
+                              {isPhoneMode ? (
+                                <motion.div
+                                  key="phone-badge"
+                                  initial={{ opacity: 0, filter: 'blur(8px)', scale: 0.94 }}
+                                  animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
+                                  exit={{ opacity: 0, filter: 'blur(8px)', scale: 0.94 }}
+                                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-2xs select-none"
+                                >
+                                  <CountryFlagIcon code={detectedCountry.countryCode} flagEmoji={detectedCountry.flag} />
+                                  <span className="text-xs font-bold text-[#1A1D20] font-mono tracking-tight">{detectedCountry.dialCode}</span>
+                                  {detectedCountry.matchedInDb && (
+                                    <span title="Account Matched in Database">
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                    </span>
+                                  )}
+                                </motion.div>
+                              ) : (
+                                <motion.div
+                                  key="mail-icon"
+                                  initial={{ opacity: 0, filter: 'blur(4px)' }}
+                                  animate={{ opacity: 1, filter: 'blur(0px)' }}
+                                  exit={{ opacity: 0, filter: 'blur(4px)' }}
+                                  transition={{ duration: 0.15 }}
+                                  className="pl-1"
+                                >
+                                  <Mail className={`w-4 h-4 transition-colors ${
+                                    emailError ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                                  }`} />
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
 
                           <input
                             type={isPhoneMode ? 'tel' : 'text'}
@@ -733,14 +790,15 @@ export default function Login() {
                           </motion.p>
                         )}
                         {isPhoneMode && detectedCountry.matchedInDb && (
-                          <motion.p
+                          <motion.div
                             initial={{ opacity: 0, y: -2 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className="text-[11px] text-emerald-700 mt-1 flex items-center gap-1 font-semibold"
+                            className="text-[11px] text-emerald-800 mt-1.5 flex items-center gap-1.5 font-semibold bg-emerald-50/80 border border-emerald-200/70 px-2.5 py-1 rounded-lg shadow-2xs"
                           >
-                            <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                            <span>Account found in system ({detectedCountry.dialCode})</span>
-                          </motion.p>
+                            <CountryFlagIcon code={detectedCountry.countryCode} flagEmoji={detectedCountry.flag} className="w-3.5 h-2.5" />
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>Verified clinical account found in system ({detectedCountry.dialCode})</span>
+                          </motion.div>
                         )}
                       </div>
 

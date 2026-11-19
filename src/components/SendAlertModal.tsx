@@ -57,8 +57,8 @@ export default function SendAlertModal({
     : 'Attending Clinical Coordinator';
 
   const defaultUserPhone = typeof window !== 'undefined'
-    ? (sessionStorage.getItem('bloodmatch_user_phone') || localStorage.getItem('bloodmatch_user_phone') || '+91 8851860838')
-    : '+91 8851860838';
+    ? (sessionStorage.getItem('bloodmatch_user_phone') || localStorage.getItem('bloodmatch_user_phone') || '')
+    : '';
 
   // Form states (Editable contact name, contact phone, patient name, and clinical note)
   const [requesterName, setRequesterName] = useState(defaultUserName);
@@ -242,7 +242,7 @@ export default function SendAlertModal({
                   required
                   value={requesterPhone}
                   onChange={(e) => setRequesterPhone(e.target.value)}
-                  placeholder="+91 8851860838"
+                  placeholder="+91 98765 43210"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 text-xs font-mono font-bold text-[#1A1D20] transition-all"
                 />
               </div>

@@ -82,10 +82,10 @@ export default function Settings() {
     () => (sessionStorage.getItem('bloodmatch_user_name') || localStorage.getItem('bloodmatch_user_name') || 'Farhan Khalid').replace(/^Dr\.\s+/i, '')
   );
   const [email, setEmail] = useState(
-    () => sessionStorage.getItem('bloodmatch_user_email') || localStorage.getItem('bloodmatch_user_email') || 'farhankhalid17968@gmail.com'
+    () => sessionStorage.getItem('bloodmatch_user_email') || localStorage.getItem('bloodmatch_user_email') || ''
   );
   const [phone, setPhone] = useState(
-    () => sessionStorage.getItem('bloodmatch_user_phone') || localStorage.getItem('bloodmatch_user_phone') || '+91 8851860838'
+    () => sessionStorage.getItem('bloodmatch_user_phone') || localStorage.getItem('bloodmatch_user_phone') || ''
   );
   // Permanent alphanumeric unique member ID (Read-only preview, cannot be edited)
   const memberId = useMemo(() => {
