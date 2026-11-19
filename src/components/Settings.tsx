@@ -333,6 +333,7 @@ export default function Settings() {
   const [terminateInput, setTerminateInput] = useState('');
   const [isTerminating, setIsTerminating] = useState(false);
   const [terminateError, setTerminateError] = useState<string | null>(null);
+  const [togglingSessionId, setTogglingSessionId] = useState<string | null>(null);
 
   // Load live multi-device sessions from backend
   const loadSessions = async (showNotice: boolean = false) => {
@@ -406,10 +407,31 @@ export default function Settings() {
     loadSessions();
   }, []);
 
+  // Real-time cross-device synchronization: polls active sessions and synchronizes on window focus or custom events
   useEffect(() => {
-    if (activeTab === 'SESSIONS') {
-      loadSessions();
-    }
+    if (activeTab !== 'SESSIONS') return;
+    loadSessions();
+
+    const interval = setInterval(() => {
+      loadSessions(false);
+    }, 10000);
+
+    const handleFocus = () => {
+      loadSessions(false);
+    };
+
+    const handleCustomUpdate = () => {
+      loadSessions(false);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('bloodmatch_sessions_updated', handleCustomUpdate);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('bloodmatch_sessions_updated', handleCustomUpdate);
+    };
   }, [activeTab]);
 
   // Handle Avatar Image File Upload
@@ -740,27 +762,53 @@ export default function Settings() {
     }
   };
 
-  // Handle Toggle Primary Session Status
+  // Handle Toggle Primary Session Status with Instant Optimistic State & Disaster-Proof Sync
   const handleTogglePrimarySession = async (sess: SessionItem) => {
+    if (togglingSessionId) return;
+    const nextPrimary = !sess.isPrimary;
+    setTogglingSessionId(sess.id);
+
+    // Optimistic UI update across all sessions matching deviceId or id
+    setSessions(prev => prev.map(s => {
+      if (s.id === sess.id || (sess.deviceId && s.deviceId === sess.deviceId)) {
+        return { ...s, isPrimary: nextPrimary };
+      }
+      return s;
+    }));
+
     try {
-      const nextPrimary = !sess.isPrimary;
       const res = await toggleSessionPrimaryApi(sess.id, nextPrimary);
       if (res.ok) {
+        setSessionRefreshNotice(
+          nextPrimary 
+            ? '✓ Primary Workstation ON: This device is now trusted. Login alert emails are muted for this workstation.' 
+            : '✓ Primary Workstation OFF: Device untrusted. Login security alerts will be dispatched on future sign-ins.'
+        );
+        setTimeout(() => setSessionRefreshNotice(null), 4500);
+        window.dispatchEvent(new CustomEvent('bloodmatch_sessions_updated'));
+      } else {
+        // Rollback optimistic update on server rejection
         setSessions(prev => prev.map(s => {
           if (s.id === sess.id || (sess.deviceId && s.deviceId === sess.deviceId)) {
-            return { ...s, isPrimary: nextPrimary };
+            return { ...s, isPrimary: !nextPrimary };
           }
           return s;
         }));
-        setSessionRefreshNotice(
-          nextPrimary 
-            ? 'Device marked as Primary Terminal. Security alert emails are bypassed for this device.' 
-            : 'Device unmarked from Primary Terminal list.'
-        );
-        setTimeout(() => setSessionRefreshNotice(null), 3500);
+        setSessionRefreshNotice(res.error || 'Failed to update primary device state.');
+        setTimeout(() => setSessionRefreshNotice(null), 4500);
       }
-    } catch (err) {
-      console.error('Failed to toggle primary session status:', err);
+    } catch (err: any) {
+      // Rollback optimistic update on network exception
+      setSessions(prev => prev.map(s => {
+        if (s.id === sess.id || (sess.deviceId && s.deviceId === sess.deviceId)) {
+          return { ...s, isPrimary: !nextPrimary };
+        }
+        return s;
+      }));
+      setSessionRefreshNotice(err?.message || 'Connection failure while updating primary session.');
+      setTimeout(() => setSessionRefreshNotice(null), 4500);
+    } finally {
+      setTogglingSessionId(null);
     }
   };
 
@@ -2421,15 +2469,57 @@ export default function Settings() {
                       <button
                         type="button"
                         onClick={() => handleTogglePrimarySession(sess)}
-                        title={sess.isPrimary ? "Remove primary device status" : "Mark as primary trusted device (no login alert emails)"}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 ${
-                          sess.isPrimary 
-                            ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100' 
-                            : 'bg-white border-[#D9C7C2] text-[#5A626A] hover:text-[#1A1D20] hover:bg-[#F5F1EF]'
+                        disabled={togglingSessionId === sess.id}
+                        title={
+                          sess.isPrimary
+                            ? "Primary Workstation is ON: Click to turn OFF (enables login alert emails)"
+                            : "Primary Workstation is OFF: Click to turn ON (mutes login alert emails for this device)"
+                        }
+                        className={`group relative inline-flex items-center gap-2.5 px-3 py-1.5 rounded-xl border transition-all cursor-pointer select-none active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${
+                          sess.isPrimary
+                            ? 'bg-emerald-50/90 hover:bg-emerald-100/90 border-emerald-300 text-emerald-900 shadow-2xs'
+                            : 'bg-[#F5F1EF]/80 hover:bg-[#EAE4E0] border-[#D9C7C2] text-[#5A626A]'
                         }`}
+                        aria-pressed={Boolean(sess.isPrimary)}
+                        aria-label={`Toggle Primary Status. Currently ${sess.isPrimary ? 'ON' : 'OFF'}`}
                       >
-                        <Star className={`w-3.5 h-3.5 ${sess.isPrimary ? 'fill-amber-500 text-amber-500' : 'text-slate-400'}`} />
-                        <span>{sess.isPrimary ? 'Primary Device' : 'Make Primary'}</span>
+                        {/* Interactive Toggle Switch Track */}
+                        <div
+                          className={`relative w-8 h-4.5 rounded-full p-0.5 transition-colors duration-200 ease-in-out shrink-0 flex items-center ${
+                            sess.isPrimary ? 'bg-emerald-600 justify-end' : 'bg-slate-300 justify-start'
+                          }`}
+                        >
+                          <motion.div
+                            layout
+                            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                            className="w-3.5 h-3.5 rounded-full bg-white shadow-xs flex items-center justify-center"
+                          >
+                            {togglingSessionId === sess.id ? (
+                              <RefreshCw className="w-2 h-2 text-slate-500 animate-spin" />
+                            ) : sess.isPrimary ? (
+                              <Check className="w-2 h-2 text-emerald-600 stroke-[3]" />
+                            ) : null}
+                          </motion.div>
+                        </div>
+
+                        {/* Status Label & Subtext */}
+                        <div className="flex flex-col text-left">
+                          <div className="flex items-center gap-1.5 text-[11px] font-extrabold leading-tight">
+                            <span>Primary</span>
+                            <span
+                              className={`px-1.5 py-0.2 rounded font-mono text-[9px] uppercase tracking-wider font-black ${
+                                sess.isPrimary
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-slate-200 text-slate-600'
+                              }`}
+                            >
+                              {sess.isPrimary ? 'ON' : 'OFF'}
+                            </span>
+                          </div>
+                          <span className="text-[9px] text-[#5A626A] font-medium leading-tight">
+                            {sess.isPrimary ? 'Alerts Muted' : 'Alerts Active'}
+                          </span>
+                        </div>
                       </button>
                     )}
 
