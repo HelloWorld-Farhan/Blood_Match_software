@@ -5,6 +5,8 @@ import {
   Droplet, 
   Lock, 
   Mail, 
+  Phone,
+  CheckCircle2,
   Eye, 
   EyeOff, 
   ArrowRight, 
@@ -18,7 +20,7 @@ import {
 } from 'lucide-react';
 import { BloodDropsCanvas } from '../components/BloodDropsCanvas';
 import { AmbientBackgroundVideo } from '../components/AmbientBackgroundVideo';
-import { validateEmail } from '../utils/countryCodes';
+import { validateEmail, COUNTRY_CODES, parsePhoneNumberWithCountry } from '../utils/countryCodes';
 import { ForgotPasswordModal } from '../components/ForgotPasswordModal';
 import { apiClient } from '../services/api';
 
@@ -35,6 +37,15 @@ const getPersistentDeviceId = (): string => {
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
+  const [isPhoneMode, setIsPhoneMode] = useState(false);
+  const [detectedCountry, setDetectedCountry] = useState<{
+    dialCode: string;
+    flag: string;
+    countryCode: string;
+    matchedInDb: boolean;
+  }>({ dialCode: '+91', flag: '🇮🇳', countryCode: 'IN', matchedInDb: false });
+  const [verifiedEmailFor2FA, setVerifiedEmailFor2FA] = useState<string>('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -87,6 +98,76 @@ export default function Login() {
     }
     return () => clearInterval(interval);
   }, [step]);
+
+  // Handle input change with smart Email vs Mobile mode detection
+  const handleIdentifierChange = (value: string) => {
+    setIdentifier(value);
+    setEmail(value);
+    if (emailError) setEmailError(null);
+    if (loginError) setLoginError(null);
+
+    const clean = value.trim();
+    if (!clean) {
+      setIsPhoneMode(false);
+      setDetectedCountry(prev => ({ ...prev, matchedInDb: false }));
+      return;
+    }
+
+    const hasAlpha = /[a-zA-Z@]/.test(clean);
+    const hasDigits = /\d/.test(clean);
+
+    if (hasDigits && !hasAlpha) {
+      setIsPhoneMode(true);
+      if (clean.startsWith('+')) {
+        const parsed = parsePhoneNumberWithCountry(clean);
+        const match = COUNTRY_CODES.find(c => c.dialCode === parsed.dialCode);
+        if (match) {
+          setDetectedCountry(prev => ({
+            dialCode: match.dialCode,
+            flag: match.flag,
+            countryCode: match.code,
+            matchedInDb: prev.matchedInDb
+          }));
+        }
+      }
+    } else {
+      setIsPhoneMode(false);
+      setDetectedCountry(prev => ({ ...prev, matchedInDb: false }));
+    }
+  };
+
+  // Real-time background database lookup for phone number & country code resolution
+  useEffect(() => {
+    if (!isPhoneMode) return;
+    const cleanDigits = identifier.replace(/\D/g, '');
+    if (cleanDigits.length < 7) {
+      setDetectedCountry(prev => ({ ...prev, matchedInDb: false }));
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await apiClient.get<any>(`/api/auth/phone-lookup?phone=${encodeURIComponent(cleanDigits)}`);
+        if (res.ok && res.data) {
+          const matchedCountry = COUNTRY_CODES.find(c => c.dialCode === res.data.dial_code) || {
+            dialCode: res.data.dial_code || '+91',
+            flag: res.data.country_code === 'US' ? '🇺🇸' : '🇮🇳',
+            code: res.data.country_code || 'IN'
+          };
+          setDetectedCountry({
+            dialCode: matchedCountry.dialCode,
+            flag: matchedCountry.flag,
+            countryCode: matchedCountry.code,
+            matchedInDb: Boolean(res.data.found)
+          });
+        }
+      } catch {
+        // Quiet fallback
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [identifier, isPhoneMode]);
 
   // Guard against browser Back button navigating back to logged out dashboard sessions
   useEffect(() => {
@@ -197,11 +278,27 @@ export default function Login() {
 
     let hasError = false;
 
-    // Strict Email validation
-    const emailResult = validateEmail(email);
-    if (!emailResult.isValid) {
-      setEmailError(emailResult.message || 'Please enter a valid clinician email address');
+    // Strict validation for Email or Mobile Number
+    const trimmedVal = (identifier || email).trim();
+    if (!trimmedVal) {
+      setEmailError('Please enter your email address or mobile number');
       hasError = true;
+    } else if (isPhoneMode) {
+      const digits = trimmedVal.replace(/\D/g, '');
+      if (digits.length < 7 || digits.length > 15) {
+        setEmailError('Please enter a valid mobile number (e.g. 10 digits for India)');
+        hasError = true;
+      } else if (detectedCountry.dialCode === '+91' && digits.length === 10 && !/^[6-9]\d{9}$/.test(digits)) {
+        setEmailError('Indian mobile number must start with 6, 7, 8, or 9');
+        hasError = true;
+      }
+    } else {
+      // Email validation
+      const emailResult = validateEmail(trimmedVal);
+      if (!emailResult.isValid) {
+        setEmailError(emailResult.message || 'Please enter a valid clinician email address');
+        hasError = true;
+      }
     }
 
     // Strict Password validation
@@ -219,8 +316,10 @@ export default function Login() {
 
     try {
       const deviceId = getPersistentDeviceId();
-      const res = await apiClient.post('/api/auth/login', {
-        email: email.trim(),
+      const res = await apiClient.post<any>('/api/auth/login', {
+        identifier: trimmedVal,
+        email: trimmedVal,
+        phone: isPhoneMode ? trimmedVal : undefined,
         password,
         device_id: deviceId,
         device_name: `${navigator.platform || 'Workstation'} Browser`,
@@ -237,6 +336,9 @@ export default function Login() {
       // Step-up 2FA requirement
       if (res.data?.two_factor_required) {
         setStep('TWO_FACTOR');
+        if (res.data?.email) {
+          setVerifiedEmailFor2FA(res.data.email);
+        }
         setTwoFactorOtp(['', '', '', '', '', '']);
         setTwoFactorExpirySeconds(600);
         setTwoFactorResendTimer(30);
@@ -247,16 +349,18 @@ export default function Login() {
 
       // Direct Authentication Success
       if (res.data?.access_token) {
+        const userEmail = res.data.user?.email || (trimmedVal.includes('@') ? trimmedVal : 'clinician@bloodmatch.io');
         sessionStorage.setItem('bloodmatch_auth', 'true');
         sessionStorage.setItem('bloodmatch_auth_token', res.data.access_token);
         localStorage.setItem('bloodmatch_auth', 'true');
         localStorage.setItem('bloodmatch_auth_token', res.data.access_token);
-        sessionStorage.setItem('bloodmatch_user_email', res.data.user?.email || email.trim());
+        sessionStorage.setItem('bloodmatch_user_email', userEmail);
         sessionStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
         const memberId = res.data.user?.member_id || ('BM-' + (res.data.user?.id || '9481NX01').replace(/-/g, '').slice(0, 8).toUpperCase());
         sessionStorage.setItem('bloodmatch_member_id', memberId);
         localStorage.setItem('bloodmatch_member_id', memberId);
-        localStorage.setItem('bloodmatch_user_email', res.data.user?.email || email.trim());
+        localStorage.setItem('bloodmatch_user_email', userEmail);
+        localStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
         localStorage.setItem('bloodmatch_user_name', res.data.user?.full_name || 'Clinician');
         if (typeof res.data.user?.is_2fa_enabled === 'boolean') {
           localStorage.setItem('bloodmatch_2fa_enabled', res.data.user.is_2fa_enabled ? 'true' : 'false');
@@ -307,8 +411,9 @@ export default function Login() {
 
     try {
       const deviceId = getPersistentDeviceId();
+      const targetEmail = (verifiedEmailFor2FA || (identifier.includes('@') ? identifier : email)).trim();
       const res = await apiClient.post('/api/auth/2fa/verify', {
-        email: email.trim(),
+        email: targetEmail,
         otp_code: code,
         device_id: deviceId,
         device_name: `${navigator.platform || 'Workstation'} Browser`,
@@ -375,7 +480,8 @@ export default function Login() {
     setCanResend2FA(false);
 
     try {
-      const res = await apiClient.post('/api/auth/2fa/resend', { email: email.trim() });
+      const targetEmail = (verifiedEmailFor2FA || (identifier.includes('@') ? identifier : email)).trim();
+      const res = await apiClient.post('/api/auth/2fa/resend', { email: targetEmail });
       setIsResending2FA(false);
       if (!res.ok) {
         setTwoFactorError(res.error || 'Failed to resend two-factor code.');
@@ -559,30 +665,55 @@ export default function Login() {
                     )}
 
                     <form onSubmit={handleLogin} className="space-y-4">
-                      {/* Email */}
+                      {/* Email or Phone Identifier */}
                       <div>
-                        <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider mb-1.5">
-                          Clinician Work Email
-                        </label>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
+                            Clinician Work Email or Mobile
+                          </label>
+                          {isPhoneMode ? (
+                            <span className="text-[10px] font-bold text-[#D72638] bg-red-50 px-2 py-0.5 rounded-md border border-red-200 flex items-center gap-1 transition-all">
+                              <Phone className="w-2.5 h-2.5" /> Mobile Number
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 flex items-center gap-1">
+                              <Mail className="w-2.5 h-2.5" /> Work Email
+                            </span>
+                          )}
+                        </div>
+
                         <div className="relative group">
-                          <Mail className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
-                            emailError ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
-                          }`} />
+                          {isPhoneMode ? (
+                            <div className="absolute left-2.5 top-2 flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white border border-[#D9C7C2] shadow-2xs select-none z-10">
+                              <span className="text-sm leading-none">{detectedCountry.flag}</span>
+                              <span className="text-xs font-bold text-[#1A1D20] font-mono">{detectedCountry.dialCode}</span>
+                              {detectedCountry.matchedInDb && (
+                                <span title="Account Matched in Database">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 ml-0.5 shrink-0" />
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <Mail className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
+                              emailError ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                            }`} />
+                          )}
+
                           <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => {
-                              setEmail(e.target.value);
-                              if (emailError) setEmailError(null);
-                            }}
-                            placeholder="clinician@bloodmatch.io"
-                            className={`w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                            type={isPhoneMode ? 'tel' : 'text'}
+                            value={identifier}
+                            onChange={(e) => handleIdentifierChange(e.target.value)}
+                            placeholder={isPhoneMode ? '98765 43210 (No country code required)' : 'clinician@bloodmatch.io or 9876543210'}
+                            className={`w-full py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
+                              isPhoneMode ? (detectedCountry.matchedInDb ? 'pl-25 pr-4' : 'pl-21 pr-4') : 'pl-10 pr-4'
+                            } ${
                               emailError 
                                 ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
                                 : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 focus:bg-white'
                             }`}
                           />
                         </div>
+
                         {emailError && (
                           <motion.p
                             initial={{ opacity: 0, y: -4 }}
@@ -591,6 +722,16 @@ export default function Login() {
                           >
                             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
                             <span>{emailError}</span>
+                          </motion.p>
+                        )}
+                        {isPhoneMode && detectedCountry.matchedInDb && (
+                          <motion.p
+                            initial={{ opacity: 0, y: -2 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-[11px] text-emerald-700 mt-1 flex items-center gap-1 font-semibold"
+                          >
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                            <span>Account found in system ({detectedCountry.dialCode})</span>
                           </motion.p>
                         )}
                       </div>
@@ -698,7 +839,7 @@ export default function Login() {
                           Two-Factor Check
                         </h1>
                         <p className="text-xs text-[#5A626A] mt-1">
-                          A 6-digit security OTP was dispatched to <strong className="text-[#1A1D20]">{email}</strong>
+                          A 6-digit security OTP was dispatched to <strong className="text-[#1A1D20]">{verifiedEmailFor2FA || (identifier.includes('@') ? identifier : email)}</strong>
                         </p>
                       </div>
                       <div className="w-10 h-10 rounded-xl bg-[#7A0C17]/10 border border-[#D72638]/20 flex items-center justify-center text-[#D72638]">
