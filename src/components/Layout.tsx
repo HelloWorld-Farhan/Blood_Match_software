@@ -112,7 +112,7 @@ export default function Layout() {
     };
   }, [isAuth]);
 
-  // Real-time remote termination heartbeat: Detects if another device terminated this session
+  // Real-time remote termination heartbeat: Detects if another device terminated or deleted this account
   useEffect(() => {
     if (!isAuth) return;
     const checkSessionStatus = async () => {
@@ -129,8 +129,20 @@ export default function Layout() {
       } catch {}
     };
 
-    const interval = setInterval(checkSessionStatus, 15000);
-    return () => clearInterval(interval);
+    const interval = setInterval(checkSessionStatus, 10000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkSessionStatus();
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', checkSessionStatus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', checkSessionStatus);
+    };
   }, [isAuth]);
 
   // Authentic User session details (no fake fallback clinician identity)

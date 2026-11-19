@@ -80,8 +80,8 @@ export function DeleteAccountModal({
     e.preventDefault();
     setErrorMessage(null);
 
-    if (confirmText.trim() !== 'DELETE') {
-      setErrorMessage('Please type DELETE in uppercase to authorize the deletion code.');
+    if (confirmText.trim().toUpperCase() !== 'DELETE') {
+      setErrorMessage('Please type DELETE to authorize the deletion code.');
       return;
     }
 
