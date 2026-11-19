@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Droplet, 
@@ -673,21 +673,39 @@ export default function Login() {
                         </div>
 
                         <div className="relative group">
-                          {isPhoneMode ? (
-                            <div className="absolute left-2.5 top-2 flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white border border-[#D9C7C2] shadow-2xs select-none z-10">
-                              <span className="text-sm leading-none">{detectedCountry.flag}</span>
-                              <span className="text-xs font-bold text-[#1A1D20] font-mono">{detectedCountry.dialCode}</span>
-                              {detectedCountry.matchedInDb && (
-                                <span title="Account Matched in Database">
-                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 ml-0.5 shrink-0" />
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <Mail className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
-                              emailError ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
-                            }`} />
-                          )}
+                          <AnimatePresence mode="wait">
+                            {isPhoneMode ? (
+                              <motion.div
+                                key="phone-badge"
+                                initial={{ opacity: 0, filter: 'blur(8px)', scale: 0.92, x: -6 }}
+                                animate={{ opacity: 1, filter: 'blur(0px)', scale: 1, x: 0 }}
+                                exit={{ opacity: 0, filter: 'blur(8px)', scale: 0.92, x: -6 }}
+                                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                                className="absolute left-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-2xs select-none z-10 pointer-events-none"
+                              >
+                                <span className="text-sm leading-none">{detectedCountry.flag}</span>
+                                <span className="text-xs font-bold text-[#1A1D20] font-mono tracking-tight">{detectedCountry.dialCode}</span>
+                                {detectedCountry.matchedInDb && (
+                                  <span title="Account Matched in Database">
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 ml-0.5 shrink-0" />
+                                  </span>
+                                )}
+                              </motion.div>
+                            ) : (
+                              <motion.div
+                                key="mail-icon"
+                                initial={{ opacity: 0, filter: 'blur(4px)' }}
+                                animate={{ opacity: 1, filter: 'blur(0px)' }}
+                                exit={{ opacity: 0, filter: 'blur(4px)' }}
+                                transition={{ duration: 0.15 }}
+                                className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none z-10"
+                              >
+                                <Mail className={`w-4 h-4 transition-colors ${
+                                  emailError ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                                }`} />
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
 
                           <input
                             type={isPhoneMode ? 'tel' : 'text'}
@@ -695,7 +713,7 @@ export default function Login() {
                             onChange={(e) => handleIdentifierChange(e.target.value)}
                             placeholder={isPhoneMode ? '98765 43210 (No country code required)' : 'clinician@bloodmatch.io or 9876543210'}
                             className={`w-full py-2.5 rounded-xl bg-[#F5F1EF] border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
-                              isPhoneMode ? (detectedCountry.matchedInDb ? 'pl-25 pr-4' : 'pl-21 pr-4') : 'pl-10 pr-4'
+                              isPhoneMode ? (detectedCountry.matchedInDb ? 'pl-[126px] pr-4' : 'pl-[104px] pr-4') : 'pl-10 pr-4'
                             } ${
                               emailError 
                                 ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 

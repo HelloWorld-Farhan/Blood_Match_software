@@ -447,7 +447,7 @@ export default function Settings() {
     setTimeout(() => setProfileSuccess(null), 3500);
   };
 
-  // Handle Profile Details Save (Only Full Legal Name & Verified Phone are editable)
+  // Handle Profile Details Save (Only Full Legal Name is editable; Email and Mobile are system bound)
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isEditingProfile) return;
@@ -457,10 +457,6 @@ export default function Settings() {
 
     if (!name.trim() || name.trim().length < 2) {
       errors.name = 'Full legal clinician name is required (minimum 2 characters)';
-    }
-
-    if (!phone.trim() || phone.trim().length < 6) {
-      errors.phone = 'Verified emergency contact phone number is required';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -485,12 +481,9 @@ export default function Settings() {
 
       // 2. Persist to session and localStorage
       sessionStorage.setItem('bloodmatch_user_name', name.trim());
-      sessionStorage.setItem('bloodmatch_user_phone', phone.trim());
       localStorage.setItem('bloodmatch_user_name', name.trim());
-      localStorage.setItem('bloodmatch_user_phone', phone.trim());
 
       setOriginalName(name.trim());
-      setOriginalPhone(phone.trim());
       setIsEditingProfile(false);
       setIsSavingProfile(false);
 
@@ -1097,8 +1090,8 @@ export default function Settings() {
               </div>
               <p className="text-xs text-[#5A626A] mt-0.5">
                 {isEditingProfile 
-                  ? 'Update your full legal name and contact phone number. Email address and Clinical ID remain locked.' 
-                  : 'Your clinical credentials across all stations. Click Edit Profile to modify name or phone.'}
+                  ? 'Update your full legal name. Email address, verified mobile, and Clinical ID remain strictly locked.' 
+                  : 'Your clinical credentials across all stations. Click Edit Profile to modify name.'}
               </p>
             </div>
 
@@ -1197,43 +1190,31 @@ export default function Settings() {
                 </div>
               </div>
 
-              {/* Verified Contact Number (Editable ONLY when isEditingProfile is true) */}
+              {/* Verified Contact Mobile (Permanently Locked & Read-only) */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-bold text-[#1A1D20] uppercase tracking-wider">
-                    Verified Contact Number
+                    Verified Contact Mobile
                   </label>
-                  {isEditingProfile && (
-                    <span className="text-[10px] text-amber-700 font-bold flex items-center gap-1">
-                      <Pencil className="w-2.5 h-2.5" />
-                      <span>Editable</span>
-                    </span>
-                  )}
+                  <span className="text-[10px] text-slate-500 font-semibold flex items-center gap-1">
+                    <Lock className="w-3 h-3 text-slate-400" />
+                    <span>System Bound • Read-only</span>
+                  </span>
                 </div>
                 <div className="relative group">
-                  <Phone className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
-                    isEditingProfile ? 'text-[#D72638]' : 'text-slate-400'
-                  }`} />
+                  <Phone className="absolute left-3.5 top-3 w-4 h-4 text-slate-400" />
                   <input
                     type="tel"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    readOnly={!isEditingProfile}
-                    disabled={!isEditingProfile}
-                    placeholder="+91 00000 00000"
-                    className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold transition-all outline-hidden ${
-                      isEditingProfile
-                        ? 'bg-white border-2 border-[#D72638] ring-2 ring-[#D72638]/20 text-[#1A1D20] shadow-xs'
-                        : 'bg-[#F5F1EF]/80 border border-[#D9C7C2] text-[#1A1D20] cursor-not-allowed select-text opacity-95'
-                    }`}
+                    readOnly
+                    disabled
+                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-100 border border-[#D9C7C2] text-sm text-slate-600 font-semibold cursor-not-allowed select-all"
                   />
                 </div>
-                {profileErrors.phone && (
-                  <p className="text-xs text-[#D72638] mt-1 flex items-center gap-1 font-semibold">
-                    <AlertCircle className="w-3 h-3 shrink-0" />
-                    <span>{profileErrors.phone}</span>
-                  </p>
-                )}
+                <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1 font-medium">
+                  <ShieldCheck className="w-3 h-3 text-emerald-600 shrink-0" />
+                  <span>Bound to clinical account identity. Cannot be modified in settings.</span>
+                </p>
               </div>
 
               {/* Unique Clinical Member ID (Preview Only - Cannot Be Edited) */}

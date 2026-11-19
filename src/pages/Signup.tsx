@@ -205,7 +205,12 @@ export default function Signup() {
       setIsLoading(false);
 
       if (!res.ok) {
-        setFormErrors({ email: res.error || 'Registration failed. Please check your credentials.' });
+        const errorMsg = res.error || 'Registration failed. Please check your credentials.';
+        if (errorMsg.toLowerCase().includes('phone') || errorMsg.toLowerCase().includes('mobile')) {
+          setFormErrors({ phone: errorMsg });
+        } else {
+          setFormErrors({ email: errorMsg });
+        }
         return;
       }
 
@@ -216,7 +221,12 @@ export default function Signup() {
       setTimeout(() => otpInputRefs.current[0]?.focus(), 150);
     } catch (err: any) {
       setIsLoading(false);
-      setFormErrors({ email: err?.message || 'Network connection failed during registration.' });
+      const errorMsg = err?.message || 'Network connection failed during registration.';
+      if (errorMsg.toLowerCase().includes('phone') || errorMsg.toLowerCase().includes('mobile')) {
+        setFormErrors({ phone: errorMsg });
+      } else {
+        setFormErrors({ email: errorMsg });
+      }
     }
   };
 
