@@ -41,6 +41,7 @@ import {
 import { validateEmail, checkPasswordCriteria, getInitials } from '../utils/countryCodes';
 import { apiClient, fetchSessionsApi, revokeSessionApi, revokeOtherSessionsApi, toggleSessionPrimaryApi } from '../services/api';
 import { AvatarUploadModal } from './AvatarUploadModal';
+import { ClinicianAvatar } from './ClinicianAvatar';
 import { DeleteAccountModal } from './DeleteAccountModal';
 
 const scrollBlurVariants: Variants = {
@@ -131,19 +132,24 @@ export default function Settings() {
     }
   };
 
-  // Requirement 3: Instant Multi-Component Re-render (Zero Page Refresh)
+  // Instant Multi-Component Re-render & Cross-Tab Sync (Zero Page Refresh)
   useEffect(() => {
     const handleAvatarUpdate = (e: Event) => {
       const customEvent = e as CustomEvent;
       const newUrl = customEvent.detail?.photoUrl;
       setAvatar(newUrl || null);
     };
+    const handleStorageUpdate = () => {
+      const stored = localStorage.getItem('bloodmatch_user_avatar') || sessionStorage.getItem('bloodmatch_user_avatar') || null;
+      setAvatar(stored);
+    };
     window.addEventListener('user_avatar_updated', handleAvatarUpdate);
-    window.addEventListener('bloodmatch_profile_updated', () => {
-      setAvatar(localStorage.getItem('bloodmatch_user_avatar') || null);
-    });
+    window.addEventListener('bloodmatch_profile_updated', handleStorageUpdate);
+    window.addEventListener('storage', handleStorageUpdate);
     return () => {
       window.removeEventListener('user_avatar_updated', handleAvatarUpdate);
+      window.removeEventListener('bloodmatch_profile_updated', handleStorageUpdate);
+      window.removeEventListener('storage', handleStorageUpdate);
     };
   }, []);
 
@@ -1126,19 +1132,12 @@ export default function Settings() {
               {/* Avatar Preview */}
               <div className="relative group shrink-0">
                 <div className="w-24 h-24 rounded-2xl overflow-hidden bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-2xl font-black shadow-md border-2 border-white">
-                  {avatar ? (
-                    <img 
-                      src={avatar} 
-                      alt="Clinician Avatar" 
-                      className="w-full h-full object-cover" 
-                      onError={() => {
-                        setAvatar(null);
-                        localStorage.removeItem('bloodmatch_user_avatar');
-                      }}
-                    />
-                  ) : (
-                    <span>{getInitials(name)}</span>
-                  )}
+                  <ClinicianAvatar
+                    src={avatar}
+                    name={name}
+                    imgClassName="w-full h-full object-cover"
+                    fallbackClassName="font-black select-none text-2xl"
+                  />
                 </div>
 
                 {/* Upload Action Overlay */}

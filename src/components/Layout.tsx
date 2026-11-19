@@ -29,6 +29,7 @@ import {
 import { BloodDropsCanvas } from './BloodDropsCanvas';
 import { AmbientBackgroundVideo } from './AmbientBackgroundVideo';
 import { AvatarUploadModal } from './AvatarUploadModal';
+import { ClinicianAvatar } from './ClinicianAvatar';
 import { getDonors, getEmergencyRequests, getInventory } from '../services/storage';
 import { apiClient, fetchAlertsApi, fetchInventoryApi, fetchDonorsApi } from '../services/api';
 import { getInitials } from '../utils/countryCodes';
@@ -162,21 +163,36 @@ export default function Layout() {
   );
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
 
-  // Requirement 4: Cross-Device Cloud Sync Hydration on initial mount
+  // Cross-Device Cloud Sync Hydration & Profile Real-time Fetch on mount
   useEffect(() => {
     if (userEmail) {
+      // 1. Sync from master telemetry
       apiClient.get(`/api/v1/sync/all?user_email=${encodeURIComponent(userEmail)}`).then((res) => {
         if (res.ok && res.data?.photoUrl) {
-          const photoUrl = `${res.data.photoUrl}?v=${Date.now()}`;
+          const raw = res.data.photoUrl;
+          const photoUrl = raw.startsWith('data:') ? raw : `${raw}?v=${Date.now()}`;
           setAvatar(photoUrl);
           localStorage.setItem('bloodmatch_user_avatar', photoUrl);
           sessionStorage.setItem('bloodmatch_user_avatar', photoUrl);
         }
       }).catch(() => {});
-    }
-  }, [userEmail]);
 
-  // Requirement 3: Immediate "Apply Everywhere" UI Updates (Zero Page Refresh)
+      // 2. Fallback check profile me if avatar not cached
+      if (!avatar) {
+        apiClient.get('/api/auth/me').then((res) => {
+          if (res.ok && res.data?.user?.photo_url) {
+            const raw = res.data.user.photo_url;
+            const photoUrl = raw.startsWith('data:') ? raw : `${raw}?v=${Date.now()}`;
+            setAvatar(photoUrl);
+            localStorage.setItem('bloodmatch_user_avatar', photoUrl);
+            sessionStorage.setItem('bloodmatch_user_avatar', photoUrl);
+          }
+        }).catch(() => {});
+      }
+    }
+  }, [userEmail, avatar]);
+
+  // Immediate "Apply Everywhere" UI Updates (Zero Page Refresh, zero latency)
   useEffect(() => {
     const handleAvatarUpdate = (e: Event) => {
       const customEvent = e as CustomEvent;
@@ -184,11 +200,16 @@ export default function Layout() {
       setAvatar(newUrl || null);
     };
     window.addEventListener('user_avatar_updated', handleAvatarUpdate);
-    window.addEventListener('bloodmatch_profile_updated', () => {
-      setAvatar(localStorage.getItem('bloodmatch_user_avatar') || null);
-    });
+    const handleProfileUpdate = () => {
+      const stored = localStorage.getItem('bloodmatch_user_avatar') || sessionStorage.getItem('bloodmatch_user_avatar') || null;
+      setAvatar(stored);
+    };
+    window.addEventListener('bloodmatch_profile_updated', handleProfileUpdate);
+    window.addEventListener('storage', handleProfileUpdate);
     return () => {
       window.removeEventListener('user_avatar_updated', handleAvatarUpdate);
+      window.removeEventListener('bloodmatch_profile_updated', handleProfileUpdate);
+      window.removeEventListener('storage', handleProfileUpdate);
     };
   }, []);
 
@@ -646,11 +667,12 @@ export default function Layout() {
               className="relative group w-7 h-7 sm:w-8 sm:h-8 rounded-lg overflow-hidden bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-[11px] sm:text-xs font-bold shadow-2xs shrink-0 cursor-pointer border border-[#D9C7C2] hover:border-[#D72638] transition-all"
               title="Click to change profile picture"
             >
-              {avatar ? (
-                <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
-              ) : (
-                <span>{getInitials(userName)}</span>
-              )}
+              <ClinicianAvatar
+                src={avatar}
+                name={userName}
+                imgClassName="w-full h-full object-cover"
+                fallbackClassName="font-black select-none text-[11px] sm:text-xs"
+              />
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                 <Camera className="w-3.5 h-3.5 text-white" />
               </div>
@@ -1018,11 +1040,12 @@ export default function Layout() {
               aria-label="Clinician Profile"
             >
               <div className="w-7 h-7 rounded-lg overflow-hidden bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-xs font-bold shadow-2xs">
-                {avatar ? (
-                  <img src={avatar} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <span>{getInitials(userName)}</span>
-                )}
+                <ClinicianAvatar
+                  src={avatar}
+                  name={userName}
+                  imgClassName="w-full h-full object-cover"
+                  fallbackClassName="font-black select-none text-xs"
+                />
               </div>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400 hidden sm:block" />
             </button>

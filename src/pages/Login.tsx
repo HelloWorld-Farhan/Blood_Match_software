@@ -480,11 +480,13 @@ export default function Login() {
           localStorage.setItem('bloodmatch_verified_emails', JSON.stringify(res.data.user.verified_emails));
         }
 
-        // Requirement 4: Cross-Device Cloud Sync Hydration on Login
+        // Cross-Device Cloud Sync Hydration on Login (Zero latency)
         if (res.data.user?.photo_url) {
-          const cacheBusted = `${res.data.user.photo_url}?v=${Date.now()}`;
+          const raw = res.data.user.photo_url;
+          const cacheBusted = raw.startsWith('data:') ? raw : `${raw}?v=${Date.now()}`;
           localStorage.setItem('bloodmatch_user_avatar', cacheBusted);
           sessionStorage.setItem('bloodmatch_user_avatar', cacheBusted);
+          window.dispatchEvent(new CustomEvent('user_avatar_updated', { detail: { photoUrl: cacheBusted } }));
         }
 
         navigate('/dashboard');
@@ -556,9 +558,11 @@ export default function Login() {
         }
 
         if (res.data.user?.photo_url) {
-          const cacheBusted = `${res.data.user.photo_url}?v=${Date.now()}`;
+          const raw = res.data.user.photo_url;
+          const cacheBusted = raw.startsWith('data:') ? raw : `${raw}?v=${Date.now()}`;
           localStorage.setItem('bloodmatch_user_avatar', cacheBusted);
           sessionStorage.setItem('bloodmatch_user_avatar', cacheBusted);
+          window.dispatchEvent(new CustomEvent('user_avatar_updated', { detail: { photoUrl: cacheBusted } }));
         }
 
         navigate('/dashboard');

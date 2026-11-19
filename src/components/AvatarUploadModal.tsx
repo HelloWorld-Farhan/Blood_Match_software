@@ -271,8 +271,8 @@ export function AvatarUploadModal({
         return;
       }
 
-      // Requirement 4: Append timestamp query parameter for cache-busting
-      const rawUrl = res.data?.photoUrl || res.data?.photo_url || '';
+      // Real-time Instant Handshake: Prefer Base64 dataUrl for zero-latency local render, fallback to CDN photoUrl
+      const rawUrl = (res.data as any)?.dataUrl || res.data?.photoUrl || (res.data as any)?.photo_url || '';
       if (!rawUrl) {
         setErrorMessage('Server did not return a valid photo URL. Please retry.');
         return;

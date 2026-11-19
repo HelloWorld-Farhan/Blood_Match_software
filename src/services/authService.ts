@@ -180,9 +180,10 @@ export const authService = {
       if (cropData.crop_width !== undefined) formData.append('crop_width', cropData.crop_width.toString());
       if (cropData.crop_height !== undefined) formData.append('crop_height', cropData.crop_height.toString());
     }
-    const res = await apiClient.post<{ photoUrl: string; message: string; s3_key?: string }>('/api/v1/storage/avatar', formData);
-    if (res.ok && res.data?.photoUrl) {
-      const cacheBusted = `${res.data.photoUrl}?v=${Date.now()}`;
+    const res = await apiClient.post<{ photoUrl: string; photo_url?: string; dataUrl?: string; message: string; s3_key?: string }>('/api/v1/storage/avatar', formData);
+    const raw = (res.data as any)?.dataUrl || res.data?.photoUrl || (res.data as any)?.photo_url;
+    if (res.ok && raw) {
+      const cacheBusted = raw.startsWith('data:') ? raw : `${raw}?v=${Date.now()}`;
       localStorage.setItem('bloodmatch_user_avatar', cacheBusted);
       sessionStorage.setItem('bloodmatch_user_avatar', cacheBusted);
       window.dispatchEvent(new CustomEvent('user_avatar_updated', { detail: { photoUrl: cacheBusted } }));
@@ -327,9 +328,11 @@ export const authService = {
         localStorage.setItem('bloodmatch_verified_emails', JSON.stringify((data.user as any).verified_emails));
       }
       if (data.user.photo_url) {
-        const cacheBusted = `${data.user.photo_url}?v=${Date.now()}`;
+        const raw = data.user.photo_url;
+        const cacheBusted = raw.startsWith('data:') ? raw : `${raw}?v=${Date.now()}`;
         localStorage.setItem('bloodmatch_user_avatar', cacheBusted);
         sessionStorage.setItem('bloodmatch_user_avatar', cacheBusted);
+        window.dispatchEvent(new CustomEvent('user_avatar_updated', { detail: { photoUrl: cacheBusted } }));
       }
     }
   },
