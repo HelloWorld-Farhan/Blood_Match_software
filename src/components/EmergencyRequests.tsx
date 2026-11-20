@@ -256,7 +256,7 @@ export default function EmergencyRequests() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBloodFilter, setSelectedBloodFilter] = useState<string>('ALL');
 
-  // 2-Second Pulsating Blink & Auto-Scroll when arriving via "Match Donors ->"
+  // 4-Second Pulsating Blink & Zero-Jump Center Scroll when arriving via "Match Donors ->"
   useEffect(() => {
     if (highlightParam) {
       setHighlightedId(highlightParam);
@@ -266,25 +266,33 @@ export default function EmergencyRequests() {
       const scrollTimer = setTimeout(() => {
         const el = document.getElementById(`request-row-${highlightParam}`);
         if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const mainContainer = document.querySelector('main') || document.documentElement;
+          const rect = el.getBoundingClientRect();
+          const containerRect = mainContainer.getBoundingClientRect();
+          const targetScrollTop = mainContainer.scrollTop + (rect.top - containerRect.top) - (containerRect.height / 2) + (rect.height / 2);
+          mainContainer.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
         }
       }, 150);
 
       const blinkTimer = setTimeout(() => {
         setIsBlinking(false);
-        setSearchParams(prev => {
-          const next = new URLSearchParams(prev);
-          next.delete('highlight');
-          return next;
-        }, { replace: true });
-      }, 2000);
+        // Silently clear the highlight query param in browser history without triggering
+        // React Router route navigation or resetting the scroll position back to the top of <main>
+        try {
+          const currentUrl = new URL(window.location.href);
+          if (currentUrl.searchParams.has('highlight')) {
+            currentUrl.searchParams.delete('highlight');
+            window.history.replaceState(null, '', currentUrl.pathname + (currentUrl.search ? currentUrl.search : ''));
+          }
+        } catch {}
+      }, 4000);
 
       return () => {
         clearTimeout(scrollTimer);
         clearTimeout(blinkTimer);
       };
     }
-  }, [highlightParam, setSearchParams]);
+  }, [highlightParam]);
 
   // Clinician context
   const currentUserEmail = useMemo(() => {
@@ -2015,7 +2023,7 @@ export default function EmergencyRequests() {
                     isJustFulfilled
                       ? 'animate-fulfilled-smooth ring-4 ring-emerald-400/50 border-emerald-500 bg-emerald-50/40 z-10'
                       : isTargetHighlighted
-                        ? 'animate-target-blink-2s ring-4 ring-[#D72638]/40 border-[#D72638] bg-[#FFF5F6] z-10'
+                        ? 'animate-target-record-blink ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/40 scale-[1.01] bg-[#FFF2F4] z-20'
                         : isFulfilled
                           ? 'bg-white border-emerald-200'
                           : 'bg-white border-[#D9C7C2] hover:border-[#D72638]/50'
@@ -2025,9 +2033,20 @@ export default function EmergencyRequests() {
                 <div className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   {/* Left: Blood Type & Patient Clinical Details */}
                   <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] text-white font-black text-base flex flex-col items-center justify-center shadow-xs shrink-0">
-                      <span className="text-[8px] font-bold uppercase tracking-wider text-red-100">Blood</span>
-                      <span>{req.bloodType}</span>
+                    <div
+                      title={`Blood Group ${req.bloodType}`}
+                      className="group/badge relative w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] text-white font-black flex flex-col items-center justify-center shadow-md shadow-[#D72638]/25 border border-white/20 shrink-0 transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#D72638]/40 hover:from-[#FF4D5E] hover:to-[#8E0E1B] active:scale-95 cursor-pointer overflow-hidden select-none"
+                    >
+                      {/* Subtle Glass Sheen Top Overlay */}
+                      <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent pointer-events-none rounded-t-2xl" />
+                      <div className="relative z-10 flex flex-col items-center justify-center leading-none">
+                        <span className="text-[7.5px] font-extrabold uppercase tracking-widest text-red-100/90 leading-tight mb-0.5">
+                          GROUP
+                        </span>
+                        <span className="text-base sm:text-lg font-black tracking-tight leading-none text-white drop-shadow-xs">
+                          {req.bloodType}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="min-w-0 flex-1">
@@ -2286,7 +2305,10 @@ export default function EmergencyRequests() {
                                     #{idx + 1}
                                   </div>
 
-                                  <div className="w-9 h-9 rounded-lg bg-red-50 border border-red-200 text-[#D72638] font-black text-xs flex items-center justify-center shrink-0">
+                                  <div
+                                    title={`Matched Donor Group ${donor.bloodType}`}
+                                    className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0 transition-all duration-200 hover:scale-110 hover:shadow-md hover:shadow-[#D72638]/30 cursor-pointer select-none"
+                                  >
                                     {donor.bloodType}
                                   </div>
 
@@ -3813,9 +3835,12 @@ export default function EmergencyRequests() {
 
                 {/* Target Emergency Case Summary Box */}
                 <div className="p-3.5 rounded-2xl bg-[#F5F1EF]/70 border border-[#D9C7C2] flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] text-white flex flex-col items-center justify-center font-black shadow-xs shrink-0">
-                    <span className="text-[7px] uppercase font-bold text-red-100">Blood</span>
-                    <span className="text-sm font-black">{requestToDelete.bloodType}</span>
+                  <div className="group/badge relative w-11 h-11 rounded-xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] text-white flex flex-col items-center justify-center font-black shadow-xs shrink-0 transition-all duration-300 hover:scale-105 overflow-hidden select-none">
+                    <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent pointer-events-none rounded-t-xl" />
+                    <div className="relative z-10 flex flex-col items-center justify-center leading-none">
+                      <span className="text-[6.5px] uppercase font-extrabold text-red-100/90 leading-tight">GROUP</span>
+                      <span className="text-sm font-black drop-shadow-xs">{requestToDelete.bloodType}</span>
+                    </div>
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 flex-wrap">

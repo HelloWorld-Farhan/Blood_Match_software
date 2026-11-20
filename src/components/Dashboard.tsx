@@ -1285,9 +1285,15 @@ export const Dashboard: React.FC = () => {
                     className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] hover:border-[#D72638] flex items-center justify-between gap-3 text-xs transition-colors cursor-pointer group/row"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] border border-[#D72638]/40 flex flex-col items-center justify-center font-bold text-white shadow-xs">
-                        <span className="text-[9px] uppercase font-bold text-red-100">Req</span>
-                        <span className="text-xs">{req.bloodType}</span>
+                      <div
+                        title={`Blood Group ${req.bloodType}`}
+                        className="group/badge relative w-10 h-10 rounded-xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] border border-white/20 flex flex-col items-center justify-center font-bold text-white shadow-xs shrink-0 transition-all duration-200 group-hover/row:scale-105 group-hover/row:shadow-md group-hover/row:shadow-[#D72638]/30 overflow-hidden select-none"
+                      >
+                        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent pointer-events-none rounded-t-xl" />
+                        <div className="relative z-10 flex flex-col items-center justify-center leading-none">
+                          <span className="text-[6.5px] uppercase font-extrabold text-red-100/90 leading-tight">REQ</span>
+                          <span className="text-xs font-black drop-shadow-xs">{req.bloodType}</span>
+                        </div>
                       </div>
                       <div>
                         <div className="font-bold text-[#1A1D20] flex items-center gap-2">

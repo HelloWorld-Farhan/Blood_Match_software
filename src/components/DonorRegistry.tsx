@@ -2161,11 +2161,21 @@ export default function DonorRegistry() {
         >
           {/* Left: Blood Badge & Primary Clinical Identity */}
           <div className="flex items-center gap-3.5 min-w-0 flex-1">
-            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] flex flex-col items-center justify-center font-black text-white shadow-xs border shrink-0 transition-all ${
-              isTargeted ? 'ring-3 ring-[#D72638] ring-offset-2 scale-110 shadow-lg shadow-[#D72638]/50' : 'border-[#D72638]/40'
-            }`}>
-              <span className="text-[8px] uppercase font-bold text-red-100">Blood</span>
-              <span className="text-base">{donor.bloodType}</span>
+            <div
+              title={`Blood Group ${donor.bloodType}`}
+              className={`group/badge relative w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] flex flex-col items-center justify-center font-black text-white shadow-md shadow-[#D72638]/25 border border-white/20 shrink-0 transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#D72638]/40 hover:from-[#FF4D5E] hover:to-[#8E0E1B] active:scale-95 cursor-pointer overflow-hidden select-none ${
+                isTargeted ? 'ring-4 ring-[#D72638] ring-offset-2 scale-110 shadow-2xl shadow-[#D72638]/60' : ''
+              }`}
+            >
+              <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent pointer-events-none rounded-t-2xl" />
+              <div className="relative z-10 flex flex-col items-center justify-center leading-none">
+                <span className="text-[7.5px] font-extrabold uppercase tracking-widest text-red-100/90 leading-tight mb-0.5">
+                  GROUP
+                </span>
+                <span className="text-base sm:text-lg font-black tracking-tight leading-none text-white drop-shadow-xs">
+                  {donor.bloodType}
+                </span>
+              </div>
             </div>
 
             <div className="min-w-0 flex-1">
