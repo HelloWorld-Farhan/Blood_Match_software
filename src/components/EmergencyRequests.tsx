@@ -233,6 +233,7 @@ export default function EmergencyRequests() {
   const highlightParam = searchParams.get('highlight');
   const [highlightedId, setHighlightedId] = useState<string | null>(highlightParam);
   const [isBlinking, setIsBlinking] = useState<boolean>(Boolean(highlightParam));
+  const [justFulfilledId, setJustFulfilledId] = useState<string | null>(null);
 
   // Multi-card independent expansion tracking via Set so opening one does not close others
   const [expandedRequestIds, setExpandedRequestIds] = useState<Set<string>>(() => new Set(highlightParam ? [highlightParam] : []));
@@ -759,7 +760,14 @@ export default function EmergencyRequests() {
                   return updated;
                 });
               }
-            } else if (data.type === 'EMERGENCY_CREATED' || data.type === 'EMERGENCY_UPDATED' || data.type === 'EMERGENCY_FULFILLED') {
+            } else if (data.type === 'EMERGENCY_FULFILLED') {
+              const fulId = data.request_id || data.id;
+              if (fulId) {
+                setJustFulfilledId(fulId);
+                setTimeout(() => setJustFulfilledId(null), 2500);
+              }
+              loadData();
+            } else if (data.type === 'EMERGENCY_CREATED' || data.type === 'EMERGENCY_UPDATED') {
               loadData();
             }
           } catch {}
@@ -1076,6 +1084,17 @@ export default function EmergencyRequests() {
       setRequests(updated);
       saveEmergencyRequests(updated, currentUserEmail);
       updateRequestLiveTracking(targetReq.id, false, currentUserEmail);
+
+      // Trigger single smooth celebration animation and clear any blinking loops
+      setJustFulfilledId(targetReq.id);
+      setIsBlinking(false);
+      setHighlightedId(null);
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev);
+        next.delete('highlight');
+        return next;
+      }, { replace: true });
+      setTimeout(() => setJustFulfilledId(null), 2500);
 
       setBoardNotification({
         message: chosenDonors.length > 0
@@ -1981,7 +2000,8 @@ export default function EmergencyRequests() {
               const matches = getMatchesForRequest(req);
               const isExpanded = expandedRequestIds.has(req.id);
               const isFulfilled = req.status === 'fulfilled';
-              const isTargetHighlighted = (highlightedId === req.id || highlightParam === req.id) && isBlinking;
+              const isJustFulfilled = justFulfilledId === req.id;
+              const isTargetHighlighted = !isFulfilled && (highlightedId === req.id || highlightParam === req.id) && isBlinking;
 
               return (
                 <motion.div
@@ -1991,11 +2011,14 @@ export default function EmergencyRequests() {
                   initial={{ opacity: 0, y: 12, scale: 0.98 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.93, filter: 'blur(8px)', transition: { duration: 0.25, ease: 'easeOut' } }}
-                  className={`rounded-2xl border transition-all duration-300 overflow-hidden shadow-xs relative ${isTargetHighlighted
-                  ? 'animate-target-blink-2s ring-4 ring-[#D72638]/40 border-[#D72638] bg-[#FFF5F6] z-10'
-                  : isFulfilled
-                    ? 'bg-white border-emerald-200'
-                    : 'bg-white border-[#D9C7C2] hover:border-[#D72638]/50'
+                  className={`rounded-2xl border transition-all duration-300 overflow-hidden shadow-xs relative ${
+                    isJustFulfilled
+                      ? 'animate-fulfilled-smooth ring-4 ring-emerald-400/50 border-emerald-500 bg-emerald-50/40 z-10'
+                      : isTargetHighlighted
+                        ? 'animate-target-blink-2s ring-4 ring-[#D72638]/40 border-[#D72638] bg-[#FFF5F6] z-10'
+                        : isFulfilled
+                          ? 'bg-white border-emerald-200'
+                          : 'bg-white border-[#D9C7C2] hover:border-[#D72638]/50'
                   }`}
               >
                 {/* Horizontal Primary Row */}
@@ -2111,20 +2134,6 @@ export default function EmergencyRequests() {
                         </button>
 
                         <button
-                          type="button"
-                          onClick={() => setCallModalTarget({
-                            contactName: stripHonorific(req.contactName),
-                            phoneNumber: req.contactNumber,
-                            bloodType: req.bloodType,
-                            location: req.hospitalCity || 'Delhi NCR',
-                            roleOrContext: `Emergency Transfusion Hotline • Patient: ${stripHonorific(req.patientName)}`
-                          })}
-                          className="py-2 px-3.5 rounded-xl bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] text-xs font-bold transition-all flex items-center gap-1.5 border border-[#D9C7C2] cursor-pointer"
-                        >
-                          <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Call Hotline</span>
-                        </button>
-                        <button
                           onClick={() => handleOpenFulfillModal(req)}
                           disabled={matches.length === 0}
                           title={matches.length === 0 ? "Cannot fulfill: No compatible lifesavers matched yet" : "Mark request as fulfilled"}
@@ -2190,6 +2199,22 @@ export default function EmergencyRequests() {
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => setCallModalTarget({
+                              contactName: stripHonorific(req.contactName),
+                              phoneNumber: req.contactNumber,
+                              bloodType: req.bloodType,
+                              location: req.hospitalCity || 'Delhi NCR',
+                              roleOrContext: `Emergency Transfusion Hotline • Patient: ${stripHonorific(req.patientName)}`
+                            })}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] border border-[#D9C7C2] cursor-pointer shadow-2xs"
+                            title={`Call Emergency Hotline: ${stripHonorific(req.contactName)} (${req.contactNumber})`}
+                          >
+                            <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Call Hotline ({req.contactNumber})</span>
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => handleEmailRosterForRequest(req, matches)}
