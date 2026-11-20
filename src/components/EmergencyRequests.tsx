@@ -513,6 +513,10 @@ export default function EmergencyRequests() {
   const [dispatchedDonorIds, setDispatchedDonorIds] = useState<Record<string, boolean>>({});
   const [isEmailingRoster, setIsEmailingRoster] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [emailingRosterReqId, setEmailingRosterReqId] = useState<string | null>(null);
+  const [emailedRosterReqId, setEmailedRosterReqId] = useState<string | null>(null);
+  const [generatingPdfReqId, setGeneratingPdfReqId] = useState<string | null>(null);
+  const [downloadedPdfReqId, setDownloadedPdfReqId] = useState<string | null>(null);
   const [modalNotification, setModalNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [lastGeneratedPdf, setLastGeneratedPdf] = useState<{
     uniqueId: string;
@@ -1179,10 +1183,14 @@ export default function EmergencyRequests() {
   };
 
   // Generate and download clinical PDF docket directly from horizontal request card
-  const handleDownloadPdfForRequest = (req: EmergencyRequest, matches: RankedMatchDonor[]) => {
+  const handleDownloadPdfForRequest = async (req: EmergencyRequest, matches: RankedMatchDonor[]) => {
     if (matches.length === 0) return;
+    setGeneratingPdfReqId(req.id);
     setIsGeneratingPdf(true);
     try {
+      // Brief pause to allow the spinning animation to be visible and clear
+      await new Promise(resolve => setTimeout(resolve, 450));
+
       const donorItems: RankedDonorItem[] = matches.map((d, index) => ({
         rank: index + 1,
         id: d.id,
@@ -1223,6 +1231,11 @@ export default function EmergencyRequests() {
         }).catch(() => { });
       }
 
+      setDownloadedPdfReqId(req.id);
+      setTimeout(() => {
+        setDownloadedPdfReqId(prev => (prev === req.id ? null : prev));
+      }, 2500);
+
       setBoardNotification({
         message: `Clinical PDF docket downloaded for ${req.patientName} (${req.bloodType}).`,
         type: 'success'
@@ -1234,13 +1247,15 @@ export default function EmergencyRequests() {
         type: 'error'
       });
     } finally {
+      setGeneratingPdfReqId(null);
       setIsGeneratingPdf(false);
     }
   };
 
-  // Email top compatible donor roster with attached PDF directly from horizontal request card
+  // Email top compatible donor roster with attached PDF directly from horizontal request card (Dispatched to Clinician)
   const handleEmailRosterForRequest = async (req: EmergencyRequest, matches: RankedMatchDonor[]) => {
     if (matches.length === 0) return;
+    setEmailingRosterReqId(req.id);
     setIsEmailingRoster(true);
 
     const rosterItems = matches.slice(0, 18).map((d, index) => ({
@@ -1310,6 +1325,11 @@ export default function EmergencyRequests() {
       }
 
       if (res.ok) {
+        setEmailedRosterReqId(req.id);
+        setTimeout(() => {
+          setEmailedRosterReqId(prev => (prev === req.id ? null : prev));
+        }, 2500);
+
         setBoardNotification({
           message: `Ranked donor roster & PDF docket #${pdfResult.uniqueId} dispatched to ${currentUserEmail} with attachment!`,
           type: 'success'
@@ -1327,6 +1347,7 @@ export default function EmergencyRequests() {
         type: 'error'
       });
     } finally {
+      setEmailingRosterReqId(null);
       setIsEmailingRoster(false);
     }
   };
@@ -2355,45 +2376,76 @@ export default function EmergencyRequests() {
                           </div>
 
                           <div className="flex items-center gap-2 flex-wrap">
-                            <button
-                              type="button"
-                              onClick={() => !isFulfilled && handleEmailRosterForRequest(req, displayedDonors)}
-                              disabled={isFulfilled || isEmailingRoster || displayedDonors.length === 0}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${isFulfilled || displayedDonors.length === 0
-                                ? 'bg-[#F5F1EF]/60 text-slate-400 border border-slate-200 cursor-not-allowed opacity-50 shadow-none'
-                                : 'bg-white hover:bg-slate-50 border border-[#D9C7C2] text-[#1A1D20] cursor-pointer shadow-2xs'
-                                }`}
-                              title={
-                                isFulfilled
-                                  ? 'Transfusion fulfilled & closed: Email roster blocked'
-                                  : displayedDonors.length === 0
-                                    ? 'Unavailable: No compatible donors ranked in this search radius'
-                                    : 'Email Roster & PDF'
-                              }
-                            >
-                              <Mail className={`w-3.5 h-3.5 ${isFulfilled || displayedDonors.length === 0 ? 'text-slate-400' : 'text-[#D72638]'}`} />
-                              <span>{isEmailingRoster ? 'Sending...' : 'Email Roster & PDF'}</span>
-                            </button>
+                            {(() => {
+                              const isEmailingThis = emailingRosterReqId === req.id;
+                              const isEmailedThis = emailedRosterReqId === req.id;
+                              const isGeneratingThis = generatingPdfReqId === req.id;
+                              const isDownloadedThis = downloadedPdfReqId === req.id;
 
-                            <button
-                              type="button"
-                              onClick={() => !isFulfilled && handleDownloadPdfForRequest(req, displayedDonors)}
-                              disabled={isFulfilled || isGeneratingPdf || displayedDonors.length === 0}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${isFulfilled || displayedDonors.length === 0
-                                ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-50 shadow-none'
-                                : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer shadow-xs'
-                                }`}
-                              title={
-                                isFulfilled
-                                  ? 'Transfusion fulfilled & closed: PDF download blocked'
-                                  : displayedDonors.length === 0
-                                    ? 'Unavailable: No compatible donors ranked in this search radius'
-                                    : 'Download PDF Docket'
-                              }
-                            >
-                              <FileDown className={`w-3.5 h-3.5 ${isFulfilled || displayedDonors.length === 0 ? 'text-slate-400' : 'text-white'}`} />
-                              <span>{isGeneratingPdf ? 'Generating...' : 'Download PDF Docket'}</span>
-                            </button>
+                              return (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => !isFulfilled && handleEmailRosterForRequest(req, displayedDonors)}
+                                    disabled={isFulfilled || isEmailingThis || displayedDonors.length === 0}
+                                    className={`group relative flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 select-none ${isFulfilled || displayedDonors.length === 0
+                                      ? 'bg-[#F5F1EF]/60 text-slate-400 border border-slate-200 cursor-not-allowed opacity-50 shadow-none'
+                                      : isEmailedThis
+                                        ? 'bg-emerald-50 text-emerald-800 border-2 border-emerald-400 shadow-xs scale-102'
+                                        : 'bg-white hover:bg-red-50/40 hover:border-[#D72638]/50 border border-[#D9C7C2] text-[#1A1D20] cursor-pointer shadow-2xs hover:shadow-md hover:scale-105 active:scale-95'
+                                      }`}
+                                    title={
+                                      isFulfilled
+                                        ? 'Transfusion fulfilled & closed: Email roster blocked'
+                                        : displayedDonors.length === 0
+                                          ? 'Unavailable: No compatible donors ranked in this search radius'
+                                          : 'Email complete donor roster & clinical PDF directly to your email'
+                                    }
+                                  >
+                                    {isEmailingThis ? (
+                                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#D72638] shrink-0" />
+                                    ) : isEmailedThis ? (
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                    ) : (
+                                      <Mail className={`w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110 shrink-0 ${isFulfilled || displayedDonors.length === 0 ? 'text-slate-400' : 'text-[#D72638]'}`} />
+                                    )}
+                                    <span className="whitespace-nowrap">
+                                      {isEmailingThis ? 'Sending...' : isEmailedThis ? 'Sent to You ✓' : 'Email Roster & PDF'}
+                                    </span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => !isFulfilled && handleDownloadPdfForRequest(req, displayedDonors)}
+                                    disabled={isFulfilled || isGeneratingThis || displayedDonors.length === 0}
+                                    className={`group relative flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-200 select-none ${isFulfilled || displayedDonors.length === 0
+                                      ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-50 shadow-none'
+                                      : isDownloadedThis
+                                        ? 'bg-emerald-600 text-white border-2 border-emerald-600 shadow-xs scale-102'
+                                        : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer shadow-xs hover:shadow-md hover:scale-105 active:scale-95'
+                                      }`}
+                                    title={
+                                      isFulfilled
+                                        ? 'Transfusion fulfilled & closed: PDF download blocked'
+                                        : displayedDonors.length === 0
+                                          ? 'Unavailable: No compatible donors ranked in this search radius'
+                                          : 'Download official clinical PDF docket directly to your device'
+                                    }
+                                  >
+                                    {isGeneratingThis ? (
+                                      <RefreshCw className="w-3.5 h-3.5 animate-spin text-white shrink-0" />
+                                    ) : isDownloadedThis ? (
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-white shrink-0" />
+                                    ) : (
+                                      <FileDown className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-y-0.5 shrink-0 text-white" />
+                                    )}
+                                    <span className="whitespace-nowrap">
+                                      {isGeneratingThis ? 'Generating...' : isDownloadedThis ? 'Downloaded ✓' : 'Download PDF Docket'}
+                                    </span>
+                                  </button>
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
 
@@ -2618,9 +2670,10 @@ export default function EmergencyRequests() {
                                           location: donor.location || donor.city,
                                           roleOrContext: `Voluntary Blood Donor (Group ${donor.bloodType}) • Matched for ${req.patientName}`
                                         })}
-                                        className="px-3 py-1.5 rounded-lg bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] font-bold text-xs flex items-center gap-1 transition-colors border border-[#D9C7C2] cursor-pointer"
+                                        className="px-3.5 py-1.5 rounded-xl bg-[#F5F1EF] hover:bg-emerald-50 hover:text-emerald-900 hover:border-emerald-300 text-[#1A1D20] font-bold text-xs flex items-center gap-1.5 transition-all duration-200 hover:scale-105 active:scale-95 border border-[#D9C7C2] cursor-pointer shadow-2xs hover:shadow-xs group"
+                                        title={`Call voluntary donor ${donor.fullName} directly`}
                                       >
-                                        <Phone className="w-3 h-3 text-emerald-600" />
+                                        <Phone className="w-3.5 h-3.5 text-emerald-600 group-hover:rotate-12 transition-transform duration-200" />
                                         <span>Call</span>
                                       </button>
 
@@ -2647,19 +2700,26 @@ export default function EmergencyRequests() {
                                               customMessage: `Urgent transfusion required for ${req.patientName} (Group ${req.bloodType}). Your compatible voluntary donation can save a life. Please contact our hotline immediately if you can donate.`
                                             })}
                                             disabled={isBlocked}
-                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors shadow-2xs ${isDispatched
+                                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all duration-200 shadow-2xs group ${isDispatched
                                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 cursor-default'
                                               : donorCooldown.inCooldown
                                                 ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed opacity-85'
-                                                : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer'
+                                                : 'bg-[#D72638] hover:bg-[#b51d2c] hover:scale-105 active:scale-95 text-white cursor-pointer hover:shadow-md'
                                               }`}
+                                            title={
+                                              isDispatched
+                                                ? `Emergency mobilization alert already dispatched to ${donor.fullName}`
+                                                : donorCooldown.inCooldown
+                                                  ? `Donor in 24-hr cooldown (${donorCooldown.remainingText})`
+                                                  : `Dispatch real-time emergency mobilization alert directly to donor ${donor.fullName}`
+                                            }
                                           >
                                             {isDispatched ? (
-                                              <Send className="w-3 h-3 text-emerald-700" />
+                                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />
                                             ) : donorCooldown.inCooldown ? (
-                                              <Clock className="w-3 h-3 text-amber-700" />
+                                              <Clock className="w-3.5 h-3.5 text-amber-700" />
                                             ) : (
-                                              <Send className="w-3 h-3" />
+                                              <Send className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
                                             )}
                                             <span>
                                               {isDispatched ? 'Alert Sent ✓' : donorCooldown.inCooldown ? `Cooldown: ${donorCooldown.remainingText}` : 'Send Alert'}
