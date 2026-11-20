@@ -322,8 +322,10 @@ export async function fulfillEmergencyRequestApi(requestId: string, payload: {
   requester_email?: string;
   requester_name?: string;
   donor_id?: string;
-  donor_name: string;
-  donor_email: string;
+  donor_name?: string;
+  donor_email?: string;
+  selected_donors?: Array<{ id: string; name: string; email: string; blood_type?: string }>;
+  fulfilled_via_reserve?: boolean;
   notes?: string;
 }) {
   return apiClient.post<{ ok: boolean; message: string; request: any }>(`/api/emergency/${encodeURIComponent(requestId)}/fulfill`, payload);

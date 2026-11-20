@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   Plus,
   CheckCircle,
+  Check,
   ShieldAlert,
   X,
   Phone,
@@ -324,9 +325,8 @@ export default function EmergencyRequests() {
 
   // Mark Fulfilled Confirmation Modal State
   const [fulfillmentModalReq, setFulfillmentModalReq] = useState<EmergencyRequest | null>(null);
-  const [fulfillmentDonorName, setFulfillmentDonorName] = useState<string>('');
-  const [fulfillmentDonorEmail, setFulfillmentDonorEmail] = useState<string>('');
-  const [selectedFulfillingDonorId, setSelectedFulfillingDonorId] = useState<string>('');
+  const [selectedFulfillingDonorIds, setSelectedFulfillingDonorIds] = useState<string[]>([]);
+  const [fulfilledViaReserve, setFulfilledViaReserve] = useState<boolean>(false);
   const [isFulfilling, setIsFulfilling] = useState<boolean>(false);
   const [togglingLiveTrackId, setTogglingLiveTrackId] = useState<string | null>(null);
   const [boardNotification, setBoardNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -978,33 +978,68 @@ export default function EmergencyRequests() {
     setFulfillmentModalReq(req);
     const matches = getMatchesForRequest(req);
     if (matches.length > 0) {
-      setSelectedFulfillingDonorId(matches[0].id);
-      setFulfillmentDonorName(matches[0].fullName);
-      setFulfillmentDonorEmail(matches[0].email);
+      setSelectedFulfillingDonorIds([matches[0].id]);
+      setFulfilledViaReserve(false);
     } else {
-      setSelectedFulfillingDonorId('');
-      setFulfillmentDonorName('');
-      setFulfillmentDonorEmail('');
+      setSelectedFulfillingDonorIds([]);
+      setFulfilledViaReserve(true);
     }
   };
 
-  // Confirm Fulfillment & trigger dual thank-you / completion emails
+  const handleToggleFulfillingDonor = (donorId: string) => {
+    setFulfilledViaReserve(false);
+    setSelectedFulfillingDonorIds(prev => {
+      if (prev.includes(donorId)) {
+        return prev.filter(id => id !== donorId);
+      } else {
+        return [...prev, donorId];
+      }
+    });
+  };
+
+  const handleSelectReserveOnly = () => {
+    setFulfilledViaReserve(true);
+    setSelectedFulfillingDonorIds([]);
+  };
+
+  // Confirm Fulfillment & trigger targeted gratitude / completion emails
   const handleConfirmFulfillment = async () => {
-    if (!fulfillmentModalReq || !fulfillmentDonorName.trim() || !fulfillmentDonorEmail.trim()) return;
+    if (!fulfillmentModalReq) return;
+    if (selectedFulfillingDonorIds.length === 0 && !fulfilledViaReserve) return;
     setIsFulfilling(true);
 
     const targetReq = fulfillmentModalReq;
     const fulfilledAt = new Date().toISOString();
+    const matches = getMatchesForRequest(targetReq);
+    const chosenDonors = matches.filter(d => selectedFulfillingDonorIds.includes(d.id));
+
+    const donorSummaryName = chosenDonors.length > 0
+      ? chosenDonors.map(d => d.fullName).join(', ')
+      : 'Alternative Clinical Reserve / External Stock';
+
+    const donorSummaryEmail = chosenDonors.length > 0
+      ? chosenDonors.map(d => d.email).join(', ')
+      : undefined;
 
     try {
-      // 1. Call backend fulfillment endpoint to update status and dispatch dual emails
+      // 1. Call backend fulfillment endpoint to update status and dispatch emails
       await fulfillEmergencyRequestApi(targetReq.id, {
         requester_email: currentUserEmail,
         requester_name: targetReq.contactName,
-        donor_id: selectedFulfillingDonorId || undefined,
-        donor_name: fulfillmentDonorName.trim(),
-        donor_email: fulfillmentDonorEmail.trim(),
-        notes: `Transfusion fulfilled by voluntary donor ${fulfillmentDonorName.trim()}`
+        donor_id: chosenDonors.length > 0 ? chosenDonors[0].id : undefined,
+        donor_name: donorSummaryName,
+        donor_email: donorSummaryEmail,
+        selected_donors: chosenDonors.map(d => ({
+          id: d.id,
+          name: d.fullName,
+          email: d.email,
+          blood_type: d.bloodType,
+          phone: d.phone
+        })),
+        fulfilled_via_reserve: fulfilledViaReserve || chosenDonors.length === 0,
+        notes: chosenDonors.length > 0
+          ? `Transfusion fulfilled by voluntary donor(s): ${donorSummaryName}`
+          : 'Transfusion fulfilled via alternative clinical reserve'
       });
 
       // 2. Update local state
@@ -1013,12 +1048,12 @@ export default function EmergencyRequests() {
           return {
             ...r,
             status: 'fulfilled' as const,
-            matchedDonorId: selectedFulfillingDonorId || r.matchedDonorId,
+            matchedDonorId: chosenDonors.length > 0 ? chosenDonors[0].id : r.matchedDonorId,
             liveTracking: false,
             live_tracking: false,
             fulfilledAt,
-            fulfilledByDonorName: fulfillmentDonorName.trim(),
-            fulfilledByDonorEmail: fulfillmentDonorEmail.trim()
+            fulfilledByDonorName: donorSummaryName,
+            fulfilledByDonorEmail: donorSummaryEmail
           };
         }
         return r;
@@ -1029,7 +1064,9 @@ export default function EmergencyRequests() {
       updateRequestLiveTracking(targetReq.id, false, currentUserEmail);
 
       setBoardNotification({
-        message: `Transfusion for ${targetReq.patientName} marked as FULFILLED! Gratitude emails transmitted to ${fulfillmentDonorEmail.trim()} and ${currentUserEmail}.`,
+        message: chosenDonors.length > 0
+          ? `Transfusion for ${targetReq.patientName} marked FULFILLED! Gratitude emails transmitted to ${chosenDonors.length} voluntary lifesaver(s) and ${currentUserEmail}.`
+          : `Transfusion for ${targetReq.patientName} marked FULFILLED via Clinical Reserve! Receipt transmitted to ${currentUserEmail}.`,
         type: 'success'
       });
       setTimeout(() => setBoardNotification(null), 6000);
@@ -2349,7 +2386,7 @@ export default function EmergencyRequests() {
           onClick={() => !isFulfilling && setFulfillmentModalReq(null)}
         >
           <div
-            className="relative w-full max-w-lg rounded-3xl bg-white border border-[#D9C7C2] p-6 sm:p-7 shadow-2xl text-[#1A1D20]"
+            className="relative w-full max-w-xl rounded-3xl bg-white border border-[#D9C7C2] p-6 sm:p-7 shadow-2xl text-[#1A1D20]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between pb-3 border-b border-[#D9C7C2]">
@@ -2359,7 +2396,7 @@ export default function EmergencyRequests() {
                 </div>
                 <div>
                   <h3 className="text-base font-black text-[#1A1D20]">Confirm Transfusion Fulfilled</h3>
-                  <p className="text-[11px] text-[#5A626A]">Record delivery &amp; dispatch dual clinical thanks emails</p>
+                  <p className="text-[11px] text-[#5A626A]">Record delivery &amp; dispatch clinical completion &amp; gratitude notifications</p>
                 </div>
               </div>
               <button
@@ -2380,60 +2417,105 @@ export default function EmergencyRequests() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[#1A1D20] mb-1.5">
-                  Who fulfilled this blood demand? *
-                </label>
-                {getMatchesForRequest(fulfillmentModalReq).length > 0 && (
-                  <div className="mb-2">
-                    <span className="text-[10px] text-[#5A626A] block mb-1">Quick Select from Matched Lifesavers:</span>
-                    <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
-                      {getMatchesForRequest(fulfillmentModalReq).map(d => (
-                        <button
-                          key={d.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedFulfillingDonorId(d.id);
-                            setFulfillmentDonorName(d.fullName);
-                            setFulfillmentDonorEmail(d.email);
-                          }}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer whitespace-nowrap ${selectedFulfillingDonorId === d.id
-                            ? 'bg-[#D72638] text-white border-[#D72638]'
-                            : 'bg-white hover:bg-slate-50 text-[#1A1D20] border-[#D9C7C2]'
-                            }`}
-                        >
-                          {d.fullName} ({d.bloodType})
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold text-[#1A1D20]">
+                    Select Contributing Lifesaver(s) for this {fulfillmentModalReq.bloodType} Transfusion:
+                  </label>
+                  <span className="text-[10px] text-[#5A626A] font-semibold">
+                    {selectedFulfillingDonorIds.length} Selected
+                  </span>
+                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-                  <div>
-                    <span className="text-[10px] text-slate-500 font-semibold block mb-0.5">Donor Full Name *</span>
-                    <input
-                      type="text"
-                      value={fulfillmentDonorName}
-                      onChange={(e) => setFulfillmentDonorName(e.target.value)}
-                      placeholder="e.g. Farhan Khalid"
-                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9C7C2] text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638]"
-                    />
+                <div className="space-y-2 max-h-60 overflow-y-auto no-scrollbar pr-0.5">
+                  {/* Option: External Reserve / No Donor */}
+                  <div
+                    onClick={handleSelectReserveOnly}
+                    className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                      fulfilledViaReserve
+                        ? 'bg-blue-50/90 border-blue-400 ring-1 ring-blue-400 shadow-xs'
+                        : 'bg-white hover:bg-slate-50 border-[#D9C7C2]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                        fulfilledViaReserve ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white'
+                      }`}>
+                        {fulfilledViaReserve && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                      </div>
+                      <div>
+                        <div className="font-bold text-xs text-[#1A1D20]">
+                          No One (Fulfilled via External Reserve / Hospital Blood Bank)
+                        </div>
+                        <div className="text-[10px] text-[#5A626A]">
+                          Demand met without voluntary donor pledge; sends closure receipt only to requester
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-bold shrink-0">
+                      External Reserve
+                    </span>
                   </div>
-                  <div>
-                    <span className="text-[10px] text-slate-500 font-semibold block mb-0.5">Donor Email Address *</span>
-                    <input
-                      type="email"
-                      value={fulfillmentDonorEmail}
-                      onChange={(e) => setFulfillmentDonorEmail(e.target.value)}
-                      placeholder="donor@example.com"
-                      className="w-full px-3 py-2 rounded-xl bg-white border border-[#D9C7C2] text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638]"
-                    />
-                  </div>
+
+                  {/* List of Compatible Donors for this request */}
+                  {getMatchesForRequest(fulfillmentModalReq).map(d => {
+                    const isSelected = selectedFulfillingDonorIds.includes(d.id);
+                    return (
+                      <div
+                        key={d.id}
+                        onClick={() => handleToggleFulfillingDonor(d.id)}
+                        className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                          isSelected
+                            ? 'bg-emerald-50/90 border-emerald-400 ring-1 ring-emerald-400 shadow-xs'
+                            : 'bg-white hover:bg-[#F5F1EF]/60 border-[#D9C7C2]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 ${
+                            isSelected ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 bg-white'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-xs text-[#1A1D20]">{d.fullName}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-red-100 text-[#D72638] font-bold">
+                                {d.bloodType}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-[#5A626A] flex items-center gap-2 mt-0.5 flex-wrap">
+                              <span>{d.location || d.city}</span>
+                              <span>•</span>
+                              <span>{d.distanceKm.toFixed(1)} km</span>
+                              <span>•</span>
+                              <span className="font-mono">{d.phone}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                          isSelected ? 'bg-emerald-200 text-emerald-900' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {isSelected ? 'Contributing' : 'Compatible'}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-[11px] leading-relaxed">
-                <strong>Dual Notification Protocol:</strong> Marking this request fulfilled will update the clinical ledger and automatically transmit two concise gratitude emails: one to the clinician and one to voluntary donor <strong>{fulfillmentDonorName || 'Donor'}</strong> thanking them for saving a life.
+              <div className={`p-3 rounded-xl border text-[11px] leading-relaxed transition-all ${
+                fulfilledViaReserve
+                  ? 'bg-blue-50 border-blue-200 text-blue-900'
+                  : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+              }`}>
+                {fulfilledViaReserve ? (
+                  <>
+                    <strong>External Reserve Closure Protocol:</strong> Transfusion demand will be closed in the clinical ledger. A formal closure docket will be transmitted to <strong>{currentUserEmail}</strong> confirming the demand was resolved through alternative hospital reserve without voluntary donor assignment.
+                  </>
+                ) : (
+                  <>
+                    <strong>Dual Notification Protocol:</strong> Marking this request fulfilled will update the clinical ledger. Separate heartfelt gratitude emails will be dispatched to <strong>{selectedFulfillingDonorIds.length} voluntary lifesaver(s)</strong> thanking them for saving a life, and a complete fulfillment receipt will be delivered to <strong>{currentUserEmail}</strong>.
+                  </>
+                )}
               </div>
             </div>
 
@@ -2449,7 +2531,7 @@ export default function EmergencyRequests() {
               <button
                 type="button"
                 onClick={handleConfirmFulfillment}
-                disabled={isFulfilling || !fulfillmentDonorName.trim() || !fulfillmentDonorEmail.trim()}
+                disabled={isFulfilling || (selectedFulfillingDonorIds.length === 0 && !fulfilledViaReserve)}
                 className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold transition-all cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
               >
                 <CheckCircle className="w-3.5 h-3.5" />
