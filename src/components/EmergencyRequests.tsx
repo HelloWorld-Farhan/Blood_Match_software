@@ -81,7 +81,7 @@ import {
   RankedDonorItem
 } from '../utils/docketPdfGenerator';
 import ClinicalCallModal from './ClinicalCallModal';
-import SendAlertModal, { TargetDonorSummary } from './SendAlertModal';
+import SendAlertModal, { TargetDonorSummary, calculateCooldown } from './SendAlertModal';
 
 const scrollBlurVariants: Variants = {
   hidden: {
@@ -745,6 +745,20 @@ export default function EmergencyRequests() {
               setTimeout(() => setBoardNotification(null), 8000);
             } else if (data.type === 'LIVE_TRACKING_TOGGLED') {
               setRequests(prev => prev.map(r => r.id === data.request_id ? { ...r, liveTracking: data.live_tracking, live_tracking: data.live_tracking } : r));
+            } else if (data.type === 'DONOR_ALERT_DISPATCHED') {
+              if (data.donor_id) {
+                setDispatchedDonorIds((prev) => ({ ...prev, [data.donor_id]: true }));
+              }
+              setDonors(prev => prev.map(d => {
+                if (d.id === data.donor_id || d.email.toLowerCase() === (data.donor_email || '').toLowerCase()) {
+                  return {
+                    ...d,
+                    lastAlertSentAt: data.last_alert_sent_at,
+                    last_alert_sent_at: data.last_alert_sent_at
+                  };
+                }
+                return d;
+              }));
             } else if (data.type === 'EMERGENCY_CREATED' || data.type === 'EMERGENCY_UPDATED' || data.type === 'EMERGENCY_FULFILLED') {
               loadData();
             }
@@ -2292,31 +2306,50 @@ export default function EmergencyRequests() {
                                       <span>Call</span>
                                     </button>
 
-                                    <button
-                                      type="button"
-                                      onClick={() => setAlertModalTarget({
-                                        donor: {
-                                          id: donor.id,
-                                          fullName: donor.fullName,
-                                          email: donor.email,
-                                          phone: donor.phone,
-                                          bloodType: donor.bloodType,
-                                          location: donor.location || donor.city,
-                                          distanceKm: donor.distanceKm
-                                        },
-                                        patientName: req.patientName,
-                                        hospital: req.hospital || 'Emergency Trauma Bay',
-                                        customMessage: `Urgent transfusion required for ${req.patientName} (Group ${req.bloodType}). Your compatible voluntary donation can save a life. Please contact our hotline immediately if you can donate.`
-                                      })}
-                                      disabled={isDispatched}
-                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-2xs ${isDispatched
-                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                        : 'bg-[#D72638] hover:bg-[#b51d2c] text-white'
-                                        }`}
-                                    >
-                                      <Send className="w-3 h-3" />
-                                      <span>{isDispatched ? 'Alert Sent ✓' : 'Send Alert'}</span>
-                                    </button>
+                                    {(() => {
+                                      const donorCooldown = calculateCooldown(donor.lastAlertSentAt || donor.last_alert_sent_at);
+                                      const isBlocked = isDispatched || donorCooldown.inCooldown;
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={() => setAlertModalTarget({
+                                            donor: {
+                                              id: donor.id,
+                                              fullName: donor.fullName,
+                                              email: donor.email,
+                                              phone: donor.phone,
+                                              bloodType: donor.bloodType,
+                                              location: donor.location || donor.city,
+                                              distanceKm: donor.distanceKm,
+                                              lastAlertSentAt: donor.lastAlertSentAt || donor.last_alert_sent_at,
+                                              last_alert_sent_at: donor.lastAlertSentAt || donor.last_alert_sent_at
+                                            },
+                                            patientName: req.patientName,
+                                            hospital: req.hospital || 'Emergency Trauma Bay',
+                                            customMessage: `Urgent transfusion required for ${req.patientName} (Group ${req.bloodType}). Your compatible voluntary donation can save a life. Please contact our hotline immediately if you can donate.`
+                                          })}
+                                          disabled={isBlocked}
+                                          className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors shadow-2xs ${
+                                            isDispatched
+                                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 cursor-default'
+                                              : donorCooldown.inCooldown
+                                              ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed opacity-85'
+                                              : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer'
+                                          }`}
+                                        >
+                                          {isDispatched ? (
+                                            <Send className="w-3 h-3 text-emerald-700" />
+                                          ) : donorCooldown.inCooldown ? (
+                                            <Clock className="w-3 h-3 text-amber-700" />
+                                          ) : (
+                                            <Send className="w-3 h-3" />
+                                          )}
+                                          <span>
+                                            {isDispatched ? 'Alert Sent ✓' : donorCooldown.inCooldown ? `Cooldown: ${donorCooldown.remainingText}` : 'Send Alert'}
+                                          </span>
+                                        </button>
+                                      );
+                                    })()}
                                   </div>
                                 )}
                               </div>
@@ -3389,35 +3422,49 @@ export default function EmergencyRequests() {
                                       <span>Call</span>
                                     </button>
 
-                                    <button
-                                      type="button"
-                                      onClick={() => setAlertModalTarget({
-                                        donor: {
-                                          id: donor.id,
-                                          fullName: donor.fullName,
-                                          email: donor.email,
-                                          phone: donor.phone,
-                                          bloodType: donor.bloodType,
-                                          location: donor.location || donor.city || 'Delhi NCR',
-                                          distanceKm: donor.distanceKm
-                                        },
-                                        patientName: patientName,
-                                        hospital: 'Emergency Trauma Network',
-                                        customMessage: `Urgent transfusion needed for ${patientName} (Group ${bloodType}). Your compatible voluntary donation can save a life. Please contact our emergency hotline immediately if you can donate.`
-                                      })}
-                                      disabled={isDispatched}
-                                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${isDispatched
-                                        ? 'bg-emerald-600 text-white cursor-default'
-                                        : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer disabled:opacity-50'
-                                        }`}
-                                    >
-                                      {isDispatched ? (
-                                        <CheckCircle2 className="w-3 h-3" />
-                                      ) : (
-                                        <Send className="w-3 h-3" />
-                                      )}
-                                      <span>{isDispatched ? 'Dispatched' : 'Send Alert'}</span>
-                                    </button>
+                                    {(() => {
+                                      const donorCooldown = calculateCooldown(donor.lastAlertSentAt || donor.last_alert_sent_at);
+                                      const isBlocked = isDispatched || donorCooldown.inCooldown;
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={() => setAlertModalTarget({
+                                            donor: {
+                                              id: donor.id,
+                                              fullName: donor.fullName,
+                                              email: donor.email,
+                                              phone: donor.phone,
+                                              bloodType: donor.bloodType,
+                                              location: donor.location || donor.city || 'Delhi NCR',
+                                              distanceKm: donor.distanceKm,
+                                              lastAlertSentAt: donor.lastAlertSentAt || donor.last_alert_sent_at
+                                            },
+                                            patientName: patientName,
+                                            hospital: 'Emergency Trauma Network',
+                                            customMessage: `Urgent transfusion needed for ${patientName} (Group ${bloodType}). Your compatible voluntary donation can save a life. Please contact our emergency hotline immediately if you can donate.`
+                                          })}
+                                          disabled={isBlocked}
+                                          className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                                            isDispatched
+                                              ? 'bg-emerald-600 text-white cursor-default'
+                                              : donorCooldown.inCooldown
+                                              ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed opacity-85'
+                                              : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer'
+                                          }`}
+                                        >
+                                          {isDispatched ? (
+                                            <CheckCircle2 className="w-3 h-3" />
+                                          ) : donorCooldown.inCooldown ? (
+                                            <Clock className="w-3 h-3 text-amber-700" />
+                                          ) : (
+                                            <Send className="w-3 h-3" />
+                                          )}
+                                          <span>
+                                            {isDispatched ? 'Dispatched' : donorCooldown.inCooldown ? `Cooldown: ${donorCooldown.remainingText}` : 'Send Alert'}
+                                          </span>
+                                        </button>
+                                      );
+                                    })()}
                                   </div>
                                 )}
                               </div>
@@ -3514,35 +3561,49 @@ export default function EmergencyRequests() {
                                       <span>Call</span>
                                     </button>
 
-                                    <button
-                                      type="button"
-                                      onClick={() => setAlertModalTarget({
-                                        donor: {
-                                          id: donor.id,
-                                          fullName: donor.fullName,
-                                          email: donor.email,
-                                          phone: donor.phone,
-                                          bloodType: donor.bloodType,
-                                          location: donor.location || donor.city || 'Delhi NCR',
-                                          distanceKm: donor.distanceKm
-                                        },
-                                        patientName: patientName,
-                                        hospital: 'Emergency Trauma Network',
-                                        customMessage: `Urgent transfusion needed for ${patientName} (Group ${bloodType}). Your compatible voluntary donation can save a life. Please contact our emergency hotline immediately if you can donate.`
-                                      })}
-                                      disabled={isDispatched}
-                                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${isDispatched
-                                        ? 'bg-emerald-600 text-white cursor-default'
-                                        : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer disabled:opacity-50'
-                                        }`}
-                                    >
-                                      {isDispatched ? (
-                                        <CheckCircle2 className="w-3 h-3" />
-                                      ) : (
-                                        <Send className="w-3 h-3" />
-                                      )}
-                                      <span>{isDispatched ? 'Dispatched' : 'Send Alert'}</span>
-                                    </button>
+                                    {(() => {
+                                      const donorCooldown = calculateCooldown(donor.lastAlertSentAt || donor.last_alert_sent_at);
+                                      const isBlocked = isDispatched || donorCooldown.inCooldown;
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={() => setAlertModalTarget({
+                                            donor: {
+                                              id: donor.id,
+                                              fullName: donor.fullName,
+                                              email: donor.email,
+                                              phone: donor.phone,
+                                              bloodType: donor.bloodType,
+                                              location: donor.location || donor.city || 'Delhi NCR',
+                                              distanceKm: donor.distanceKm,
+                                              lastAlertSentAt: donor.lastAlertSentAt || donor.last_alert_sent_at
+                                            },
+                                            patientName: patientName,
+                                            hospital: 'Emergency Trauma Network',
+                                            customMessage: `Urgent transfusion needed for ${patientName} (Group ${bloodType}). Your compatible voluntary donation can save a life. Please contact our emergency hotline immediately if you can donate.`
+                                          })}
+                                          disabled={isBlocked}
+                                          className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
+                                            isDispatched
+                                              ? 'bg-emerald-600 text-white cursor-default'
+                                              : donorCooldown.inCooldown
+                                              ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed opacity-85'
+                                              : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer'
+                                          }`}
+                                        >
+                                          {isDispatched ? (
+                                            <CheckCircle2 className="w-3 h-3" />
+                                          ) : donorCooldown.inCooldown ? (
+                                            <Clock className="w-3 h-3 text-amber-700" />
+                                          ) : (
+                                            <Send className="w-3 h-3" />
+                                          )}
+                                          <span>
+                                            {isDispatched ? 'Dispatched' : donorCooldown.inCooldown ? `Cooldown: ${donorCooldown.remainingText}` : 'Send Alert'}
+                                          </span>
+                                        </button>
+                                      );
+                                    })()}
                                   </div>
                                 )}
                               </div>

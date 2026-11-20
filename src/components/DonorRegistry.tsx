@@ -47,7 +47,8 @@ import {
   fetchVerifiedEmailsApi,
   saveUserVerifiedEmailApi,
   fetchGpsPermissionApi,
-  updateGpsPermissionApi
+  updateGpsPermissionApi,
+  getWebSocketUrl
 } from '../services/api';
 import { 
   COUNTRY_CODES, 
@@ -60,7 +61,7 @@ import {
 import { BLOOD_COMPATIBILITY_TABLE } from '../utils/bloodCompatibility';
 import { reverseGeocodeCoordinates } from '../utils/geolocation';
 import ClinicalCallModal from './ClinicalCallModal';
-import SendAlertModal, { TargetDonorSummary } from './SendAlertModal';
+import SendAlertModal, { TargetDonorSummary, calculateCooldown } from './SendAlertModal';
 
 const scrollBlurVariants: Variants = {
   hidden: {
@@ -530,6 +531,71 @@ export default function DonorRegistry() {
       clearInterval(interval);
     };
   }, [selectedFilter, currentUserEmail]);
+
+  // Real-time synchronization of donor alert dispatch events across tabs & devices
+  useEffect(() => {
+    const handleAlertDispatched = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.donor_id) {
+        setDonors(prev => prev.map(d => {
+          if (d.id === detail.donor_id || d.email.toLowerCase() === (detail.donor_email || '').toLowerCase()) {
+            return {
+              ...d,
+              lastAlertSentAt: detail.last_alert_sent_at,
+              last_alert_sent_at: detail.last_alert_sent_at
+            };
+          }
+          return d;
+        }));
+      }
+    };
+    window.addEventListener('bloodmatch_donor_alert_dispatched', handleAlertDispatched);
+
+    let ws: WebSocket | null = null;
+    let reconnectTimer: any = null;
+
+    const connectWs = () => {
+      try {
+        const wsUrl = getWebSocketUrl();
+        ws = new WebSocket(wsUrl);
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'DONOR_ALERT_DISPATCHED') {
+              setDonors(prev => prev.map(d => {
+                if (d.id === data.donor_id || d.email.toLowerCase() === (data.donor_email || '').toLowerCase()) {
+                  return {
+                    ...d,
+                    lastAlertSentAt: data.last_alert_sent_at,
+                    last_alert_sent_at: data.last_alert_sent_at
+                  };
+                }
+                return d;
+              }));
+            } else if (data.type === 'DONOR_CREATED' || data.type === 'DONOR_UPDATED') {
+              loadDonors();
+            }
+          } catch {}
+        };
+
+        ws.onclose = () => {
+          reconnectTimer = setTimeout(connectWs, 5000);
+        };
+      } catch {}
+    };
+
+    connectWs();
+
+    return () => {
+      window.removeEventListener('bloodmatch_donor_alert_dispatched', handleAlertDispatched);
+      clearTimeout(reconnectTimer);
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
+    };
+  }, []);
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -2254,21 +2320,41 @@ export default function DonorRegistry() {
                       <Phone className="w-3 h-3" />
                       <span>Direct Mobilize Call</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setAlertModalTarget({
-                        id: donor.id,
-                        fullName: donor.fullName,
-                        email: donor.email,
-                        phone: donor.phone,
-                        bloodType: donor.bloodType,
-                        location: donor.location || `${donor.city}, ${donor.state}`,
-                      })}
-                      className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] font-semibold text-xs transition-colors cursor-pointer"
-                    >
-                      <Mail className="w-3 h-3 text-[#D72638]" />
-                      <span>Send Alert</span>
-                    </button>
+                    {(() => {
+                      const cooldown = calculateCooldown(donor.lastAlertSentAt || donor.last_alert_sent_at);
+                      if (cooldown.inCooldown) {
+                        return (
+                          <button
+                            type="button"
+                            disabled
+                            title={`24-Hour Alert Cooldown active for ${donor.fullName}. Repeat dispatches unlock in ${cooldown.remainingText}.`}
+                            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 text-amber-800 border border-amber-300 font-bold text-xs opacity-85 cursor-not-allowed shadow-2xs"
+                          >
+                            <Clock className="w-3 h-3 text-amber-600" />
+                            <span>Cooldown: {cooldown.remainingText}</span>
+                          </button>
+                        );
+                      }
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => setAlertModalTarget({
+                            id: donor.id,
+                            fullName: donor.fullName,
+                            email: donor.email,
+                            phone: donor.phone,
+                            bloodType: donor.bloodType,
+                            location: donor.location || `${donor.city}, ${donor.state}`,
+                            lastAlertSentAt: donor.lastAlertSentAt || donor.last_alert_sent_at,
+                            last_alert_sent_at: donor.lastAlertSentAt || donor.last_alert_sent_at,
+                          })}
+                          className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] font-semibold text-xs transition-colors cursor-pointer"
+                        >
+                          <Mail className="w-3 h-3 text-[#D72638]" />
+                          <span>Send Alert</span>
+                        </button>
+                      );
+                    })()}
                   </div>
                 )}
               </div>

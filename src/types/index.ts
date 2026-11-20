@@ -32,6 +32,8 @@ export interface Donor {
   isAvailable?: boolean;
   registeredAt: string;
   unitsDonatedTotal: number;
+  last_alert_sent_at?: string | null;
+  lastAlertSentAt?: string | null;
 }
 
 export interface EmergencyRequest {
