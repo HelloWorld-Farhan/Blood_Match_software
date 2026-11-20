@@ -566,13 +566,12 @@ export default function DonorRegistry() {
     const handleCustomUpdate = () => loadDonors();
     window.addEventListener('bloodmatch_donors_updated', handleCustomUpdate);
 
-    const handleVisibilityOrFocus = () => {
+    const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         loadDonors();
       }
     };
-    window.addEventListener('focus', handleVisibilityOrFocus);
-    document.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // Real-Time cross-device sync polling (4-second cadence on active tab)
     const interval = setInterval(() => {
@@ -584,8 +583,7 @@ export default function DonorRegistry() {
     return () => {
       window.removeEventListener('storage', handleStorageUpdate);
       window.removeEventListener('bloodmatch_donors_updated', handleCustomUpdate);
-      window.removeEventListener('focus', handleVisibilityOrFocus);
-      document.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       clearInterval(interval);
     };
   }, [selectedFilter, currentUserEmail]);
