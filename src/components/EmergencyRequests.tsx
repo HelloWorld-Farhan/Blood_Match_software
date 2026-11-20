@@ -284,7 +284,7 @@ export default function EmergencyRequests() {
             currentUrl.searchParams.delete('highlight');
             window.history.replaceState(null, '', currentUrl.pathname + (currentUrl.search ? currentUrl.search : ''));
           }
-        } catch {}
+        } catch { }
       }, 4000);
 
       return () => {
@@ -302,9 +302,9 @@ export default function EmergencyRequests() {
   }, []);
 
   const currentUserName = useMemo(() => {
-    const raw = sessionStorage.getItem('bloodmatch_user_name') || 
-           localStorage.getItem('bloodmatch_user_name') || 
-           'Attending Trauma Clinician';
+    const raw = sessionStorage.getItem('bloodmatch_user_name') ||
+      localStorage.getItem('bloodmatch_user_name') ||
+      'Attending Trauma Clinician';
     return stripHonorific(raw) || 'Attending Trauma Clinician';
   }, []);
 
@@ -629,8 +629,8 @@ export default function EmergencyRequests() {
           contactName: stripHonorific(r.contact_person || r.contactName || 'Trauma Desk'),
           contactNumber: r.contact_phone || r.contactNumber || '+91 98765 43210',
           status: (r.status || 'urgent') as EmergencyRequest['status'],
-          liveTracking: r.live_tracking !== undefined ? Boolean(r.live_tracking) : (r.liveTracking !== undefined ? Boolean(r.liveTracking) : (r.status !== 'fulfilled')),
-          live_tracking: r.live_tracking !== undefined ? Boolean(r.live_tracking) : (r.liveTracking !== undefined ? Boolean(r.liveTracking) : (r.status !== 'fulfilled')),
+          liveTracking: r.status === 'fulfilled' ? false : (r.live_tracking !== undefined ? Boolean(r.live_tracking) : (r.liveTracking !== undefined ? Boolean(r.liveTracking) : true)),
+          live_tracking: r.status === 'fulfilled' ? false : (r.live_tracking !== undefined ? Boolean(r.live_tracking) : (r.liveTracking !== undefined ? Boolean(r.liveTracking) : true)),
           createdAt: r.created_at || r.createdAt || new Date().toISOString(),
           matchedDonorId: r.matched_donor_id || r.matchedDonorId,
           fulfilledAt: r.fulfilled_at || r.fulfilledAt,
@@ -743,7 +743,13 @@ export default function EmergencyRequests() {
               });
               setTimeout(() => setBoardNotification(null), 8000);
             } else if (data.type === 'LIVE_TRACKING_TOGGLED') {
-              setRequests(prev => prev.map(r => r.id === data.request_id ? { ...r, liveTracking: data.live_tracking, live_tracking: data.live_tracking } : r));
+              const targetId = data.request_id || data.id;
+              const nextStatus = Boolean(data.live_tracking);
+              setRequests(prev => {
+                const updated = prev.map(r => r.id === targetId ? { ...r, liveTracking: nextStatus, live_tracking: nextStatus } : r);
+                saveEmergencyRequests(updated, currentUserEmail, false);
+                return updated;
+              });
             } else if (data.type === 'DONOR_ALERT_DISPATCHED') {
               if (data.donor_id) {
                 setDispatchedDonorIds((prev) => ({ ...prev, [data.donor_id]: true }));
@@ -778,7 +784,7 @@ export default function EmergencyRequests() {
             } else if (data.type === 'EMERGENCY_CREATED' || data.type === 'EMERGENCY_UPDATED') {
               loadData();
             }
-          } catch {}
+          } catch { }
         };
 
         ws.onclose = () => {
@@ -789,7 +795,7 @@ export default function EmergencyRequests() {
         ws.onerror = () => {
           ws?.close();
         };
-      } catch {}
+      } catch { }
     };
 
     connectWs();
@@ -809,9 +815,12 @@ export default function EmergencyRequests() {
     const nextVal = req.liveTracking === false ? true : false;
     setTogglingLiveTrackId(req.id);
     try {
-      // 1. Optimistic update
-      setRequests(prev => prev.map(r => r.id === req.id ? { ...r, liveTracking: nextVal, live_tracking: nextVal } : r));
-      updateRequestLiveTracking(req.id, nextVal, currentUserEmail);
+      // 1. Optimistic update and cross-tab event broadcast
+      setRequests(prev => {
+        const updated = prev.map(r => r.id === req.id ? { ...r, liveTracking: nextVal, live_tracking: nextVal } : r);
+        saveEmergencyRequests(updated, currentUserEmail);
+        return updated;
+      });
 
       // 2. Persist to Backend API & R2
       await updateEmergencyLiveTrackingApi(req.id, nextVal, currentUserEmail);
@@ -823,8 +832,11 @@ export default function EmergencyRequests() {
       setTimeout(() => setBoardNotification(null), 5000);
     } catch (err: any) {
       // Revert on error
-      setRequests(prev => prev.map(r => r.id === req.id ? { ...r, liveTracking: req.liveTracking } : r));
-      updateRequestLiveTracking(req.id, req.liveTracking !== false, currentUserEmail);
+      setRequests(prev => {
+        const reverted = prev.map(r => r.id === req.id ? { ...r, liveTracking: req.liveTracking, live_tracking: req.liveTracking } : r);
+        saveEmergencyRequests(reverted, currentUserEmail);
+        return reverted;
+      });
       setBoardNotification({
         message: err.message || 'Failed to update live tracking status.',
         type: 'error'
@@ -1386,7 +1398,7 @@ export default function EmergencyRequests() {
         saveEmergencyRequests(filtered, currentUserEmail);
         return filtered;
       });
-      deleteEmergencyRequestApi(activeEmergencyRequestId, currentUserEmail).catch(() => {});
+      deleteEmergencyRequestApi(activeEmergencyRequestId, currentUserEmail).catch(() => { });
     }
     handleCloseModal();
   };
@@ -1415,7 +1427,7 @@ export default function EmergencyRequests() {
     // 3. Dispatch delete API call to backend
     try {
       await deleteEmergencyRequestApi(targetId, currentUserEmail);
-    } catch {}
+    } catch { }
 
     // 4. Show confirmation banner and automatically dismiss after 4 seconds (Work 1)
     setBoardNotification({
@@ -1558,7 +1570,7 @@ export default function EmergencyRequests() {
           contact_person: finalReq.contactName,
           contact_phone: finalReq.contactNumber
         });
-      } catch {}
+      } catch { }
 
       setBoardNotification({
         message: `Emergency request #${targetId} for ${finalReq.patientName} saved and live on triage board.`,
@@ -2066,301 +2078,420 @@ export default function EmergencyRequests() {
                   initial={{ opacity: 0, y: 12, scale: 0.98 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.93, filter: 'blur(8px)', transition: { duration: 0.25, ease: 'easeOut' } }}
-                  className={`rounded-2xl border transition-all duration-300 overflow-hidden shadow-xs relative ${
-                    isJustFulfilled
-                      ? 'animate-fulfilled-smooth ring-4 ring-emerald-400/50 border-emerald-500 bg-emerald-50/40 z-10'
-                      : isTargetHighlighted
-                        ? 'animate-target-record-blink ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/40 scale-[1.01] bg-[#FFF2F4] z-20'
-                        : isFulfilled
-                          ? 'bg-white border-emerald-200'
-                          : 'bg-white border-[#D9C7C2] hover:border-[#D72638]/50'
-                  }`}
-              >
-                {/* Horizontal Primary Row */}
-                <div className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-                  {/* Left: Blood Type & Patient Clinical Details */}
-                  <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
-                    <div
-                      title={`Blood Group ${req.bloodType}`}
-                      className="group/badge relative w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] text-white font-black flex flex-col items-center justify-center shadow-md shadow-[#D72638]/25 border border-white/20 shrink-0 transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#D72638]/40 hover:from-[#FF4D5E] hover:to-[#8E0E1B] active:scale-95 cursor-pointer overflow-hidden select-none"
-                    >
-                      {/* Subtle Glass Sheen Top Overlay */}
-                      <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent pointer-events-none rounded-t-2xl" />
-                      <div className="relative z-10 flex flex-col items-center justify-center leading-none">
-                        <span className="text-[7.5px] font-extrabold uppercase tracking-widest text-red-100/90 leading-tight mb-0.5">
-                          GROUP
-                        </span>
-                        <span className="text-base sm:text-lg font-black tracking-tight leading-none text-white drop-shadow-xs">
-                          {req.bloodType}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-base font-bold text-[#1A1D20] leading-tight truncate">
-                          {req.patientName}
-                        </h3>
-                        <span className="font-mono text-xs text-[#7A0C17] bg-[#7A0C17]/10 px-2 py-0.5 rounded-md font-bold">
-                          {req.id}
-                        </span>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${isFulfilled
-                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                          : req.urgency === 'CRITICAL'
-                            ? 'bg-red-100 text-[#D72638] border border-red-200'
-                            : 'bg-amber-100 text-amber-800 border border-amber-200'
-                          }`}>
-                          {isFulfilled ? '✓ FULFILLED' : req.urgency}
-                        </span>
-                        {isTargetHighlighted && (
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#D72638] text-white inline-flex items-center gap-1 shadow-xs animate-pulse">
-                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping inline-block" />
-                            <span>Matched Focus</span>
+                  className={`rounded-2xl border transition-all duration-300 overflow-hidden shadow-xs relative ${isJustFulfilled
+                    ? 'animate-fulfilled-smooth ring-4 ring-emerald-400/50 border-emerald-500 bg-emerald-50/40 z-10'
+                    : isTargetHighlighted
+                      ? 'animate-target-record-blink ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/40 scale-[1.01] bg-[#FFF2F4] z-20'
+                      : isFulfilled
+                        ? 'bg-white border-emerald-200'
+                        : 'bg-white border-[#D9C7C2] hover:border-[#D72638]/50'
+                    }`}
+                >
+                  {/* Horizontal Primary Row */}
+                  <div className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    {/* Left: Blood Type & Patient Clinical Details */}
+                    <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
+                      <div
+                        title={`Blood Group ${req.bloodType}`}
+                        className="group/badge relative w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] text-white font-black flex flex-col items-center justify-center shadow-md shadow-[#D72638]/25 border border-white/20 shrink-0 transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#D72638]/40 hover:from-[#FF4D5E] hover:to-[#8E0E1B] active:scale-95 cursor-pointer overflow-hidden select-none"
+                      >
+                        {/* Subtle Glass Sheen Top Overlay */}
+                        <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent pointer-events-none rounded-t-2xl" />
+                        <div className="relative z-10 flex flex-col items-center justify-center leading-none">
+                          <span className="text-[7.5px] font-extrabold uppercase tracking-widest text-red-100/90 leading-tight mb-0.5">
+                            GROUP
                           </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2.5 text-xs text-[#5A626A] mt-1 flex-wrap">
-                        <span>Age: {req.patientAge}</span>
-                        <span>•</span>
-                        <span className="font-bold text-[#1A1D20]">{req.unitsNeeded} Pints Needed</span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1 text-[#1A1D20]">
-                          <MapPin className="w-3.5 h-3.5 text-[#D72638]" />
-                          <span>{req.hospitalCity || 'Delhi NCR'}</span>
-                        </span>
-                        <span>•</span>
-                        <span className="font-mono text-slate-400 text-[11px]">
-                          {new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-
-                      <div className="text-[11px] text-[#5A626A] mt-1 flex items-center gap-2 flex-wrap">
-                        <span>Contact: <strong>{stripHonorific(req.contactName)}</strong></span>
-                        <button
-                          type="button"
-                          onClick={() => setCallModalTarget({
-                            contactName: stripHonorific(req.contactName),
-                            phoneNumber: req.contactNumber,
-                            bloodType: req.bloodType,
-                            location: req.hospitalCity || 'Delhi NCR',
-                            roleOrContext: `Emergency Transfusion Hotline • Patient: ${stripHonorific(req.patientName)}`
-                          })}
-                          className="font-mono text-[#D72638] font-bold hover:underline cursor-pointer"
-                        >
-                          {req.contactNumber}
-                        </button>
-                        {isFulfilled && req.fulfilledByDonorName && (
-                          <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                            Fulfilled by: {stripHonorific(req.fulfilledByDonorName)}
+                          <span className="text-base sm:text-lg font-black tracking-tight leading-none text-white drop-shadow-xs">
+                            {req.bloodType}
                           </span>
-                        )}
+                        </div>
                       </div>
-                    </div>
-                  </div>
 
-                  {/* Right: Action Buttons & Expandable Dropdown Toggle */}
-                  <div className="flex items-center gap-2 self-end lg:self-center shrink-0 flex-wrap">
-                    {!isFulfilled && (
-                      <>
-                        {/* Live Proximity Radar Toggle Button */}
-                        <button
-                          type="button"
-                          onClick={() => handleToggleLiveTracking(req)}
-                          disabled={togglingLiveTrackId === req.id}
-                          className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                            req.liveTracking !== false
-                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 shadow-2xs'
-                              : 'bg-slate-100 text-slate-500 border-slate-300 hover:bg-slate-200'
-                          }`}
-                          title={
-                            req.liveTracking !== false
-                              ? 'Live Proximity Tracking is ACTIVE: Automatic notifications and email alerts will trigger when compatible blood arrives. Click to turn OFF.'
-                              : 'Live Proximity Tracking is PAUSED: Click to turn ON to receive automatic donor arrival alerts.'
-                          }
-                        >
-                          {togglingLiveTrackId === req.id ? (
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-                          ) : req.liveTracking !== false ? (
-                            <>
-                              <span className="relative flex h-2 w-2">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                              </span>
-                              <Radio className="w-3.5 h-3.5 text-emerald-700" />
-                              <span>Live Track: ON</span>
-                            </>
-                          ) : (
-                            <>
-                              <span className="inline-block h-2 w-2 rounded-full bg-slate-400"></span>
-                              <Radio className="w-3.5 h-3.5 text-slate-400" />
-                              <span>Live Track: OFF</span>
-                            </>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-base font-bold text-[#1A1D20] leading-tight truncate">
+                            {req.patientName}
+                          </h3>
+                          <span className="font-mono text-xs text-[#7A0C17] bg-[#7A0C17]/10 px-2 py-0.5 rounded-md font-bold">
+                            {req.id}
+                          </span>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${isFulfilled
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : req.urgency === 'CRITICAL'
+                              ? 'bg-red-100 text-[#D72638] border border-red-200'
+                              : 'bg-amber-100 text-amber-800 border border-amber-200'
+                            }`}>
+                            {isFulfilled ? '✓ FULFILLED' : req.urgency}
+                          </span>
+                          {isTargetHighlighted && (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#D72638] text-white inline-flex items-center gap-1 shadow-xs animate-pulse">
+                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping inline-block" />
+                              <span>Matched Focus</span>
+                            </span>
                           )}
-                        </button>
+                        </div>
 
-                        <button
-                          onClick={() => handleOpenFulfillModal(req)}
-                          disabled={matches.length === 0}
-                          title={matches.length === 0 ? "Cannot fulfill: No compatible lifesavers matched yet" : "Mark request as fulfilled"}
-                          className={`py-2 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                            matches.length === 0
+                        <div className="flex items-center gap-2.5 text-xs text-[#5A626A] mt-1 flex-wrap">
+                          <span>Age: {req.patientAge}</span>
+                          <span>•</span>
+                          <span className="font-bold text-[#1A1D20]">{req.unitsNeeded} Pints Needed</span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1 text-[#1A1D20]">
+                            <MapPin className="w-3.5 h-3.5 text-[#D72638]" />
+                            <span>{req.hospitalCity || 'Delhi NCR'}</span>
+                          </span>
+                          <span>•</span>
+                          <span className="font-mono text-slate-400 text-[11px]">
+                            {new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+
+                        <div className="text-[11px] text-[#5A626A] mt-1 flex items-center gap-2 flex-wrap">
+                          <span>Contact: <strong>{stripHonorific(req.contactName)}</strong></span>
+                          <button
+                            type="button"
+                            onClick={() => setCallModalTarget({
+                              contactName: stripHonorific(req.contactName),
+                              phoneNumber: req.contactNumber,
+                              bloodType: req.bloodType,
+                              location: req.hospitalCity || 'Delhi NCR',
+                              roleOrContext: `Emergency Transfusion Hotline • Patient: ${stripHonorific(req.patientName)}`
+                            })}
+                            className="font-mono text-[#D72638] font-bold hover:underline cursor-pointer"
+                          >
+                            {req.contactNumber}
+                          </button>
+                          {isFulfilled && req.fulfilledByDonorName && (
+                            <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                              Fulfilled by: {stripHonorific(req.fulfilledByDonorName)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Action Buttons & Expandable Dropdown Toggle */}
+                    <div className="flex items-center gap-2 self-end lg:self-center shrink-0 flex-wrap">
+                      {!isFulfilled && (
+                        <>
+                          {/* Live Proximity Radar 2FA-Style Toggle Switch */}
+                          <div
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all duration-200 shadow-2xs select-none ${
+                              req.liveTracking !== false
+                                ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950'
+                                : 'bg-[#F5F1EF] border-[#D9C7C2] text-slate-600'
+                            }`}
+                            title={
+                              req.liveTracking !== false
+                                ? 'Live Radar is ON: Automatic notifications and email alerts will trigger across all synced devices when compatible lifesavers arrive. Click switch to turn OFF.'
+                                : 'Live Radar is OFF: Real-time alerts paused. Click switch to turn ON.'
+                            }
+                          >
+                            <div className="flex items-center gap-1.5">
+                              {req.liveTracking !== false ? (
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                              ) : (
+                                <span className="inline-block h-2 w-2 rounded-full bg-slate-400"></span>
+                              )}
+                              <span className="text-[11px] font-black tracking-tight whitespace-nowrap">
+                                {req.liveTracking !== false ? 'Live Track: ON' : 'Live Track: OFF'}
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={req.liveTracking !== false}
+                              aria-label={`Toggle Live Tracking for patient ${stripHonorific(req.patientName)}`}
+                              onClick={() => handleToggleLiveTracking(req)}
+                              disabled={togglingLiveTrackId === req.id}
+                              className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden disabled:opacity-50 ${
+                                req.liveTracking !== false ? 'bg-emerald-600' : 'bg-slate-300'
+                              }`}
+                            >
+                              {togglingLiveTrackId === req.id ? (
+                                <span className="absolute inset-0 flex items-center justify-center">
+                                  <RefreshCw className="w-2.5 h-2.5 animate-spin text-white" />
+                                </span>
+                              ) : (
+                                <span
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                                    req.liveTracking !== false ? 'translate-x-5' : 'translate-x-0'
+                                  }`}
+                                />
+                              )}
+                            </button>
+                          </div>
+
+                          <button
+                            onClick={() => handleOpenFulfillModal(req)}
+                            disabled={matches.length === 0}
+                            title={matches.length === 0 ? "Cannot fulfill: No compatible lifesavers matched yet" : "Mark request as fulfilled"}
+                            className={`py-2 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${matches.length === 0
                               ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-40 pointer-events-none'
                               : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white cursor-pointer shadow-xs'
-                          }`}
-                        >
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          <span>Mark Fulfilled</span>
-                        </button>
-                      </>
-                    )}
-
-                    {/* Expandable Dropdown Toggle Button */}
-                    <button
-                      onClick={() => toggleRequestExpanded(req.id)}
-                      className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border ${isExpanded
-                        ? 'bg-[#1A1D20] text-white border-[#1A1D20]'
-                        : 'bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border-[#D9C7C2]'
-                        }`}
-                    >
-                      <Users className="w-3.5 h-3.5 text-[#D72638]" />
-                      <span>
-                        {isFulfilled
-                          ? (displayedDonors.length > 0 ? `Fulfilling Lifesaver (${displayedDonors.length})` : 'Fulfillment Record')
-                          : `Matched Lifesavers (${matches.length})`}
-                      </span>
-                      <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-white' : 'text-slate-400'}`} />
-                    </button>
-
-                    {/* Delete Emergency Request */}
-                    <button
-                      type="button"
-                      onClick={(e) => handleOpenDeleteModal(req, e)}
-                      disabled={deletingRequestId === req.id}
-                      className="p-2 rounded-xl bg-white hover:bg-red-50 text-slate-400 hover:text-[#D72638] border border-[#D9C7C2] hover:border-red-300 transition-all cursor-pointer shadow-2xs"
-                      title="Permanently remove request"
-                    >
-                      {deletingRequestId === req.id ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#D72638]" />
-                      ) : (
-                        <Trash2 className="w-3.5 h-3.5" />
+                              }`}
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            <span>Mark Fulfilled</span>
+                          </button>
+                        </>
                       )}
-                    </button>
-                  </div>
-                </div>
 
-                {/* EXPANDABLE DROPDOWN DRAWER: MATCHED DONOR ROSTER, EMAIL ROSTER & DOWNLOAD PDF */}
-                <AnimatePresence>
-                  {isExpanded && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: 'auto', opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.25, ease: 'easeInOut' }}
-                      className="border-t border-[#D9C7C2] bg-[#FDF9F8] p-4 sm:p-6 space-y-4"
-                    >
-                      {/* Dropdown Header Toolbar: Request Actions (Email Roster & PDF, Download PDF Docket) */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D9C7C2]">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2.5 h-2.5 rounded-full ${isFulfilled ? 'bg-emerald-600' : 'bg-emerald-500 animate-pulse'}`} />
-                          <h4 className="text-xs sm:text-sm font-bold text-[#1A1D20]">
-                            {isFulfilled
-                              ? (isReserveFulfillment
+                      {/* Expandable Dropdown Toggle Button */}
+                      <button
+                        onClick={() => toggleRequestExpanded(req.id)}
+                        className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border ${isExpanded
+                          ? 'bg-[#1A1D20] text-white border-[#1A1D20]'
+                          : 'bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border-[#D9C7C2]'
+                          }`}
+                      >
+                        <Users className="w-3.5 h-3.5 text-[#D72638]" />
+                        <span>
+                          {isFulfilled
+                            ? (displayedDonors.length > 0 ? `Fulfilling Lifesaver (${displayedDonors.length})` : 'Fulfillment Record')
+                            : `Matched Lifesavers (${matches.length})`}
+                        </span>
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-white' : 'text-slate-400'}`} />
+                      </button>
+
+                      {/* Delete Emergency Request */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenDeleteModal(req, e)}
+                        disabled={deletingRequestId === req.id}
+                        className="p-2 rounded-xl bg-white hover:bg-red-50 text-slate-400 hover:text-[#D72638] border border-[#D9C7C2] hover:border-red-300 transition-all cursor-pointer shadow-2xs"
+                        title="Permanently remove request"
+                      >
+                        {deletingRequestId === req.id ? (
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#D72638]" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* EXPANDABLE DROPDOWN DRAWER: MATCHED DONOR ROSTER, EMAIL ROSTER & DOWNLOAD PDF */}
+                  <AnimatePresence>
+                    {isExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.25, ease: 'easeInOut' }}
+                        className="border-t border-[#D9C7C2] bg-[#FDF9F8] p-4 sm:p-6 space-y-4"
+                      >
+                        {/* Dropdown Header Toolbar: Request Actions (Email Roster & PDF, Download PDF Docket) */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D9C7C2]">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2.5 h-2.5 rounded-full ${isFulfilled ? 'bg-emerald-600' : 'bg-emerald-500 animate-pulse'}`} />
+                            <h4 className="text-xs sm:text-sm font-bold text-[#1A1D20]">
+                              {isFulfilled
+                                ? (isReserveFulfillment
                                   ? 'Transfusion Fulfilled • Case Closed & Archived'
                                   : `${displayedDonors.length} Verified Fulfilling Lifesaver • Case Closed`)
-                              : `${matches.length} Compatible ${req.bloodType} Lifesavers Ranked By GPS Proximity`}
-                          </h4>
-                        </div>
+                                : `${matches.length} Compatible ${req.bloodType} Lifesavers Ranked By GPS Proximity`}
+                            </h4>
+                          </div>
 
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (isFulfilled) return;
-                              setCallModalTarget({
-                                contactName: stripHonorific(req.contactName),
-                                phoneNumber: req.contactNumber,
-                                bloodType: req.bloodType,
-                                location: req.hospitalCity || 'Delhi NCR',
-                                roleOrContext: `Emergency Transfusion Hotline • Patient: ${stripHonorific(req.patientName)}`
-                              });
-                            }}
-                            disabled={isFulfilled}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                              isFulfilled
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isFulfilled) return;
+                                setCallModalTarget({
+                                  contactName: stripHonorific(req.contactName),
+                                  phoneNumber: req.contactNumber,
+                                  bloodType: req.bloodType,
+                                  location: req.hospitalCity || 'Delhi NCR',
+                                  roleOrContext: `Emergency Transfusion Hotline • Patient: ${stripHonorific(req.patientName)}`
+                                });
+                              }}
+                              disabled={isFulfilled}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${isFulfilled
                                 ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-50 shadow-none'
                                 : 'bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] border border-[#D9C7C2] cursor-pointer shadow-2xs'
-                            }`}
-                            title={isFulfilled ? 'Transfusion fulfilled & closed: Hotline call blocked' : `Call Emergency Hotline: ${stripHonorific(req.contactName)} (${req.contactNumber})`}
-                          >
-                            <Phone className={`w-3.5 h-3.5 ${isFulfilled ? 'text-slate-400' : 'text-emerald-600'}`} />
-                            <span>Call Hotline ({req.contactNumber})</span>
-                          </button>
+                                }`}
+                              title={isFulfilled ? 'Transfusion fulfilled & closed: Hotline call blocked' : `Call Emergency Hotline: ${stripHonorific(req.contactName)} (${req.contactNumber})`}
+                            >
+                              <Phone className={`w-3.5 h-3.5 ${isFulfilled ? 'text-slate-400' : 'text-emerald-600'}`} />
+                              <span>Call Hotline ({req.contactNumber})</span>
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => !isFulfilled && handleEmailRosterForRequest(req, displayedDonors)}
-                            disabled={isFulfilled || isEmailingRoster || displayedDonors.length === 0}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                              isFulfilled || displayedDonors.length === 0
+                            <button
+                              type="button"
+                              onClick={() => !isFulfilled && handleEmailRosterForRequest(req, displayedDonors)}
+                              disabled={isFulfilled || isEmailingRoster || displayedDonors.length === 0}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${isFulfilled || displayedDonors.length === 0
                                 ? 'bg-[#F5F1EF]/60 text-slate-400 border border-slate-200 cursor-not-allowed opacity-50 shadow-none'
                                 : 'bg-white hover:bg-slate-50 border border-[#D9C7C2] text-[#1A1D20] cursor-pointer shadow-2xs'
-                            }`}
-                            title={
-                              isFulfilled
-                                ? 'Transfusion fulfilled & closed: Email roster blocked'
-                                : displayedDonors.length === 0
-                                  ? 'Unavailable: No compatible donors ranked in this search radius'
-                                  : 'Email Roster & PDF'
-                            }
-                          >
-                            <Mail className={`w-3.5 h-3.5 ${isFulfilled || displayedDonors.length === 0 ? 'text-slate-400' : 'text-[#D72638]'}`} />
-                            <span>{isEmailingRoster ? 'Sending...' : 'Email Roster & PDF'}</span>
-                          </button>
+                                }`}
+                              title={
+                                isFulfilled
+                                  ? 'Transfusion fulfilled & closed: Email roster blocked'
+                                  : displayedDonors.length === 0
+                                    ? 'Unavailable: No compatible donors ranked in this search radius'
+                                    : 'Email Roster & PDF'
+                              }
+                            >
+                              <Mail className={`w-3.5 h-3.5 ${isFulfilled || displayedDonors.length === 0 ? 'text-slate-400' : 'text-[#D72638]'}`} />
+                              <span>{isEmailingRoster ? 'Sending...' : 'Email Roster & PDF'}</span>
+                            </button>
 
-                          <button
-                            type="button"
-                            onClick={() => !isFulfilled && handleDownloadPdfForRequest(req, displayedDonors)}
-                            disabled={isFulfilled || isGeneratingPdf || displayedDonors.length === 0}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                              isFulfilled || displayedDonors.length === 0
+                            <button
+                              type="button"
+                              onClick={() => !isFulfilled && handleDownloadPdfForRequest(req, displayedDonors)}
+                              disabled={isFulfilled || isGeneratingPdf || displayedDonors.length === 0}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${isFulfilled || displayedDonors.length === 0
                                 ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-50 shadow-none'
                                 : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer shadow-xs'
-                            }`}
-                            title={
-                              isFulfilled
-                                ? 'Transfusion fulfilled & closed: PDF download blocked'
-                                : displayedDonors.length === 0
-                                  ? 'Unavailable: No compatible donors ranked in this search radius'
-                                  : 'Download PDF Docket'
-                            }
-                          >
-                            <FileDown className={`w-3.5 h-3.5 ${isFulfilled || displayedDonors.length === 0 ? 'text-slate-400' : 'text-white'}`} />
-                            <span>{isGeneratingPdf ? 'Generating...' : 'Download PDF Docket'}</span>
-                          </button>
+                                }`}
+                              title={
+                                isFulfilled
+                                  ? 'Transfusion fulfilled & closed: PDF download blocked'
+                                  : displayedDonors.length === 0
+                                    ? 'Unavailable: No compatible donors ranked in this search radius'
+                                    : 'Download PDF Docket'
+                              }
+                            >
+                              <FileDown className={`w-3.5 h-3.5 ${isFulfilled || displayedDonors.length === 0 ? 'text-slate-400' : 'text-white'}`} />
+                              <span>{isGeneratingPdf ? 'Generating...' : 'Download PDF Docket'}</span>
+                            </button>
+                          </div>
                         </div>
-                      </div>
 
-                      {/* Matching Donor List or Fulfillment Status */}
-                      {isFulfilled ? (
-                        displayedDonors.length === 0 ? (
-                          <div className="p-6 text-center bg-white rounded-2xl border border-emerald-200/80 shadow-xs space-y-2">
-                            <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-2xs">
-                              <ShieldCheck className="w-6 h-6" />
+                        {/* Matching Donor List or Fulfillment Status */}
+                        {isFulfilled ? (
+                          displayedDonors.length === 0 ? (
+                            <div className="p-6 text-center bg-white rounded-2xl border border-emerald-200/80 shadow-xs space-y-2">
+                              <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-2xs">
+                                <ShieldCheck className="w-6 h-6" />
+                              </div>
+                              <h4 className="text-sm font-black text-[#1A1D20]">
+                                Transfusion Fulfilled via Alternative Clinical Reserve / External Stock
+                              </h4>
+                              <p className="text-xs text-[#5A626A] max-w-md mx-auto">
+                                This emergency triage was closed using internal hospital blood reserves or verified blood bank inventory. No voluntary community lifesavers were mobilized.
+                              </p>
+                              <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-full text-[11px] font-bold">
+                                <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>Case Closed • Transfusion Record Archived</span>
+                              </div>
                             </div>
-                            <h4 className="text-sm font-black text-[#1A1D20]">
-                              Transfusion Fulfilled via Alternative Clinical Reserve / External Stock
-                            </h4>
-                            <p className="text-xs text-[#5A626A] max-w-md mx-auto">
-                              This emergency triage was closed using internal hospital blood reserves or verified blood bank inventory. No voluntary community lifesavers were mobilized.
-                            </p>
-                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-full text-[11px] font-bold">
-                              <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Case Closed • Transfusion Record Archived</span>
-                            </div>
+                          ) : (
+                            (() => {
+                              const renderDrawerItem = (donor: RankedMatchDonor, idx: number, isRegional: boolean) => {
+                                const isDispatched = dispatchedDonorIds[donor.id] || false;
+                                const isSelf = Boolean(
+                                  currentUserEmail && (
+                                    (donor.email && donor.email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase()) ||
+                                    (donor.user_email && donor.user_email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase())
+                                  )
+                                );
+
+                                return (
+                                  <div
+                                    key={donor.id}
+                                    className="p-3.5 rounded-xl border shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors bg-emerald-50/40 border-emerald-300"
+                                  >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <div className="w-8 h-8 rounded-lg bg-emerald-100 border border-emerald-300 flex items-center justify-center font-mono font-bold text-xs text-emerald-800 shrink-0">
+                                        ✓
+                                      </div>
+
+                                      <div
+                                        title={`Matched Donor Group ${donor.bloodType}`}
+                                        className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0 select-none opacity-80"
+                                      >
+                                        {donor.bloodType}
+                                      </div>
+
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <span className="font-bold text-xs text-[#1A1D20]">{donor.fullName}</span>
+                                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                                            <CheckCircle className="w-3 h-3 text-emerald-600" />
+                                            <span>Fulfilling Lifesaver</span>
+                                          </span>
+                                          {isSelf && (
+                                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] border border-red-200">
+                                              You
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="text-[11px] text-[#5A626A] flex items-center gap-2 mt-0.5 flex-wrap">
+                                          <span className="flex items-center gap-1">
+                                            <MapPin className="w-3 h-3 text-[#D72638]" />
+                                            <span>{donor.location || donor.city}</span>
+                                          </span>
+                                          <span>•</span>
+                                          <span className="font-mono text-slate-500">{donor.phone}</span>
+                                          <span>•</span>
+                                          <span className="text-[#5A626A]">{donor.email}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                      <button
+                                        type="button"
+                                        disabled={true}
+                                        className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 font-bold text-xs flex items-center gap-1 border border-slate-200 cursor-not-allowed opacity-50"
+                                        title="Transfusion fulfilled & closed: Direct calls blocked"
+                                      >
+                                        <Phone className="w-3 h-3 text-slate-400" />
+                                        <span>Call</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        disabled={true}
+                                        className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed opacity-50 shadow-none"
+                                        title="Transfusion fulfilled & closed: Emergency alerts blocked"
+                                      >
+                                        <Send className="w-3 h-3 text-slate-400" />
+                                        <span>Case Closed</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              };
+
+                              return (
+                                <div className="space-y-4">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between pb-1 border-b border-emerald-200/70">
+                                      <div className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                                        <span className="text-[11px] font-black uppercase tracking-wider text-[#1A1D20]">
+                                          Primary Fulfilling Lifesaver ({displayedDonors.length})
+                                        </span>
+                                      </div>
+                                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                        Transfusion Completed
+                                      </span>
+                                    </div>
+                                    {displayedDonors.map((donor, idx) => renderDrawerItem(donor, idx, false))}
+                                  </div>
+                                </div>
+                              );
+                            })()
+                          )
+                        ) : matches.length === 0 ? (
+                          <div className="p-8 text-center bg-white rounded-xl border border-dashed border-[#D9C7C2] text-xs text-[#5A626A]">
+                            <Droplet className="w-8 h-8 text-[#D72638]/40 mx-auto mb-2" />
+                            <p className="font-bold text-[#1A1D20]">No active compatible donors found in this radius for {req.bloodType}</p>
+                            <p className="text-[11px] mt-0.5">Emergency broadcast remains active across all hospital nodes.</p>
                           </div>
                         ) : (
                           (() => {
+                            const localMatches = matches.filter(d => d.distanceKm <= 50.0);
+                            const regionalMatches = matches.filter(d => d.distanceKm > 50.0);
+
                             const renderDrawerItem = (donor: RankedMatchDonor, idx: number, isRegional: boolean) => {
                               const isDispatched = dispatchedDonorIds[donor.id] || false;
                               const isSelf = Boolean(
@@ -2373,16 +2504,23 @@ export default function EmergencyRequests() {
                               return (
                                 <div
                                   key={donor.id}
-                                  className="p-3.5 rounded-xl border shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors bg-emerald-50/40 border-emerald-300"
+                                  className={`p-3.5 rounded-xl border shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${isDispatched
+                                    ? 'bg-emerald-50/60 border-emerald-200'
+                                    : isSelf
+                                      ? 'bg-emerald-50/30 border-emerald-300 ring-1 ring-emerald-300'
+                                      : isRegional
+                                        ? 'bg-[#FDFBF7] border-amber-200/80 hover:border-amber-300'
+                                        : 'bg-white border-[#D9C7C2] hover:border-[#D72638]/40'
+                                    }`}
                                 >
                                   <div className="flex items-center gap-3 min-w-0">
-                                    <div className="w-8 h-8 rounded-lg bg-emerald-100 border border-emerald-300 flex items-center justify-center font-mono font-bold text-xs text-emerald-800 shrink-0">
-                                      ✓
+                                    <div className="w-8 h-8 rounded-lg bg-[#F5F1EF] border border-[#D9C7C2] flex items-center justify-center font-mono font-bold text-xs text-[#7A0C17] shrink-0">
+                                      #{idx + 1}
                                     </div>
 
                                     <div
                                       title={`Matched Donor Group ${donor.bloodType}`}
-                                      className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0 select-none opacity-80"
+                                      className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0 transition-all duration-200 hover:scale-110 hover:shadow-md hover:shadow-[#D72638]/30 cursor-pointer select-none"
                                     >
                                       {donor.bloodType}
                                     </div>
@@ -2390,13 +2528,17 @@ export default function EmergencyRequests() {
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-2 flex-wrap">
                                         <span className="font-bold text-xs text-[#1A1D20]">{donor.fullName}</span>
-                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
-                                          <CheckCircle className="w-3 h-3 text-emerald-600" />
-                                          <span>Fulfilling Lifesaver</span>
-                                        </span>
                                         {isSelf && (
                                           <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] border border-red-200">
                                             You
+                                          </span>
+                                        )}
+                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${donor.tier.badgeClass}`}>
+                                          {donor.tier.label} • {donor.distanceKm < 1 ? '< 1 km' : `${donor.distanceKm.toFixed(1)} km`}
+                                        </span>
+                                        {isRegional && (
+                                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                            Extended Network
                                           </span>
                                         )}
                                       </div>
@@ -2406,126 +2548,34 @@ export default function EmergencyRequests() {
                                           <span>{donor.location || donor.city}</span>
                                         </span>
                                         <span>•</span>
-                                        <span className="font-mono text-slate-500">{donor.phone}</span>
+                                        <button
+                                          type="button"
+                                          onClick={() => setCallModalTarget({
+                                            contactName: donor.fullName,
+                                            phoneNumber: donor.phone,
+                                            bloodType: donor.bloodType,
+                                            location: donor.location || donor.city,
+                                            roleOrContext: `Voluntary Blood Donor (Group ${donor.bloodType}) • Matched for ${req.patientName}`
+                                          })}
+                                          className="font-mono text-slate-600 hover:text-[#D72638] hover:underline cursor-pointer"
+                                        >
+                                          {donor.phone}
+                                        </button>
                                         <span>•</span>
                                         <span className="text-[#5A626A]">{donor.email}</span>
                                       </div>
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                                    <button
-                                      type="button"
-                                      disabled={true}
-                                      className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 font-bold text-xs flex items-center gap-1 border border-slate-200 cursor-not-allowed opacity-50"
-                                      title="Transfusion fulfilled & closed: Direct calls blocked"
-                                    >
-                                      <Phone className="w-3 h-3 text-slate-400" />
-                                      <span>Call</span>
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      disabled={true}
-                                      className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed opacity-50 shadow-none"
-                                      title="Transfusion fulfilled & closed: Emergency alerts blocked"
-                                    >
-                                      <Send className="w-3 h-3 text-slate-400" />
-                                      <span>Case Closed</span>
-                                    </button>
-                                  </div>
-                                </div>
-                              );
-                            };
-
-                            return (
-                              <div className="space-y-4">
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between pb-1 border-b border-emerald-200/70">
-                                    <div className="flex items-center gap-2">
-                                      <span className="w-2 h-2 rounded-full bg-emerald-600" />
-                                      <span className="text-[11px] font-black uppercase tracking-wider text-[#1A1D20]">
-                                        Primary Fulfilling Lifesaver ({displayedDonors.length})
+                                  {isSelf ? (
+                                    <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
+                                      <span className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-1 shadow-2xs">
+                                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                        <span>You (Your Standby Pledge)</span>
                                       </span>
                                     </div>
-                                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                                      Transfusion Completed
-                                    </span>
-                                  </div>
-                                  {displayedDonors.map((donor, idx) => renderDrawerItem(donor, idx, false))}
-                                </div>
-                              </div>
-                            );
-                          })()
-                        )
-                      ) : matches.length === 0 ? (
-                        <div className="p-8 text-center bg-white rounded-xl border border-dashed border-[#D9C7C2] text-xs text-[#5A626A]">
-                          <Droplet className="w-8 h-8 text-[#D72638]/40 mx-auto mb-2" />
-                          <p className="font-bold text-[#1A1D20]">No active compatible donors found in this radius for {req.bloodType}</p>
-                          <p className="text-[11px] mt-0.5">Emergency broadcast remains active across all hospital nodes.</p>
-                        </div>
-                      ) : (
-                        (() => {
-                          const localMatches = matches.filter(d => d.distanceKm <= 50.0);
-                          const regionalMatches = matches.filter(d => d.distanceKm > 50.0);
-
-                          const renderDrawerItem = (donor: RankedMatchDonor, idx: number, isRegional: boolean) => {
-                            const isDispatched = dispatchedDonorIds[donor.id] || false;
-                            const isSelf = Boolean(
-                              currentUserEmail && (
-                                (donor.email && donor.email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase()) ||
-                                (donor.user_email && donor.user_email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase())
-                              )
-                            );
-
-                            return (
-                              <div
-                                key={donor.id}
-                                className={`p-3.5 rounded-xl border shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
-                                  isDispatched
-                                    ? 'bg-emerald-50/60 border-emerald-200'
-                                    : isSelf
-                                      ? 'bg-emerald-50/30 border-emerald-300 ring-1 ring-emerald-300'
-                                      : isRegional
-                                        ? 'bg-[#FDFBF7] border-amber-200/80 hover:border-amber-300'
-                                        : 'bg-white border-[#D9C7C2] hover:border-[#D72638]/40'
-                                }`}
-                              >
-                                <div className="flex items-center gap-3 min-w-0">
-                                  <div className="w-8 h-8 rounded-lg bg-[#F5F1EF] border border-[#D9C7C2] flex items-center justify-center font-mono font-bold text-xs text-[#7A0C17] shrink-0">
-                                    #{idx + 1}
-                                  </div>
-
-                                  <div
-                                    title={`Matched Donor Group ${donor.bloodType}`}
-                                    className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0 transition-all duration-200 hover:scale-110 hover:shadow-md hover:shadow-[#D72638]/30 cursor-pointer select-none"
-                                  >
-                                    {donor.bloodType}
-                                  </div>
-
-                                  <div className="min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="font-bold text-xs text-[#1A1D20]">{donor.fullName}</span>
-                                      {isSelf && (
-                                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] border border-red-200">
-                                          You
-                                        </span>
-                                      )}
-                                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${donor.tier.badgeClass}`}>
-                                        {donor.tier.label} • {donor.distanceKm < 1 ? '< 1 km' : `${donor.distanceKm.toFixed(1)} km`}
-                                      </span>
-                                      {isRegional && (
-                                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">
-                                          Extended Network
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="text-[11px] text-[#5A626A] flex items-center gap-2 mt-0.5 flex-wrap">
-                                      <span className="flex items-center gap-1">
-                                        <MapPin className="w-3 h-3 text-[#D72638]" />
-                                        <span>{donor.location || donor.city}</span>
-                                      </span>
-                                      <span>•</span>
+                                  ) : (
+                                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                                       <button
                                         type="button"
                                         onClick={() => setCallModalTarget({
@@ -2535,141 +2585,112 @@ export default function EmergencyRequests() {
                                           location: donor.location || donor.city,
                                           roleOrContext: `Voluntary Blood Donor (Group ${donor.bloodType}) • Matched for ${req.patientName}`
                                         })}
-                                        className="font-mono text-slate-600 hover:text-[#D72638] hover:underline cursor-pointer"
+                                        className="px-3 py-1.5 rounded-lg bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] font-bold text-xs flex items-center gap-1 transition-colors border border-[#D9C7C2] cursor-pointer"
                                       >
-                                        {donor.phone}
+                                        <Phone className="w-3 h-3 text-emerald-600" />
+                                        <span>Call</span>
                                       </button>
-                                      <span>•</span>
-                                      <span className="text-[#5A626A]">{donor.email}</span>
-                                    </div>
-                                  </div>
-                                </div>
 
-                                {isSelf ? (
-                                  <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-center">
-                                    <span className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-1 shadow-2xs">
-                                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                      <span>You (Your Standby Pledge)</span>
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                                    <button
-                                      type="button"
-                                      onClick={() => setCallModalTarget({
-                                        contactName: donor.fullName,
-                                        phoneNumber: donor.phone,
-                                        bloodType: donor.bloodType,
-                                        location: donor.location || donor.city,
-                                        roleOrContext: `Voluntary Blood Donor (Group ${donor.bloodType}) • Matched for ${req.patientName}`
-                                      })}
-                                      className="px-3 py-1.5 rounded-lg bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] font-bold text-xs flex items-center gap-1 transition-colors border border-[#D9C7C2] cursor-pointer"
-                                    >
-                                      <Phone className="w-3 h-3 text-emerald-600" />
-                                      <span>Call</span>
-                                    </button>
-
-                                    {(() => {
-                                      const donorCooldown = calculateCooldown(donor.lastAlertSentAt || donor.last_alert_sent_at);
-                                      const isBlocked = isDispatched || donorCooldown.inCooldown;
-                                      return (
-                                        <button
-                                          type="button"
-                                          onClick={() => setAlertModalTarget({
-                                            donor: {
-                                              id: donor.id,
-                                              fullName: donor.fullName,
-                                              email: donor.email,
-                                              phone: donor.phone,
-                                              bloodType: donor.bloodType,
-                                              location: donor.location || donor.city,
-                                              distanceKm: donor.distanceKm,
-                                              lastAlertSentAt: donor.lastAlertSentAt || donor.last_alert_sent_at,
-                                              last_alert_sent_at: donor.lastAlertSentAt || donor.last_alert_sent_at
-                                            },
-                                            patientName: req.patientName,
-                                            hospital: req.hospital || 'Emergency Trauma Bay',
-                                            customMessage: `Urgent transfusion required for ${req.patientName} (Group ${req.bloodType}). Your compatible voluntary donation can save a life. Please contact our hotline immediately if you can donate.`
-                                          })}
-                                          disabled={isBlocked}
-                                          className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors shadow-2xs ${
-                                            isDispatched
+                                      {(() => {
+                                        const donorCooldown = calculateCooldown(donor.lastAlertSentAt || donor.last_alert_sent_at);
+                                        const isBlocked = isDispatched || donorCooldown.inCooldown;
+                                        return (
+                                          <button
+                                            type="button"
+                                            onClick={() => setAlertModalTarget({
+                                              donor: {
+                                                id: donor.id,
+                                                fullName: donor.fullName,
+                                                email: donor.email,
+                                                phone: donor.phone,
+                                                bloodType: donor.bloodType,
+                                                location: donor.location || donor.city,
+                                                distanceKm: donor.distanceKm,
+                                                lastAlertSentAt: donor.lastAlertSentAt || donor.last_alert_sent_at,
+                                                last_alert_sent_at: donor.lastAlertSentAt || donor.last_alert_sent_at
+                                              },
+                                              patientName: req.patientName,
+                                              hospital: req.hospital || 'Emergency Trauma Bay',
+                                              customMessage: `Urgent transfusion required for ${req.patientName} (Group ${req.bloodType}). Your compatible voluntary donation can save a life. Please contact our hotline immediately if you can donate.`
+                                            })}
+                                            disabled={isBlocked}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors shadow-2xs ${isDispatched
                                               ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 cursor-default'
                                               : donorCooldown.inCooldown
-                                              ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed opacity-85'
-                                              : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer'
-                                          }`}
-                                        >
-                                          {isDispatched ? (
-                                            <Send className="w-3 h-3 text-emerald-700" />
-                                          ) : donorCooldown.inCooldown ? (
-                                            <Clock className="w-3 h-3 text-amber-700" />
-                                          ) : (
-                                            <Send className="w-3 h-3" />
-                                          )}
-                                          <span>
-                                            {isDispatched ? 'Alert Sent ✓' : donorCooldown.inCooldown ? `Cooldown: ${donorCooldown.remainingText}` : 'Send Alert'}
-                                          </span>
-                                        </button>
-                                      );
-                                    })()}
+                                                ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed opacity-85'
+                                                : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer'
+                                              }`}
+                                          >
+                                            {isDispatched ? (
+                                              <Send className="w-3 h-3 text-emerald-700" />
+                                            ) : donorCooldown.inCooldown ? (
+                                              <Clock className="w-3 h-3 text-amber-700" />
+                                            ) : (
+                                              <Send className="w-3 h-3" />
+                                            )}
+                                            <span>
+                                              {isDispatched ? 'Alert Sent ✓' : donorCooldown.inCooldown ? `Cooldown: ${donorCooldown.remainingText}` : 'Send Alert'}
+                                            </span>
+                                          </button>
+                                        );
+                                      })()}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            };
+
+                            return (
+                              <div className="space-y-4">
+                                {/* Section 1: Immediate & Same State Lifesavers */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between pb-1 border-b border-emerald-200/70">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                      <span className="text-[11px] font-black uppercase tracking-wider text-[#1A1D20]">
+                                        Immediate &amp; Same State Lifesavers ({localMatches.length})
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                      High Priority &bull; &le; 50 km
+                                    </span>
+                                  </div>
+                                  {localMatches.length === 0 ? (
+                                    <div className="p-3 text-center rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500">
+                                      No local lifesavers detected in immediate 50 km radius. Showing extended network donors below.
+                                    </div>
+                                  ) : (
+                                    localMatches.map((donor, idx) => renderDrawerItem(donor, idx, false))
+                                  )}
+                                </div>
+
+                                {/* Section 2: Regional & Extended Network */}
+                                {regionalMatches.length > 0 && (
+                                  <div className="space-y-2 pt-2">
+                                    <div className="flex items-center justify-between pb-1 border-b border-amber-200/80">
+                                      <div className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                        <span className="text-[11px] font-black uppercase tracking-wider text-[#1A1D20]">
+                                          Regional &amp; Extended Network ({regionalMatches.length})
+                                        </span>
+                                      </div>
+                                      <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                                        Out of State / &gt; 50 km
+                                      </span>
+                                    </div>
+                                    {regionalMatches.map((donor, idx) => renderDrawerItem(donor, localMatches.length + idx, true))}
                                   </div>
                                 )}
                               </div>
                             );
-                          };
-
-                          return (
-                            <div className="space-y-4">
-                              {/* Section 1: Immediate & Same State Lifesavers */}
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between pb-1 border-b border-emerald-200/70">
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                    <span className="text-[11px] font-black uppercase tracking-wider text-[#1A1D20]">
-                                      Immediate &amp; Same State Lifesavers ({localMatches.length})
-                                    </span>
-                                  </div>
-                                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                                    High Priority &bull; &le; 50 km
-                                  </span>
-                                </div>
-                                {localMatches.length === 0 ? (
-                                  <div className="p-3 text-center rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500">
-                                    No local lifesavers detected in immediate 50 km radius. Showing extended network donors below.
-                                  </div>
-                                ) : (
-                                  localMatches.map((donor, idx) => renderDrawerItem(donor, idx, false))
-                                )}
-                              </div>
-
-                              {/* Section 2: Regional & Extended Network */}
-                              {regionalMatches.length > 0 && (
-                                <div className="space-y-2 pt-2">
-                                  <div className="flex items-center justify-between pb-1 border-b border-amber-200/80">
-                                    <div className="flex items-center gap-2">
-                                      <span className="w-2 h-2 rounded-full bg-amber-500" />
-                                      <span className="text-[11px] font-black uppercase tracking-wider text-[#1A1D20]">
-                                        Regional &amp; Extended Network ({regionalMatches.length})
-                                      </span>
-                                    </div>
-                                    <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                                      Out of State / &gt; 50 km
-                                    </span>
-                                  </div>
-                                  {regionalMatches.map((donor, idx) => renderDrawerItem(donor, localMatches.length + idx, true))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })()
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
-            );
-          })}
+                          })()
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
         </div>
       )}
@@ -2727,16 +2748,14 @@ export default function EmergencyRequests() {
                   {/* Option: External Reserve / No Donor */}
                   <div
                     onClick={handleSelectReserveOnly}
-                    className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-                      fulfilledViaReserve
-                        ? 'bg-blue-50/90 border-blue-400 ring-1 ring-blue-400 shadow-xs'
-                        : 'bg-white hover:bg-slate-50 border-[#D9C7C2]'
-                    }`}
+                    className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${fulfilledViaReserve
+                      ? 'bg-blue-50/90 border-blue-400 ring-1 ring-blue-400 shadow-xs'
+                      : 'bg-white hover:bg-slate-50 border-[#D9C7C2]'
+                      }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                        fulfilledViaReserve ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white'
-                      }`}>
+                      <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${fulfilledViaReserve ? 'border-blue-600 bg-blue-600 text-white' : 'border-slate-300 bg-white'
+                        }`}>
                         {fulfilledViaReserve && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                       </div>
                       <div>
@@ -2760,16 +2779,14 @@ export default function EmergencyRequests() {
                       <div
                         key={d.id}
                         onClick={() => handleToggleFulfillingDonor(d.id)}
-                        className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-                          isSelected
-                            ? 'bg-emerald-50/90 border-emerald-400 ring-1 ring-emerald-400 shadow-xs'
-                            : 'bg-white hover:bg-[#F5F1EF]/60 border-[#D9C7C2]'
-                        }`}
+                        className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${isSelected
+                          ? 'bg-emerald-50/90 border-emerald-400 ring-1 ring-emerald-400 shadow-xs'
+                          : 'bg-white hover:bg-[#F5F1EF]/60 border-[#D9C7C2]'
+                          }`}
                       >
                         <div className="flex items-center gap-2.5">
-                          <div className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 ${
-                            isSelected ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 bg-white'
-                          }`}>
+                          <div className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 ${isSelected ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 bg-white'
+                            }`}>
                             {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
                           </div>
                           <div>
@@ -2788,9 +2805,8 @@ export default function EmergencyRequests() {
                             </div>
                           </div>
                         </div>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                          isSelected ? 'bg-emerald-200 text-emerald-900' : 'bg-slate-100 text-slate-600'
-                        }`}>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${isSelected ? 'bg-emerald-200 text-emerald-900' : 'bg-slate-100 text-slate-600'
+                          }`}>
                           {isSelected ? 'Contributing' : 'Compatible'}
                         </span>
                       </div>
@@ -2799,11 +2815,10 @@ export default function EmergencyRequests() {
                 </div>
               </div>
 
-              <div className={`p-3 rounded-xl border text-[11px] leading-relaxed transition-all ${
-                fulfilledViaReserve
-                  ? 'bg-blue-50 border-blue-200 text-blue-900'
-                  : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-              }`}>
+              <div className={`p-3 rounded-xl border text-[11px] leading-relaxed transition-all ${fulfilledViaReserve
+                ? 'bg-blue-50 border-blue-200 text-blue-900'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                }`}>
                 {fulfilledViaReserve ? (
                   <>
                     <strong>External Reserve Closure Protocol:</strong> Transfusion demand will be closed in the clinical ledger. A formal closure docket will be transmitted to <strong>{currentUserEmail}</strong> confirming the demand was resolved through alternative hospital reserve without voluntary donor assignment.
@@ -2863,22 +2878,20 @@ export default function EmergencyRequests() {
                 animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
                 exit={{ opacity: 0, scale: 0.95, y: 12, filter: 'blur(6px)' }}
                 transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-                className={`relative w-full ${
-                  modalPhase === 'SCANNING'
-                    ? 'max-w-2xl sm:max-w-3xl overflow-hidden rounded-3xl p-0 bg-black border border-white/20 shadow-2xl'
-                    : 'max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto no-scrollbar rounded-3xl bg-white/95 backdrop-blur-2xl border border-white/60 p-5 sm:p-7 md:p-8 shadow-2xl text-[#1A1D20]'
-                }`}
+                className={`relative w-full ${modalPhase === 'SCANNING'
+                  ? 'max-w-2xl sm:max-w-3xl overflow-hidden rounded-3xl p-0 bg-black border border-white/20 shadow-2xl'
+                  : 'max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto no-scrollbar rounded-3xl bg-white/95 backdrop-blur-2xl border border-white/60 p-5 sm:p-7 md:p-8 shadow-2xl text-[#1A1D20]'
+                  }`}
                 onClick={(e) => e.stopPropagation()}
                 style={{ willChange: 'transform, opacity, filter' }}
               >
                 {/* Close Button with generous clearance & non-overlapping hover boundary */}
                 <button
                   onClick={handleCancelModal}
-                  className={`absolute top-4 right-4 sm:top-5 sm:right-5 z-40 p-2 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95 ${
-                    modalPhase === 'SCANNING'
-                      ? 'text-white/80 hover:text-white hover:bg-white/10 bg-black/40 backdrop-blur-md border border-white/15'
-                      : 'text-slate-400 hover:text-[#1A1D20] hover:bg-[#F5F1EF]'
-                  }`}
+                  className={`absolute top-4 right-4 sm:top-5 sm:right-5 z-40 p-2 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95 ${modalPhase === 'SCANNING'
+                    ? 'text-white/80 hover:text-white hover:bg-white/10 bg-black/40 backdrop-blur-md border border-white/15'
+                    : 'text-slate-400 hover:text-[#1A1D20] hover:bg-[#F5F1EF]'
+                    }`}
                   aria-label="Close dialog"
                 >
                   <X className={`w-5 h-5 ${modalPhase === 'SCANNING' ? 'text-white' : 'text-[#D72638]'}`} />
@@ -2901,11 +2914,10 @@ export default function EmergencyRequests() {
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className={`mr-14 sm:mr-16 mb-4 p-3 rounded-xl flex items-center justify-between text-xs font-bold ${
-                        modalNotification.type === 'success'
-                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                          : 'bg-red-50 text-red-800 border border-red-200'
-                      }`}
+                      className={`mr-14 sm:mr-16 mb-4 p-3 rounded-xl flex items-center justify-between text-xs font-bold ${modalNotification.type === 'success'
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                        : 'bg-red-50 text-red-800 border border-red-200'
+                        }`}
                     >
                       <div className="flex items-center gap-2 flex-1 min-w-0 pr-3">
                         {modalNotification.type === 'success' ? (
@@ -3003,389 +3015,389 @@ export default function EmergencyRequests() {
                           </div>
                         </div>
 
-                  {/* Row 3: Patient Age */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
-                    <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
-                      <div className="w-8 h-8 rounded-lg bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
-                        <Activity className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-[#1A1D20]">
-                          Patient Age (Years) <span className="text-[#D72638]">*</span>
-                        </div>
-                        <div className="text-[10px] text-[#5A626A]">Age of the patient in years (1 - 120)</div>
-                      </div>
-                    </div>
-                    <div className="flex-1 sm:max-w-xl w-full">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        maxLength={3}
-                        autoComplete="off"
-                        value={patientAge}
-                        placeholder="e.g. 35"
-                        onChange={(e) => {
-                          const raw = e.target.value.replace(/\D/g, '');
-                          const clean = raw.replace(/^0+/, '');
-                          setPatientAge(clean);
-                          if (formErrors.patientAge) setFormErrors(prev => ({ ...prev, patientAge: '' }));
-                        }}
-                        className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${formErrors.patientAge ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                          } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
-                      />
-                      {formErrors.patientAge && (
-                        <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.patientAge}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Row 4: Recipient Blood Group (Custom Animated Blur Dropdown) */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
-                    <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
-                      <div className="w-8 h-8 rounded-lg bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
-                        <Droplet className="w-4 h-4 fill-current" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-[#1A1D20]">
-                          Recipient Blood Group <span className="text-[#D72638]">*</span>
-                        </div>
-                        <div className="text-[10px] text-[#5A626A]">Blood group needed for transfusion</div>
-                      </div>
-                    </div>
-                    <div className="flex-1 sm:max-w-xl w-full">
-                      <BlurDropdown
-                        value={bloodType}
-                        onChange={(val) => {
-                          setBloodType(val);
-                          if (formErrors.bloodType) setFormErrors(prev => ({ ...prev, bloodType: '' }));
-                        }}
-                        options={bloodTypeOptions}
-                        placeholder="Select Recipient Blood Group..."
-                        hasError={Boolean(formErrors.bloodType)}
-                      />
-                      {formErrors.bloodType && (
-                        <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.bloodType}</p>
-                      )}
-                      {bloodType && (
-                        <div className="mt-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-100 flex items-center justify-between text-2xs">
-                          <span className="font-bold text-red-900 flex items-center gap-1">
-                            <ShieldCheck className="w-3.5 h-3.5 text-red-600" />
-                            <span>Safely Accepts RBC From:</span>
-                          </span>
-                          <span className="font-mono font-bold text-red-700">
-                            {compatibleBloodTypes.join(', ')}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Row 5: Target Area / Locality (Dispatched Locations Dropdown + GPS Detector) */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
-                    <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
-                      <div className="w-8 h-8 rounded-lg bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
-                        <MapPin className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-[#1A1D20]">
-                          Hospital or Area Locality <span className="text-[#D72638]">*</span>
-                        </div>
-                        <div className="text-[10px] text-[#5A626A]">Dispatched sites, or click Detect GPS</div>
-                      </div>
-                    </div>
-                    <div className="flex-1 sm:max-w-xl w-full space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <div ref={localityDropdownRef} className="relative flex-1">
-                          <div className="relative">
+                        {/* Row 3: Patient Age */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
+                          <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
+                              <Activity className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-[#1A1D20]">
+                                Patient Age (Years) <span className="text-[#D72638]">*</span>
+                              </div>
+                              <div className="text-[10px] text-[#5A626A]">Age of the patient in years (1 - 120)</div>
+                            </div>
+                          </div>
+                          <div className="flex-1 sm:max-w-xl w-full">
                             <input
                               type="text"
-                              value={customLocalityInput || selectedLocality}
-                              onFocus={() => setIsLocalityDropdownOpen(true)}
-                              onClick={() => setIsLocalityDropdownOpen(true)}
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              maxLength={3}
+                              autoComplete="off"
+                              value={patientAge}
+                              placeholder="e.g. 35"
                               onChange={(e) => {
-                                const val = e.target.value;
-                                setCustomLocalityInput(val);
-                                setSelectedLocality(val);
-                                setIsLocalityDropdownOpen(true);
-                                if (formErrors.locality) {
-                                  setFormErrors(prev => ({ ...prev, locality: '' }));
-                                }
+                                const raw = e.target.value.replace(/\D/g, '');
+                                const clean = raw.replace(/^0+/, '');
+                                setPatientAge(clean);
+                                if (formErrors.patientAge) setFormErrors(prev => ({ ...prev, patientAge: '' }));
                               }}
-                              placeholder="Select dispatched site or type locality..."
-                              className={`w-full pl-3.5 pr-8 py-2.5 rounded-xl bg-white border ${formErrors.locality
-                                ? 'border-red-500 bg-red-50/20'
-                                : isLocalityDropdownOpen
-                                  ? 'border-[#D72638] ring-2 ring-[#D72638]/20'
-                                  : 'border-[#D9C7C2] hover:border-[#D72638]/60'
-                                } text-xs font-semibold text-[#1A1D20] outline-hidden transition-all shadow-2xs`}
+                              className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${formErrors.patientAge ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                                } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
                             />
-                            <button
-                              type="button"
-                              tabIndex={-1}
-                              onClick={() => setIsLocalityDropdownOpen(prev => !prev)}
-                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5A626A] hover:text-[#D72638] transition-colors p-1"
-                            >
-                              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isLocalityDropdownOpen ? 'rotate-180 text-[#D72638]' : ''}`} />
-                            </button>
+                            {formErrors.patientAge && (
+                              <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.patientAge}</p>
+                            )}
                           </div>
+                        </div>
 
-                          <AnimatePresence>
-                            {isLocalityDropdownOpen && (
-                              <motion.div
-                                initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                                transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
-                                className="absolute z-50 mt-1.5 w-full rounded-2xl border border-[#D9C7C2] bg-white/95 backdrop-blur-md shadow-2xl overflow-hidden py-1.5 max-h-60 overflow-y-auto no-scrollbar"
-                              >
-                                <div className="px-3.5 py-1.5 text-[10px] font-black text-[#5A626A] uppercase tracking-wider border-b border-[#D9C7C2]/40 flex items-center justify-between">
-                                  <span>User Dispatched Blood Locations</span>
-                                  <span className="text-[9px] px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] font-bold">
-                                    {userDispatchedLocations.length} sites
-                                  </span>
+                        {/* Row 4: Recipient Blood Group (Custom Animated Blur Dropdown) */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
+                          <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
+                              <Droplet className="w-4 h-4 fill-current" />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-[#1A1D20]">
+                                Recipient Blood Group <span className="text-[#D72638]">*</span>
+                              </div>
+                              <div className="text-[10px] text-[#5A626A]">Blood group needed for transfusion</div>
+                            </div>
+                          </div>
+                          <div className="flex-1 sm:max-w-xl w-full">
+                            <BlurDropdown
+                              value={bloodType}
+                              onChange={(val) => {
+                                setBloodType(val);
+                                if (formErrors.bloodType) setFormErrors(prev => ({ ...prev, bloodType: '' }));
+                              }}
+                              options={bloodTypeOptions}
+                              placeholder="Select Recipient Blood Group..."
+                              hasError={Boolean(formErrors.bloodType)}
+                            />
+                            {formErrors.bloodType && (
+                              <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.bloodType}</p>
+                            )}
+                            {bloodType && (
+                              <div className="mt-1.5 px-3 py-1.5 rounded-lg bg-red-50 border border-red-100 flex items-center justify-between text-2xs">
+                                <span className="font-bold text-red-900 flex items-center gap-1">
+                                  <ShieldCheck className="w-3.5 h-3.5 text-red-600" />
+                                  <span>Safely Accepts RBC From:</span>
+                                </span>
+                                <span className="font-mono font-bold text-red-700">
+                                  {compatibleBloodTypes.join(', ')}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Row 5: Target Area / Locality (Dispatched Locations Dropdown + GPS Detector) */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
+                          <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
+                              <MapPin className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-[#1A1D20]">
+                                Hospital or Area Locality <span className="text-[#D72638]">*</span>
+                              </div>
+                              <div className="text-[10px] text-[#5A626A]">Dispatched sites, or click Detect GPS</div>
+                            </div>
+                          </div>
+                          <div className="flex-1 sm:max-w-xl w-full space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <div ref={localityDropdownRef} className="relative flex-1">
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    value={customLocalityInput || selectedLocality}
+                                    onFocus={() => setIsLocalityDropdownOpen(true)}
+                                    onClick={() => setIsLocalityDropdownOpen(true)}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setCustomLocalityInput(val);
+                                      setSelectedLocality(val);
+                                      setIsLocalityDropdownOpen(true);
+                                      if (formErrors.locality) {
+                                        setFormErrors(prev => ({ ...prev, locality: '' }));
+                                      }
+                                    }}
+                                    placeholder="Select dispatched site or type locality..."
+                                    className={`w-full pl-3.5 pr-8 py-2.5 rounded-xl bg-white border ${formErrors.locality
+                                      ? 'border-red-500 bg-red-50/20'
+                                      : isLocalityDropdownOpen
+                                        ? 'border-[#D72638] ring-2 ring-[#D72638]/20'
+                                        : 'border-[#D9C7C2] hover:border-[#D72638]/60'
+                                      } text-xs font-semibold text-[#1A1D20] outline-hidden transition-all shadow-2xs`}
+                                  />
+                                  <button
+                                    type="button"
+                                    tabIndex={-1}
+                                    onClick={() => setIsLocalityDropdownOpen(prev => !prev)}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#5A626A] hover:text-[#D72638] transition-colors p-1"
+                                  >
+                                    <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isLocalityDropdownOpen ? 'rotate-180 text-[#D72638]' : ''}`} />
+                                  </button>
                                 </div>
 
-                                {(() => {
-                                  const currentText = (customLocalityInput || selectedLocality || '').trim().toLowerCase();
-                                  const filtered = userDispatchedLocations.filter(loc => loc.toLowerCase().includes(currentText));
-
-                                  if (filtered.length === 0 && userDispatchedLocations.length > 0) {
-                                    return (
-                                      <div className="p-3 text-center">
-                                        <p className="text-xs text-[#5A626A]">No matching dispatched location found for "{customLocalityInput || selectedLocality}".</p>
-                                        <button
-                                          type="button"
-                                          onClick={() => setIsLocalityDropdownOpen(false)}
-                                          className="mt-1.5 text-xs font-bold text-[#D72638] hover:underline"
-                                        >
-                                          Use "{customLocalityInput || selectedLocality}"
-                                        </button>
+                                <AnimatePresence>
+                                  {isLocalityDropdownOpen && (
+                                    <motion.div
+                                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                                      transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+                                      className="absolute z-50 mt-1.5 w-full rounded-2xl border border-[#D9C7C2] bg-white/95 backdrop-blur-md shadow-2xl overflow-hidden py-1.5 max-h-60 overflow-y-auto no-scrollbar"
+                                    >
+                                      <div className="px-3.5 py-1.5 text-[10px] font-black text-[#5A626A] uppercase tracking-wider border-b border-[#D9C7C2]/40 flex items-center justify-between">
+                                        <span>User Dispatched Blood Locations</span>
+                                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] font-bold">
+                                          {userDispatchedLocations.length} sites
+                                        </span>
                                       </div>
-                                    );
-                                  }
 
-                                  if (userDispatchedLocations.length === 0) {
-                                    return (
-                                      <div className="p-4 text-center space-y-1">
-                                        <MapPin className="w-5 h-5 mx-auto text-[#D72638]/70" />
-                                        <p className="text-xs font-bold text-[#1A1D20]">No Dispatched Locations Recorded Yet</p>
-                                        <p className="text-[10px] text-[#5A626A]">Type your target locality above or click "Detect GPS" to locate automatically.</p>
-                                      </div>
-                                    );
-                                  }
+                                      {(() => {
+                                        const currentText = (customLocalityInput || selectedLocality || '').trim().toLowerCase();
+                                        const filtered = userDispatchedLocations.filter(loc => loc.toLowerCase().includes(currentText));
 
-                                  return (
-                                    <div className="divide-y divide-[#D9C7C2]/20">
-                                      {filtered.map(loc => {
-                                        const isSelected = (selectedLocality === loc || customLocalityInput === loc);
+                                        if (filtered.length === 0 && userDispatchedLocations.length > 0) {
+                                          return (
+                                            <div className="p-3 text-center">
+                                              <p className="text-xs text-[#5A626A]">No matching dispatched location found for "{customLocalityInput || selectedLocality}".</p>
+                                              <button
+                                                type="button"
+                                                onClick={() => setIsLocalityDropdownOpen(false)}
+                                                className="mt-1.5 text-xs font-bold text-[#D72638] hover:underline"
+                                              >
+                                                Use "{customLocalityInput || selectedLocality}"
+                                              </button>
+                                            </div>
+                                          );
+                                        }
+
+                                        if (userDispatchedLocations.length === 0) {
+                                          return (
+                                            <div className="p-4 text-center space-y-1">
+                                              <MapPin className="w-5 h-5 mx-auto text-[#D72638]/70" />
+                                              <p className="text-xs font-bold text-[#1A1D20]">No Dispatched Locations Recorded Yet</p>
+                                              <p className="text-[10px] text-[#5A626A]">Type your target locality above or click "Detect GPS" to locate automatically.</p>
+                                            </div>
+                                          );
+                                        }
+
                                         return (
-                                          <div
-                                            key={loc}
-                                            onClick={() => {
-                                              setSelectedLocality(loc);
-                                              setCustomLocalityInput(loc);
-                                              setIsLocalityDropdownOpen(false);
-                                              if (formErrors.locality) setFormErrors(prev => ({ ...prev, locality: '' }));
-                                            }}
-                                            className={`px-3.5 py-2.5 text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors ${isSelected
-                                              ? 'bg-red-50/80 text-[#D72638] font-bold'
-                                              : 'hover:bg-[#F5F1EF] text-[#1A1D20]'
-                                              }`}
-                                          >
-                                            <div className="flex items-center gap-2 min-w-0">
-                                              <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? 'bg-red-100 text-[#D72638]' : 'bg-slate-100 text-slate-500'
-                                                }`}>
-                                                <MapPin className="w-3.5 h-3.5" />
-                                              </div>
-                                              <span className="truncate">{loc}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1.5 shrink-0">
-                                              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-red-100/80 text-[#D72638]">
-                                                Dispatched
-                                              </span>
-                                              {isSelected && <CheckCircle className="w-3.5 h-3.5 text-[#D72638]" />}
-                                            </div>
+                                          <div className="divide-y divide-[#D9C7C2]/20">
+                                            {filtered.map(loc => {
+                                              const isSelected = (selectedLocality === loc || customLocalityInput === loc);
+                                              return (
+                                                <div
+                                                  key={loc}
+                                                  onClick={() => {
+                                                    setSelectedLocality(loc);
+                                                    setCustomLocalityInput(loc);
+                                                    setIsLocalityDropdownOpen(false);
+                                                    if (formErrors.locality) setFormErrors(prev => ({ ...prev, locality: '' }));
+                                                  }}
+                                                  className={`px-3.5 py-2.5 text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors ${isSelected
+                                                    ? 'bg-red-50/80 text-[#D72638] font-bold'
+                                                    : 'hover:bg-[#F5F1EF] text-[#1A1D20]'
+                                                    }`}
+                                                >
+                                                  <div className="flex items-center gap-2 min-w-0">
+                                                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? 'bg-red-100 text-[#D72638]' : 'bg-slate-100 text-slate-500'
+                                                      }`}>
+                                                      <MapPin className="w-3.5 h-3.5" />
+                                                    </div>
+                                                    <span className="truncate">{loc}</span>
+                                                  </div>
+                                                  <div className="flex items-center gap-1.5 shrink-0">
+                                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-red-100/80 text-[#D72638]">
+                                                      Dispatched
+                                                    </span>
+                                                    {isSelected && <CheckCircle className="w-3.5 h-3.5 text-[#D72638]" />}
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
                                           </div>
                                         );
-                                      })}
-                                    </div>
-                                  );
-                                })()}
-                              </motion.div>
+                                      })()}
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={handleToggleGpsPermission}
+                                  title={isGpsPermissionEnabled ? 'GPS Permission is ON. Click to turn OFF.' : 'GPS Permission is OFF. Click to turn ON.'}
+                                  className={`px-2.5 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${isGpsPermissionEnabled
+                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                                    : 'bg-slate-100 border-[#D9C7C2] text-slate-500 hover:bg-slate-200'
+                                    }`}
+                                >
+                                  <span className={`w-2 h-2 rounded-full ${isGpsPermissionEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                                  <span className="hidden md:inline">GPS Permission:</span>
+                                  <span className="font-extrabold">{isGpsPermissionEnabled ? 'ON' : 'OFF'}</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={handleDetectGps}
+                                  disabled={isDetectingGps || !isGpsPermissionEnabled}
+                                  title={!isGpsPermissionEnabled ? 'Turn ON GPS Permission first to locate' : 'Detect current GPS coordinates'}
+                                  className={`px-3 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${isGpsPermissionEnabled
+                                    ? 'bg-white border-[#D9C7C2] hover:border-[#D72638] text-[#D72638] hover:text-[#b51d2c]'
+                                    : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
+                                    }`}
+                                >
+                                  <Navigation className={`w-3.5 h-3.5 ${isDetectingGps ? 'animate-spin' : ''}`} />
+                                  <span className="hidden sm:inline">{isDetectingGps ? 'Pinpointing...' : 'Detect GPS'}</span>
+                                </button>
+                              </div>
+                            </div>
+                            {formErrors.locality && (
+                              <p className="text-red-500 text-[10px] font-semibold">{formErrors.locality}</p>
                             )}
-                          </AnimatePresence>
+                            {detectedPills.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 pt-1">
+                                {detectedPills.map((pill: string) => (
+                                  <button
+                                    key={pill}
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedLocality(pill);
+                                      setCustomLocalityInput(pill);
+                                      setIsLocalityDropdownOpen(false);
+                                      if (formErrors.locality) setFormErrors(prev => ({ ...prev, locality: '' }));
+                                    }}
+                                    className="text-2xs font-semibold px-2 py-0.5 rounded-lg border bg-white text-[#4A5568] border-[#D9C7C2] hover:bg-slate-100 cursor-pointer"
+                                  >
+                                    {pill}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            type="button"
-                            onClick={handleToggleGpsPermission}
-                            title={isGpsPermissionEnabled ? 'GPS Permission is ON. Click to turn OFF.' : 'GPS Permission is OFF. Click to turn ON.'}
-                            className={`px-2.5 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${isGpsPermissionEnabled
-                              ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
-                              : 'bg-slate-100 border-[#D9C7C2] text-slate-500 hover:bg-slate-200'
-                              }`}
-                          >
-                            <span className={`w-2 h-2 rounded-full ${isGpsPermissionEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                            <span className="hidden md:inline">GPS Permission:</span>
-                            <span className="font-extrabold">{isGpsPermissionEnabled ? 'ON' : 'OFF'}</span>
-                          </button>
 
-                          <button
-                            type="button"
-                            onClick={handleDetectGps}
-                            disabled={isDetectingGps || !isGpsPermissionEnabled}
-                            title={!isGpsPermissionEnabled ? 'Turn ON GPS Permission first to locate' : 'Detect current GPS coordinates'}
-                            className={`px-3 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${isGpsPermissionEnabled
-                              ? 'bg-white border-[#D9C7C2] hover:border-[#D72638] text-[#D72638] hover:text-[#b51d2c]'
-                              : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
-                              }`}
-                          >
-                            <Navigation className={`w-3.5 h-3.5 ${isDetectingGps ? 'animate-spin' : ''}`} />
-                            <span className="hidden sm:inline">{isDetectingGps ? 'Pinpointing...' : 'Detect GPS'}</span>
-                          </button>
+                        {/* Row 8: Emergency Contact Number (Custom Animated Blur Country Selector) */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
+                          <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
+                              <Phone className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-[#1A1D20]">
+                                Emergency Contact Number <span className="text-[#D72638]">*</span>
+                              </div>
+                              <div className="text-[10px] text-[#5A626A]">Phone number for donor coordination</div>
+                            </div>
+                          </div>
+                          <div className="flex-1 sm:max-w-xl w-full">
+                            <div className="flex gap-2">
+                              <BlurDropdown
+                                value={countryDialCode}
+                                onChange={(val) => {
+                                  setCountryDialCode(val);
+                                  if (formErrors.contactPhone) setFormErrors(prev => ({ ...prev, contactPhone: '' }));
+                                }}
+                                options={countryOptions}
+                                className="w-32 shrink-0"
+                              />
+                              <input
+                                type="tel"
+                                value={contactPhone}
+                                onChange={(e) => {
+                                  setContactPhone(e.target.value);
+                                  if (formErrors.contactPhone) setFormErrors(prev => ({ ...prev, contactPhone: '' }));
+                                }}
+                                placeholder={countryDialCode === '+91' ? '98765 43210' : 'Emergency phone number'}
+                                className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${formErrors.contactPhone ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                                  } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-all duration-300 ${phoneAnimate ? 'ring-2 ring-emerald-500 bg-emerald-50/60 scale-[1.01]' : ''
+                                  }`}
+                              />
+                            </div>
+                            {deduplicatePhones(savedPhones).length > 0 && (
+                              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                <span className="text-[10px] font-bold text-[#7A0C17] uppercase tracking-wider">Saved Numbers:</span>
+                                {deduplicatePhones(savedPhones).map((p, idx) => (
+                                  <button
+                                    key={p + idx}
+                                    type="button"
+                                    onClick={() => handleSelectPhone(p)}
+                                    className="group inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white hover:bg-emerald-50 border border-[#D9C7C2] hover:border-emerald-300 text-[11px] font-medium text-[#1A1D20] hover:text-emerald-900 transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+                                    title="Click to fill into emergency contact phone field"
+                                  >
+                                    <Phone className="w-2.5 h-2.5 text-[#D72638] group-hover:text-emerald-600 transition-colors" />
+                                    <span className="font-mono">{p}</span>
+                                    <span className="text-[9px] px-1 rounded bg-[#F5F1EF] text-slate-500 font-mono">
+                                      {idx === 0 ? 'Account' : `Saved #${idx + 1}`}
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                            {formErrors.contactPhone && (
+                              <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.contactPhone}</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      {formErrors.locality && (
-                        <p className="text-red-500 text-[10px] font-semibold">{formErrors.locality}</p>
-                      )}
-                      {detectedPills.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5 pt-1">
-                          {detectedPills.map((pill: string) => (
-                            <button
-                              key={pill}
-                              type="button"
-                              onClick={() => {
-                                setSelectedLocality(pill);
-                                setCustomLocalityInput(pill);
-                                setIsLocalityDropdownOpen(false);
-                                if (formErrors.locality) setFormErrors(prev => ({ ...prev, locality: '' }));
-                              }}
-                              className="text-2xs font-semibold px-2 py-0.5 rounded-lg border bg-white text-[#4A5568] border-[#D9C7C2] hover:bg-slate-100 cursor-pointer"
-                            >
-                              {pill}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
 
-                  {/* Row 8: Emergency Contact Number (Custom Animated Blur Country Selector) */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
-                    <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
-                      <div className="w-8 h-8 rounded-lg bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
-                        <Phone className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-[#1A1D20]">
-                          Emergency Contact Number <span className="text-[#D72638]">*</span>
-                        </div>
-                        <div className="text-[10px] text-[#5A626A]">Phone number for donor coordination</div>
-                      </div>
-                    </div>
-                    <div className="flex-1 sm:max-w-xl w-full">
-                      <div className="flex gap-2">
-                        <BlurDropdown
-                          value={countryDialCode}
-                          onChange={(val) => {
-                            setCountryDialCode(val);
-                            if (formErrors.contactPhone) setFormErrors(prev => ({ ...prev, contactPhone: '' }));
-                          }}
-                          options={countryOptions}
-                          className="w-32 shrink-0"
-                        />
-                        <input
-                          type="tel"
-                          value={contactPhone}
-                          onChange={(e) => {
-                            setContactPhone(e.target.value);
-                            if (formErrors.contactPhone) setFormErrors(prev => ({ ...prev, contactPhone: '' }));
-                          }}
-                          placeholder={countryDialCode === '+91' ? '98765 43210' : 'Emergency phone number'}
-                          className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${formErrors.contactPhone ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                            } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-all duration-300 ${phoneAnimate ? 'ring-2 ring-emerald-500 bg-emerald-50/60 scale-[1.01]' : ''
-                            }`}
-                        />
-                      </div>
-                      {deduplicatePhones(savedPhones).length > 0 && (
-                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                          <span className="text-[10px] font-bold text-[#7A0C17] uppercase tracking-wider">Saved Numbers:</span>
-                          {deduplicatePhones(savedPhones).map((p, idx) => (
-                            <button
-                              key={p + idx}
-                              type="button"
-                              onClick={() => handleSelectPhone(p)}
-                              className="group inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white hover:bg-emerald-50 border border-[#D9C7C2] hover:border-emerald-300 text-[11px] font-medium text-[#1A1D20] hover:text-emerald-900 transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
-                              title="Click to fill into emergency contact phone field"
-                            >
-                              <Phone className="w-2.5 h-2.5 text-[#D72638] group-hover:text-emerald-600 transition-colors" />
-                              <span className="font-mono">{p}</span>
-                              <span className="text-[9px] px-1 rounded bg-[#F5F1EF] text-slate-500 font-mono">
-                                {idx === 0 ? 'Account' : `Saved #${idx + 1}`}
+                        {/* Row 9: Clinical Authorization */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
+                          <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                              <ShieldCheck className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-[#1A1D20]">
+                                Emergency Confirmation <span className="text-[#D72638]">*</span>
+                              </div>
+                              <div className="text-[10px] text-[#5A626A]">Confirm this is an urgent transfusion request</div>
+                            </div>
+                          </div>
+                          <div className="flex-1 sm:max-w-xl w-full">
+                            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={emergencyConfirmed}
+                                onChange={(e) => {
+                                  setEmergencyConfirmed(e.target.checked);
+                                  if (formErrors.emergencyConfirmed) setFormErrors(prev => ({ ...prev, emergencyConfirmed: '' }));
+                                }}
+                                className="mt-0.5 w-4 h-4 rounded-sm border-[#D9C7C2] text-[#D72638] focus:ring-[#D72638] cursor-pointer shrink-0"
+                              />
+                              <span className="text-xs text-[#5A626A] leading-tight">
+                                I confirm this is an authentic emergency blood request authorized for immediate donor dispatch.
                               </span>
-                            </button>
-                          ))}
+                            </label>
+                            {formErrors.emergencyConfirmed && (
+                              <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.emergencyConfirmed}</p>
+                            )}
+                          </div>
                         </div>
-                      )}
-                      {formErrors.contactPhone && (
-                        <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.contactPhone}</p>
-                      )}
-                    </div>
-                  </div>
 
-                  {/* Row 9: Clinical Authorization */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
-                    <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                        <ShieldCheck className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-[#1A1D20]">
-                          Emergency Confirmation <span className="text-[#D72638]">*</span>
+                        {/* Modal Action Footer */}
+                        <div className="pt-3 border-t border-[#D9C7C2]/60 flex items-center justify-end gap-3">
+                          <button
+                            type="button"
+                            onClick={handleCancelModal}
+                            className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[#5A626A] hover:text-[#1A1D20] hover:bg-[#F5F1EF] transition-colors cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-6 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold shadow-md shadow-[#D72638]/25 cursor-pointer active:scale-95 transition-all flex items-center gap-2"
+                          >
+                            <Activity className="w-4 h-4 animate-pulse" />
+                            <span>Run Emergency Check Test &amp; Match Donors</span>
+                          </button>
                         </div>
-                        <div className="text-[10px] text-[#5A626A]">Confirm this is an urgent transfusion request</div>
-                      </div>
-                    </div>
-                    <div className="flex-1 sm:max-w-xl w-full">
-                      <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={emergencyConfirmed}
-                          onChange={(e) => {
-                            setEmergencyConfirmed(e.target.checked);
-                            if (formErrors.emergencyConfirmed) setFormErrors(prev => ({ ...prev, emergencyConfirmed: '' }));
-                          }}
-                          className="mt-0.5 w-4 h-4 rounded-sm border-[#D9C7C2] text-[#D72638] focus:ring-[#D72638] cursor-pointer shrink-0"
-                        />
-                        <span className="text-xs text-[#5A626A] leading-tight">
-                          I confirm this is an authentic emergency blood request authorized for immediate donor dispatch.
-                        </span>
-                      </label>
-                      {formErrors.emergencyConfirmed && (
-                        <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.emergencyConfirmed}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Modal Action Footer */}
-                  <div className="pt-3 border-t border-[#D9C7C2]/60 flex items-center justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={handleCancelModal}
-                      className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[#5A626A] hover:text-[#1A1D20] hover:bg-[#F5F1EF] transition-colors cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-6 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold shadow-md shadow-[#D72638]/25 cursor-pointer active:scale-95 transition-all flex items-center gap-2"
-                    >
-                      <Activity className="w-4 h-4 animate-pulse" />
-                      <span>Run Emergency Check Test &amp; Match Donors</span>
-                    </button>
-                  </div>
-                </form>
+                      </form>
                     </motion.div>
                   )}
 
@@ -3411,7 +3423,7 @@ export default function EmergencyRequests() {
                         preload="auto"
                         onLoadedData={(e) => {
                           const v = e.currentTarget;
-                          if (v.paused) v.play().catch(() => {});
+                          if (v.paused) v.play().catch(() => { });
                         }}
                         className="absolute inset-0 w-full h-full object-cover pointer-events-none"
                         style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
@@ -3450,497 +3462,492 @@ export default function EmergencyRequests() {
                       transition={{ duration: 0.22, ease: 'easeOut' }}
                       className="space-y-4"
                     >
-                {/* Results Header Bar (pr-16 sm:pr-28 ensures generous buffer so X button never overlaps on hover) */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D9C7C2] pr-16 sm:pr-28">
-                  <div>
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold mb-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span>Emergency Check Passed: {rankedDonors.length} Compatible Donors Ranked</span>
-                    </div>
-                    <h3 className="text-lg font-black text-[#1A1D20]">
-                      Nearest Lifesavers for {patientName || 'Emergency Patient'} ({bloodType})
-                    </h3>
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-wrap mr-1 sm:mr-3">
-                    <button
-                      type="button"
-                      onClick={() => setModalPhase('INPUT')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#1A1D20] bg-white border border-[#D9C7C2] hover:bg-[#F5F1EF] transition-all cursor-pointer shadow-2xs"
-                      title="Modify parameters and re-run check"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5 text-[#5A626A]" />
-                      <span>Modify &amp; Re-Test</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleEmailRoster}
-                      disabled={isEmailingRoster || rankedDonors.length === 0}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                        rankedDonors.length === 0
-                          ? 'bg-[#F5F1EF]/60 text-slate-400 border border-slate-200 cursor-not-allowed opacity-40 pointer-events-none shadow-none'
-                          : 'text-[#4A5568] bg-[#F5F1EF] border border-[#D9C7C2] hover:bg-slate-200 cursor-pointer shadow-2xs'
-                      }`}
-                      title={rankedDonors.length === 0 ? 'Unavailable: No compatible donors ranked in this search radius' : 'Transmit ranked roster with attached PDF docket to your email'}
-                    >
-                      {isEmailingRoster ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Mail className={`w-3.5 h-3.5 ${rankedDonors.length === 0 ? 'text-slate-400' : 'text-[#D72638]'}`} />}
-                      <span>Email Roster &amp; PDF</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleDownloadPdf}
-                      disabled={isGeneratingPdf || rankedDonors.length === 0}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                        rankedDonors.length === 0
-                          ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-40 pointer-events-none shadow-none'
-                          : 'text-white bg-[#D72638] hover:bg-[#b51d2c] shadow-xs cursor-pointer'
-                      }`}
-                      title={rankedDonors.length === 0 ? 'Unavailable: No compatible donors ranked in this search radius' : 'Download clinical emergency mobilization docket PDF'}
-                    >
-                      {isGeneratingPdf ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileDown className={`w-3.5 h-3.5 ${rankedDonors.length === 0 ? 'text-slate-400' : 'text-white'}`} />}
-                      <span>Download PDF Docket</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* COMPREHENSIVE EMERGENCY CHECK CASE DOSSIER */}
-                <div className="p-4 rounded-2xl bg-white border border-[#D9C7C2] shadow-xs space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b border-[#D9C7C2]/60">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                      <span className="text-xs font-bold uppercase tracking-wider text-[#1A1D20]">
-                        Emergency Check Test Dossier
-                      </span>
-                    </div>
-                    <span className="font-mono text-xs font-bold text-[#D72638] bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">
-                      Live Test Case Completed
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                    <div className="p-2.5 rounded-xl bg-[#F5F1EF]/60 border border-[#D9C7C2]/60">
-                      <div className="text-[10px] uppercase font-bold text-[#5A626A]">Patient Identifier</div>
-                      <div className="font-bold text-[#1A1D20] truncate">{patientName || 'Emergency Patient'}</div>
-                      <div className="text-[11px] text-[#5A626A]">{patientAge ? `${patientAge} Years` : 'Age Unspecified'}</div>
-                    </div>
-
-                    <div className="p-2.5 rounded-xl bg-[#F5F1EF]/60 border border-[#D9C7C2]/60 flex items-center justify-between">
-                      <div>
-                        <div className="text-[10px] uppercase font-bold text-[#5A626A]">Required Group</div>
-                        <div className="font-black text-sm text-[#D72638]">{bloodType}</div>
-                        <div className="text-[10px] text-[#5A626A]">{unitsNeeded || 1} Pints Needed</div>
-                      </div>
-                      <div className="w-8 h-8 rounded-lg bg-[#D72638] text-white flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
-                        {bloodType}
-                      </div>
-                    </div>
-
-                    <div className="p-2.5 rounded-xl bg-[#F5F1EF]/60 border border-[#D9C7C2]/60">
-                      <div className="text-[10px] uppercase font-bold text-[#5A626A]">Triage Urgency</div>
-                      <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold mt-0.5 ${urgency === 'CRITICAL' ? 'bg-red-100 text-[#D72638] border border-red-200' :
-                        urgency === 'URGENT' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                          'bg-blue-100 text-blue-800 border border-blue-200'
-                        }`}>
-                        {urgency}
-                      </span>
-                      <div className="text-[10px] text-[#5A626A] mt-1 truncate">{customLocalityInput.trim() || selectedLocality || 'Worldwide'}</div>
-                    </div>
-
-                    <div className="p-2.5 rounded-xl bg-[#F5F1EF]/60 border border-[#D9C7C2]/60">
-                      <div className="text-[10px] uppercase font-bold text-[#5A626A]">Emergency Phone</div>
-                      <div className="font-mono font-bold text-[#1A1D20] text-xs truncate">
-                        {countryDialCode} {contactPhone}
-                      </div>
-                      <div className="text-[10px] text-emerald-700 font-semibold truncate">
-                        Clinician: {currentUserEmail}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-[#D9C7C2]/40 flex items-center justify-between text-2xs text-[#5A626A] flex-wrap gap-2">
-                    <span className="font-semibold">
-                      Acceptable Compatible Donor Groups: <span className="font-bold text-[#D72638]">{compatibleBloodTypes.join(', ')}</span>
-                    </span>
-                    <span className="font-mono text-slate-400">
-                      GPS Origin: {userCoords.latitude.toFixed(4)}°, {userCoords.longitude.toFixed(4)}°
-                    </span>
-                  </div>
-                </div>
-
-                {/* AFTER PDF GENERATED: SHOW EVERYTHING IN THE RESULT & PDF */}
-                {lastGeneratedPdf && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-300 shadow-sm space-y-3"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-emerald-200">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                      {/* Results Header Bar (pr-16 sm:pr-28 ensures generous buffer so X button never overlaps on hover) */}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D9C7C2] pr-16 sm:pr-28">
                         <div>
-                          <div className="text-xs font-bold text-emerald-950 flex items-center gap-2">
-                            <span>Official Clinical PDF Docket Generated &amp; Signed</span>
-                            <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-200 text-emerald-900 font-bold">
-                              #{lastGeneratedPdf.uniqueId}
-                            </span>
+                          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold mb-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>Emergency Check Passed: {rankedDonors.length} Compatible Donors Ranked</span>
                           </div>
-                          <div className="text-[10px] text-emerald-700">
-                            Generated at {lastGeneratedPdf.timestamp} • Cloudflare R2 Persistent Archive Active
-                          </div>
+                          <h3 className="text-lg font-black text-[#1A1D20]">
+                            Nearest Lifesavers for {patientName || 'Emergency Patient'} ({bloodType})
+                          </h3>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap mr-1 sm:mr-3">
+                          <button
+                            type="button"
+                            onClick={() => setModalPhase('INPUT')}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#1A1D20] bg-white border border-[#D9C7C2] hover:bg-[#F5F1EF] transition-all cursor-pointer shadow-2xs"
+                            title="Modify parameters and re-run check"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5 text-[#5A626A]" />
+                            <span>Modify &amp; Re-Test</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleEmailRoster}
+                            disabled={isEmailingRoster || rankedDonors.length === 0}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${rankedDonors.length === 0
+                              ? 'bg-[#F5F1EF]/60 text-slate-400 border border-slate-200 cursor-not-allowed opacity-40 pointer-events-none shadow-none'
+                              : 'text-[#4A5568] bg-[#F5F1EF] border border-[#D9C7C2] hover:bg-slate-200 cursor-pointer shadow-2xs'
+                              }`}
+                            title={rankedDonors.length === 0 ? 'Unavailable: No compatible donors ranked in this search radius' : 'Transmit ranked roster with attached PDF docket to your email'}
+                          >
+                            {isEmailingRoster ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Mail className={`w-3.5 h-3.5 ${rankedDonors.length === 0 ? 'text-slate-400' : 'text-[#D72638]'}`} />}
+                            <span>Email Roster &amp; PDF</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleDownloadPdf}
+                            disabled={isGeneratingPdf || rankedDonors.length === 0}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${rankedDonors.length === 0
+                              ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-40 pointer-events-none shadow-none'
+                              : 'text-white bg-[#D72638] hover:bg-[#b51d2c] shadow-xs cursor-pointer'
+                              }`}
+                            title={rankedDonors.length === 0 ? 'Unavailable: No compatible donors ranked in this search radius' : 'Download clinical emergency mobilization docket PDF'}
+                          >
+                            {isGeneratingPdf ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileDown className={`w-3.5 h-3.5 ${rankedDonors.length === 0 ? 'text-slate-400' : 'text-white'}`} />}
+                            <span>Download PDF Docket</span>
+                          </button>
                         </div>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={handleDownloadPdf}
-                        className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs shrink-0 cursor-pointer"
-                      >
-                        <FileDown className="w-3.5 h-3.5" />
-                        <span>Re-Download PDF</span>
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-2xs">
-                      <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/80">
-                        <span className="text-slate-400 block font-bold">PDF FILE IDENTIFIER</span>
-                        <span className="font-mono text-emerald-950 font-bold truncate block">{lastGeneratedPdf.filename}</span>
-                      </div>
-                      <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/80">
-                        <span className="text-slate-400 block font-bold">VERIFIED PATIENT &amp; GROUP</span>
-                        <span className="text-emerald-950 font-bold">{lastGeneratedPdf.patientName} ({lastGeneratedPdf.bloodType})</span>
-                      </div>
-                      <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/80">
-                        <span className="text-slate-400 block font-bold">DISPATCH LOCALITY &amp; CONTACT</span>
-                        <span className="text-emerald-950 font-bold truncate block">{lastGeneratedPdf.locality} • {lastGeneratedPdf.emergencyPhone}</span>
-                      </div>
-                      <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/80">
-                        <span className="text-slate-400 block font-bold">MATCHED LIFESAVERS IN DOCKET</span>
-                        <span className="text-emerald-950 font-bold">{lastGeneratedPdf.donorCount} Proximity Donors Included</span>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* Two Categorized Proximity Sections (Close/Same State in Top, Regional/Interstate in Bottom) */}
-                <div className="space-y-4 max-h-[48vh] overflow-y-auto no-scrollbar pr-1">
-                  {rankedDonors.length === 0 ? (
-                    <div className="p-8 text-center rounded-2xl bg-[#F5F1EF] text-slate-500">
-                      <Droplet className="w-10 h-10 text-slate-300 mx-auto mb-2" />
-                      <p className="text-xs font-bold text-[#1A1D20]">No active compatible donors found in this radius.</p>
-                      <p className="text-2xs text-slate-400 mt-0.5">Emergency request is active on the triage board.</p>
-                    </div>
-                  ) : (
-                    <>
-                      {/* SECTION 1: Close / Same Locality & State Lifesavers (<= 50 km) */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between pb-1.5 border-b border-emerald-200/70">
+                      {/* COMPREHENSIVE EMERGENCY CHECK CASE DOSSIER */}
+                      <div className="p-4 rounded-2xl bg-white border border-[#D9C7C2] shadow-xs space-y-3">
+                        <div className="flex items-center justify-between pb-2 border-b border-[#D9C7C2]/60">
                           <div className="flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <h4 className="text-xs font-black uppercase tracking-wider text-[#1A1D20]">
-                              Immediate &amp; Same State Lifesavers
-                            </h4>
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                              {closeDonors.length} Local
+                            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                            <span className="text-xs font-bold uppercase tracking-wider text-[#1A1D20]">
+                              Emergency Check Test Dossier
                             </span>
                           </div>
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                            High Priority &bull; Immediate Dispatch (&le; 50 km)
+                          <span className="font-mono text-xs font-bold text-[#D72638] bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">
+                            Live Test Case Completed
                           </span>
                         </div>
 
-                        {closeDonors.length === 0 ? (
-                          <div className="p-3 text-center rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500">
-                            No local lifesavers detected in immediate 50 km radius. Showing extended network donors below.
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                          <div className="p-2.5 rounded-xl bg-[#F5F1EF]/60 border border-[#D9C7C2]/60">
+                            <div className="text-[10px] uppercase font-bold text-[#5A626A]">Patient Identifier</div>
+                            <div className="font-bold text-[#1A1D20] truncate">{patientName || 'Emergency Patient'}</div>
+                            <div className="text-[11px] text-[#5A626A]">{patientAge ? `${patientAge} Years` : 'Age Unspecified'}</div>
+                          </div>
+
+                          <div className="p-2.5 rounded-xl bg-[#F5F1EF]/60 border border-[#D9C7C2]/60 flex items-center justify-between">
+                            <div>
+                              <div className="text-[10px] uppercase font-bold text-[#5A626A]">Required Group</div>
+                              <div className="font-black text-sm text-[#D72638]">{bloodType}</div>
+                              <div className="text-[10px] text-[#5A626A]">{unitsNeeded || 1} Pints Needed</div>
+                            </div>
+                            <div className="w-8 h-8 rounded-lg bg-[#D72638] text-white flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
+                              {bloodType}
+                            </div>
+                          </div>
+
+                          <div className="p-2.5 rounded-xl bg-[#F5F1EF]/60 border border-[#D9C7C2]/60">
+                            <div className="text-[10px] uppercase font-bold text-[#5A626A]">Triage Urgency</div>
+                            <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold mt-0.5 ${urgency === 'CRITICAL' ? 'bg-red-100 text-[#D72638] border border-red-200' :
+                              urgency === 'URGENT' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                                'bg-blue-100 text-blue-800 border border-blue-200'
+                              }`}>
+                              {urgency}
+                            </span>
+                            <div className="text-[10px] text-[#5A626A] mt-1 truncate">{customLocalityInput.trim() || selectedLocality || 'Worldwide'}</div>
+                          </div>
+
+                          <div className="p-2.5 rounded-xl bg-[#F5F1EF]/60 border border-[#D9C7C2]/60">
+                            <div className="text-[10px] uppercase font-bold text-[#5A626A]">Emergency Phone</div>
+                            <div className="font-mono font-bold text-[#1A1D20] text-xs truncate">
+                              {countryDialCode} {contactPhone}
+                            </div>
+                            <div className="text-[10px] text-emerald-700 font-semibold truncate">
+                              Clinician: {currentUserEmail}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-[#D9C7C2]/40 flex items-center justify-between text-2xs text-[#5A626A] flex-wrap gap-2">
+                          <span className="font-semibold">
+                            Acceptable Compatible Donor Groups: <span className="font-bold text-[#D72638]">{compatibleBloodTypes.join(', ')}</span>
+                          </span>
+                          <span className="font-mono text-slate-400">
+                            GPS Origin: {userCoords.latitude.toFixed(4)}°, {userCoords.longitude.toFixed(4)}°
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* AFTER PDF GENERATED: SHOW EVERYTHING IN THE RESULT & PDF */}
+                      {lastGeneratedPdf && (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.98 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-300 shadow-sm space-y-3"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-emerald-200">
+                            <div className="flex items-center gap-2">
+                              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                              <div>
+                                <div className="text-xs font-bold text-emerald-950 flex items-center gap-2">
+                                  <span>Official Clinical PDF Docket Generated &amp; Signed</span>
+                                  <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-emerald-200 text-emerald-900 font-bold">
+                                    #{lastGeneratedPdf.uniqueId}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-emerald-700">
+                                  Generated at {lastGeneratedPdf.timestamp} • Cloudflare R2 Persistent Archive Active
+                                </div>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={handleDownloadPdf}
+                              className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs shrink-0 cursor-pointer"
+                            >
+                              <FileDown className="w-3.5 h-3.5" />
+                              <span>Re-Download PDF</span>
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-2xs">
+                            <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/80">
+                              <span className="text-slate-400 block font-bold">PDF FILE IDENTIFIER</span>
+                              <span className="font-mono text-emerald-950 font-bold truncate block">{lastGeneratedPdf.filename}</span>
+                            </div>
+                            <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/80">
+                              <span className="text-slate-400 block font-bold">VERIFIED PATIENT &amp; GROUP</span>
+                              <span className="text-emerald-950 font-bold">{lastGeneratedPdf.patientName} ({lastGeneratedPdf.bloodType})</span>
+                            </div>
+                            <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/80">
+                              <span className="text-slate-400 block font-bold">DISPATCH LOCALITY &amp; CONTACT</span>
+                              <span className="text-emerald-950 font-bold truncate block">{lastGeneratedPdf.locality} • {lastGeneratedPdf.emergencyPhone}</span>
+                            </div>
+                            <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/80">
+                              <span className="text-slate-400 block font-bold">MATCHED LIFESAVERS IN DOCKET</span>
+                              <span className="text-emerald-950 font-bold">{lastGeneratedPdf.donorCount} Proximity Donors Included</span>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+
+                      {/* Two Categorized Proximity Sections (Close/Same State in Top, Regional/Interstate in Bottom) */}
+                      <div className="space-y-4 max-h-[48vh] overflow-y-auto no-scrollbar pr-1">
+                        {rankedDonors.length === 0 ? (
+                          <div className="p-8 text-center rounded-2xl bg-[#F5F1EF] text-slate-500">
+                            <Droplet className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                            <p className="text-xs font-bold text-[#1A1D20]">No active compatible donors found in this radius.</p>
+                            <p className="text-2xs text-slate-400 mt-0.5">Emergency request is active on the triage board.</p>
                           </div>
                         ) : (
-                          closeDonors.map((donor, index) => {
-                            const isImmediate = donor.distanceKm <= 3.0;
-                            const isDispatched = dispatchedDonorIds[donor.id];
-                            const isSelf = Boolean(
-                              currentUserEmail && (
-                                (donor.email && donor.email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase()) ||
-                                (donor.user_email && donor.user_email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase())
-                              )
-                            );
-
-                            return (
-                              <div
-                                key={donor.id}
-                                className={`p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                                  isImmediate
-                                    ? 'bg-emerald-50/20 border-emerald-300'
-                                    : 'bg-[#F5F1EF] border-[#D9C7C2]'
-                                }`}
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div className="flex flex-col items-center">
-                                    <span className="text-2xs font-extrabold text-slate-400">#{index + 1}</span>
-                                    <div className="w-9 h-9 rounded-xl bg-[#D72638] text-white flex items-center justify-center font-black text-xs shadow-2xs">
-                                      {donor.bloodType}
-                                    </div>
-                                  </div>
-
-                                  <div>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <h4 className="text-xs font-bold text-[#1A1D20]">{donor.fullName}</h4>
-                                      {isSelf && (
-                                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] border border-red-200">
-                                          You
-                                        </span>
-                                      )}
-                                      <span className={`text-2xs font-bold px-1.5 py-0.5 rounded-md border ${donor.tier.badgeClass}`}>
-                                        {donor.tier.label} • {donor.distanceKm < 1 ? '< 1 km' : `${donor.distanceKm.toFixed(1)} km`}
-                                      </span>
-                                    </div>
-                                    <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                                      <MapPin className="w-3 h-3 text-[#D72638]" />
-                                      <span>{donor.location || donor.city || 'Delhi NCR'}</span>
-                                      <span>•</span>
-                                      <span className="font-mono">{donor.phone}</span>
-                                    </div>
-                                  </div>
+                          <>
+                            {/* SECTION 1: Close / Same Locality & State Lifesavers (<= 50 km) */}
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between pb-1.5 border-b border-emerald-200/70">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  <h4 className="text-xs font-black uppercase tracking-wider text-[#1A1D20]">
+                                    Immediate &amp; Same State Lifesavers
+                                  </h4>
+                                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                                    {closeDonors.length} Local
+                                  </span>
                                 </div>
+                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                  High Priority &bull; Immediate Dispatch (&le; 50 km)
+                                </span>
+                              </div>
 
-                                {isSelf ? (
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-2xs">
-                                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                      <span>Your Standby Pledge</span>
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => setCallModalTarget({
-                                        contactName: donor.fullName,
-                                        phoneNumber: donor.phone,
-                                        bloodType: donor.bloodType,
-                                        location: donor.location || donor.city || 'Delhi NCR',
-                                        roleOrContext: `Voluntary Standby Donor (Group ${donor.bloodType})`
-                                      })}
-                                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#1A1D20] bg-white border border-[#D9C7C2] hover:bg-slate-100 transition-all cursor-pointer"
+                              {closeDonors.length === 0 ? (
+                                <div className="p-3 text-center rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500">
+                                  No local lifesavers detected in immediate 50 km radius. Showing extended network donors below.
+                                </div>
+                              ) : (
+                                closeDonors.map((donor, index) => {
+                                  const isImmediate = donor.distanceKm <= 3.0;
+                                  const isDispatched = dispatchedDonorIds[donor.id];
+                                  const isSelf = Boolean(
+                                    currentUserEmail && (
+                                      (donor.email && donor.email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase()) ||
+                                      (donor.user_email && donor.user_email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase())
+                                    )
+                                  );
+
+                                  return (
+                                    <div
+                                      key={donor.id}
+                                      className={`p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${isImmediate
+                                        ? 'bg-emerald-50/20 border-emerald-300'
+                                        : 'bg-[#F5F1EF] border-[#D9C7C2]'
+                                        }`}
                                     >
-                                      <Phone className="w-3 h-3 text-emerald-600" />
-                                      <span>Call</span>
-                                    </button>
+                                      <div className="flex items-center gap-3">
+                                        <div className="flex flex-col items-center">
+                                          <span className="text-2xs font-extrabold text-slate-400">#{index + 1}</span>
+                                          <div className="w-9 h-9 rounded-xl bg-[#D72638] text-white flex items-center justify-center font-black text-xs shadow-2xs">
+                                            {donor.bloodType}
+                                          </div>
+                                        </div>
 
-                                    {(() => {
-                                      const donorCooldown = calculateCooldown(donor.lastAlertSentAt || donor.last_alert_sent_at);
-                                      const isBlocked = isDispatched || donorCooldown.inCooldown;
-                                      return (
-                                        <button
-                                          type="button"
-                                          onClick={() => setAlertModalTarget({
-                                            donor: {
-                                              id: donor.id,
-                                              fullName: donor.fullName,
-                                              email: donor.email,
-                                              phone: donor.phone,
+                                        <div>
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <h4 className="text-xs font-bold text-[#1A1D20]">{donor.fullName}</h4>
+                                            {isSelf && (
+                                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] border border-red-200">
+                                                You
+                                              </span>
+                                            )}
+                                            <span className={`text-2xs font-bold px-1.5 py-0.5 rounded-md border ${donor.tier.badgeClass}`}>
+                                              {donor.tier.label} • {donor.distanceKm < 1 ? '< 1 km' : `${donor.distanceKm.toFixed(1)} km`}
+                                            </span>
+                                          </div>
+                                          <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                            <MapPin className="w-3 h-3 text-[#D72638]" />
+                                            <span>{donor.location || donor.city || 'Delhi NCR'}</span>
+                                            <span>•</span>
+                                            <span className="font-mono">{donor.phone}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {isSelf ? (
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-2xs">
+                                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                            <span>Your Standby Pledge</span>
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => setCallModalTarget({
+                                              contactName: donor.fullName,
+                                              phoneNumber: donor.phone,
                                               bloodType: donor.bloodType,
                                               location: donor.location || donor.city || 'Delhi NCR',
-                                              distanceKm: donor.distanceKm,
-                                              lastAlertSentAt: donor.lastAlertSentAt || donor.last_alert_sent_at
-                                            },
-                                            patientName: patientName,
-                                            hospital: 'Emergency Trauma Network',
-                                            customMessage: `Urgent transfusion needed for ${patientName} (Group ${bloodType}). Your compatible voluntary donation can save a life. Please contact our emergency hotline immediately if you can donate.`
-                                          })}
-                                          disabled={isBlocked}
-                                          className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                                            isDispatched
-                                              ? 'bg-emerald-600 text-white cursor-default'
-                                              : donorCooldown.inCooldown
-                                              ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed opacity-85'
-                                              : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer'
-                                          }`}
-                                        >
-                                          {isDispatched ? (
-                                            <CheckCircle2 className="w-3 h-3" />
-                                          ) : donorCooldown.inCooldown ? (
-                                            <Clock className="w-3 h-3 text-amber-700" />
-                                          ) : (
-                                            <Send className="w-3 h-3" />
-                                          )}
-                                          <span>
-                                            {isDispatched ? 'Dispatched' : donorCooldown.inCooldown ? `Cooldown: ${donorCooldown.remainingText}` : 'Send Alert'}
-                                          </span>
-                                        </button>
-                                      );
-                                    })()}
+                                              roleOrContext: `Voluntary Standby Donor (Group ${donor.bloodType})`
+                                            })}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#1A1D20] bg-white border border-[#D9C7C2] hover:bg-slate-100 transition-all cursor-pointer"
+                                          >
+                                            <Phone className="w-3 h-3 text-emerald-600" />
+                                            <span>Call</span>
+                                          </button>
+
+                                          {(() => {
+                                            const donorCooldown = calculateCooldown(donor.lastAlertSentAt || donor.last_alert_sent_at);
+                                            const isBlocked = isDispatched || donorCooldown.inCooldown;
+                                            return (
+                                              <button
+                                                type="button"
+                                                onClick={() => setAlertModalTarget({
+                                                  donor: {
+                                                    id: donor.id,
+                                                    fullName: donor.fullName,
+                                                    email: donor.email,
+                                                    phone: donor.phone,
+                                                    bloodType: donor.bloodType,
+                                                    location: donor.location || donor.city || 'Delhi NCR',
+                                                    distanceKm: donor.distanceKm,
+                                                    lastAlertSentAt: donor.lastAlertSentAt || donor.last_alert_sent_at
+                                                  },
+                                                  patientName: patientName,
+                                                  hospital: 'Emergency Trauma Network',
+                                                  customMessage: `Urgent transfusion needed for ${patientName} (Group ${bloodType}). Your compatible voluntary donation can save a life. Please contact our emergency hotline immediately if you can donate.`
+                                                })}
+                                                disabled={isBlocked}
+                                                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${isDispatched
+                                                  ? 'bg-emerald-600 text-white cursor-default'
+                                                  : donorCooldown.inCooldown
+                                                    ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed opacity-85'
+                                                    : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer'
+                                                  }`}
+                                              >
+                                                {isDispatched ? (
+                                                  <CheckCircle2 className="w-3 h-3" />
+                                                ) : donorCooldown.inCooldown ? (
+                                                  <Clock className="w-3 h-3 text-amber-700" />
+                                                ) : (
+                                                  <Send className="w-3 h-3" />
+                                                )}
+                                                <span>
+                                                  {isDispatched ? 'Dispatched' : donorCooldown.inCooldown ? `Cooldown: ${donorCooldown.remainingText}` : 'Send Alert'}
+                                                </span>
+                                              </button>
+                                            );
+                                          })()}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+
+                            {/* SECTION 2: Regional & Extended Network Donors (> 50 km) */}
+                            {extendedDonors.length > 0 && (
+                              <div className="space-y-2 pt-2">
+                                <div className="flex items-center justify-between pb-1.5 border-b border-amber-200/80">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                                    <h4 className="text-xs font-black uppercase tracking-wider text-[#1A1D20]">
+                                      Regional &amp; Extended Network Donors
+                                    </h4>
+                                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
+                                      {extendedDonors.length} Standby
+                                    </span>
                                   </div>
-                                )}
+                                  <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                                    Secondary Priority &bull; Out of State / Extended Transit (&gt; 50 km)
+                                  </span>
+                                </div>
+
+                                {extendedDonors.map((donor, index) => {
+                                  const isDispatched = dispatchedDonorIds[donor.id];
+                                  const isSelf = Boolean(
+                                    currentUserEmail && (
+                                      (donor.email && donor.email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase()) ||
+                                      (donor.user_email && donor.user_email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase())
+                                    )
+                                  );
+
+                                  return (
+                                    <div
+                                      key={donor.id}
+                                      className="p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#FDFBF7] border-amber-200/80 hover:border-amber-300"
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className="flex flex-col items-center">
+                                          <span className="text-2xs font-extrabold text-slate-400">#{closeDonors.length + index + 1}</span>
+                                          <div className="w-9 h-9 rounded-xl bg-[#D72638] text-white flex items-center justify-center font-black text-xs shadow-2xs">
+                                            {donor.bloodType}
+                                          </div>
+                                        </div>
+
+                                        <div>
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <h4 className="text-xs font-bold text-[#1A1D20]">{donor.fullName}</h4>
+                                            {isSelf && (
+                                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] border border-red-200">
+                                                You
+                                              </span>
+                                            )}
+                                            <span className={`text-2xs font-bold px-1.5 py-0.5 rounded-md border ${donor.tier.badgeClass}`}>
+                                              {donor.tier.label} • {donor.distanceKm.toFixed(1)} km
+                                            </span>
+                                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                              Extended Network
+                                            </span>
+                                          </div>
+                                          <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                            <MapPin className="w-3 h-3 text-[#D72638]" />
+                                            <span>{donor.location || donor.city || 'Delhi NCR'}</span>
+                                            <span>•</span>
+                                            <span className="font-mono">{donor.phone}</span>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {isSelf ? (
+                                        <div className="flex items-center gap-1.5">
+                                          <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-2xs">
+                                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                            <span>Your Standby Pledge</span>
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-2">
+                                          <button
+                                            type="button"
+                                            onClick={() => setCallModalTarget({
+                                              contactName: donor.fullName,
+                                              phoneNumber: donor.phone,
+                                              bloodType: donor.bloodType,
+                                              location: donor.location || donor.city || 'Delhi NCR',
+                                              roleOrContext: `Voluntary Standby Donor (Group ${donor.bloodType})`
+                                            })}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#1A1D20] bg-white border border-[#D9C7C2] hover:bg-slate-100 transition-all cursor-pointer"
+                                          >
+                                            <Phone className="w-3 h-3 text-emerald-600" />
+                                            <span>Call</span>
+                                          </button>
+
+                                          {(() => {
+                                            const donorCooldown = calculateCooldown(donor.lastAlertSentAt || donor.last_alert_sent_at);
+                                            const isBlocked = isDispatched || donorCooldown.inCooldown;
+                                            return (
+                                              <button
+                                                type="button"
+                                                onClick={() => setAlertModalTarget({
+                                                  donor: {
+                                                    id: donor.id,
+                                                    fullName: donor.fullName,
+                                                    email: donor.email,
+                                                    phone: donor.phone,
+                                                    bloodType: donor.bloodType,
+                                                    location: donor.location || donor.city || 'Delhi NCR',
+                                                    distanceKm: donor.distanceKm,
+                                                    lastAlertSentAt: donor.lastAlertSentAt || donor.last_alert_sent_at
+                                                  },
+                                                  patientName: patientName,
+                                                  hospital: 'Emergency Trauma Network',
+                                                  customMessage: `Urgent transfusion needed for ${patientName} (Group ${bloodType}). Your compatible voluntary donation can save a life. Please contact our emergency hotline immediately if you can donate.`
+                                                })}
+                                                disabled={isBlocked}
+                                                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${isDispatched
+                                                  ? 'bg-emerald-600 text-white cursor-default'
+                                                  : donorCooldown.inCooldown
+                                                    ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed opacity-85'
+                                                    : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer'
+                                                  }`}
+                                              >
+                                                {isDispatched ? (
+                                                  <CheckCircle2 className="w-3 h-3" />
+                                                ) : donorCooldown.inCooldown ? (
+                                                  <Clock className="w-3 h-3 text-amber-700" />
+                                                ) : (
+                                                  <Send className="w-3 h-3" />
+                                                )}
+                                                <span>
+                                                  {isDispatched ? 'Dispatched' : donorCooldown.inCooldown ? `Cooldown: ${donorCooldown.remainingText}` : 'Send Alert'}
+                                                </span>
+                                              </button>
+                                            );
+                                          })()}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
-                            );
-                          })
+                            )}
+                          </>
                         )}
                       </div>
 
-                      {/* SECTION 2: Regional & Extended Network Donors (> 50 km) */}
-                      {extendedDonors.length > 0 && (
-                        <div className="space-y-2 pt-2">
-                          <div className="flex items-center justify-between pb-1.5 border-b border-amber-200/80">
-                            <div className="flex items-center gap-2">
-                              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                              <h4 className="text-xs font-black uppercase tracking-wider text-[#1A1D20]">
-                                Regional &amp; Extended Network Donors
-                              </h4>
-                              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
-                                {extendedDonors.length} Standby
-                              </span>
-                            </div>
-                            <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-                              Secondary Priority &bull; Out of State / Extended Transit (&gt; 50 km)
-                            </span>
-                          </div>
-
-                          {extendedDonors.map((donor, index) => {
-                            const isDispatched = dispatchedDonorIds[donor.id];
-                            const isSelf = Boolean(
-                              currentUserEmail && (
-                                (donor.email && donor.email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase()) ||
-                                (donor.user_email && donor.user_email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase())
-                              )
-                            );
-
-                            return (
-                              <div
-                                key={donor.id}
-                                className="p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#FDFBF7] border-amber-200/80 hover:border-amber-300"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <div className="flex flex-col items-center">
-                                    <span className="text-2xs font-extrabold text-slate-400">#{closeDonors.length + index + 1}</span>
-                                    <div className="w-9 h-9 rounded-xl bg-[#D72638] text-white flex items-center justify-center font-black text-xs shadow-2xs">
-                                      {donor.bloodType}
-                                    </div>
-                                  </div>
-
-                                  <div>
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <h4 className="text-xs font-bold text-[#1A1D20]">{donor.fullName}</h4>
-                                      {isSelf && (
-                                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] border border-red-200">
-                                          You
-                                        </span>
-                                      )}
-                                      <span className={`text-2xs font-bold px-1.5 py-0.5 rounded-md border ${donor.tier.badgeClass}`}>
-                                        {donor.tier.label} • {donor.distanceKm.toFixed(1)} km
-                                      </span>
-                                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">
-                                        Extended Network
-                                      </span>
-                                    </div>
-                                    <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                                      <MapPin className="w-3 h-3 text-[#D72638]" />
-                                      <span>{donor.location || donor.city || 'Delhi NCR'}</span>
-                                      <span>•</span>
-                                      <span className="font-mono">{donor.phone}</span>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {isSelf ? (
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-2xs">
-                                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                      <span>Your Standby Pledge</span>
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => setCallModalTarget({
-                                        contactName: donor.fullName,
-                                        phoneNumber: donor.phone,
-                                        bloodType: donor.bloodType,
-                                        location: donor.location || donor.city || 'Delhi NCR',
-                                        roleOrContext: `Voluntary Standby Donor (Group ${donor.bloodType})`
-                                      })}
-                                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#1A1D20] bg-white border border-[#D9C7C2] hover:bg-slate-100 transition-all cursor-pointer"
-                                    >
-                                      <Phone className="w-3 h-3 text-emerald-600" />
-                                      <span>Call</span>
-                                    </button>
-
-                                    {(() => {
-                                      const donorCooldown = calculateCooldown(donor.lastAlertSentAt || donor.last_alert_sent_at);
-                                      const isBlocked = isDispatched || donorCooldown.inCooldown;
-                                      return (
-                                        <button
-                                          type="button"
-                                          onClick={() => setAlertModalTarget({
-                                            donor: {
-                                              id: donor.id,
-                                              fullName: donor.fullName,
-                                              email: donor.email,
-                                              phone: donor.phone,
-                                              bloodType: donor.bloodType,
-                                              location: donor.location || donor.city || 'Delhi NCR',
-                                              distanceKm: donor.distanceKm,
-                                              lastAlertSentAt: donor.lastAlertSentAt || donor.last_alert_sent_at
-                                            },
-                                            patientName: patientName,
-                                            hospital: 'Emergency Trauma Network',
-                                            customMessage: `Urgent transfusion needed for ${patientName} (Group ${bloodType}). Your compatible voluntary donation can save a life. Please contact our emergency hotline immediately if you can donate.`
-                                          })}
-                                          disabled={isBlocked}
-                                          className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                                            isDispatched
-                                              ? 'bg-emerald-600 text-white cursor-default'
-                                              : donorCooldown.inCooldown
-                                              ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed opacity-85'
-                                              : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer'
-                                          }`}
-                                        >
-                                          {isDispatched ? (
-                                            <CheckCircle2 className="w-3 h-3" />
-                                          ) : donorCooldown.inCooldown ? (
-                                            <Clock className="w-3 h-3 text-amber-700" />
-                                          ) : (
-                                            <Send className="w-3 h-3" />
-                                          )}
-                                          <span>
-                                            {isDispatched ? 'Dispatched' : donorCooldown.inCooldown ? `Cooldown: ${donorCooldown.remainingText}` : 'Send Alert'}
-                                          </span>
-                                        </button>
-                                      );
-                                    })()}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </>
+                      {/* Footer Return Button */}
+                      <div className="pt-3 border-t border-[#D9C7C2] flex items-center justify-between">
+                        <span className="text-2xs text-slate-500">
+                          Request posted to active triage queue and synchronized across devices.
+                        </span>
+                        <button
+                          onClick={handleDoneAndViewOnBoard}
+                          className="px-5 py-2 rounded-xl bg-[#1A1D20] hover:bg-slate-800 text-white text-xs font-bold transition-all cursor-pointer shadow-md hover:scale-[1.02] active:scale-98"
+                        >
+                          Done &amp; View on Board
+                        </button>
+                      </div>
+                    </motion.div>
                   )}
-                </div>
-
-                {/* Footer Return Button */}
-                <div className="pt-3 border-t border-[#D9C7C2] flex items-center justify-between">
-                  <span className="text-2xs text-slate-500">
-                    Request posted to active triage queue and synchronized across devices.
-                  </span>
-                  <button
-                    onClick={handleDoneAndViewOnBoard}
-                    className="px-5 py-2 rounded-xl bg-[#1A1D20] hover:bg-slate-800 text-white text-xs font-bold transition-all cursor-pointer shadow-md hover:scale-[1.02] active:scale-98"
-                  >
-                    Done &amp; View on Board
-                  </button>
-                </div>
+                </AnimatePresence>
               </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      </motion.div>
-    )}
-  </AnimatePresence>,
-  document.body
-)}
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* Clinical Mobilize Call In-App Modal (eliminates browser OS pick-an-app dialog) */}
       {callModalTarget && (
