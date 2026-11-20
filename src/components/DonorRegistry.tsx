@@ -102,8 +102,10 @@ const POPULAR_DELHI_LOCALITIES = [
 export default function DonorRegistry() {
   const [searchParams] = useSearchParams();
   const highlightParam = searchParams.get('highlight');
+  const donorNameParam = searchParams.get('donorName');
+  const bloodTypeParam = searchParams.get('bloodType');
   const [highlightedId, setHighlightedId] = useState<string | null>(highlightParam);
-  const [isBlinking, setIsBlinking] = useState<boolean>(Boolean(highlightParam));
+  const [isBlinking, setIsBlinking] = useState<boolean>(Boolean(highlightParam || donorNameParam));
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
 
   const [donors, setDonors] = useState<Donor[]>([]);
@@ -138,20 +140,55 @@ export default function DonorRegistry() {
   };
 
   // High-reliability smooth scroll and high-visibility blinking highlight orchestrator
-  const triggerScrollAndHighlight = useCallback((targetId: string) => {
-    if (!targetId) return;
-    setHighlightedId(targetId);
-    setIsBlinking(true);
+  const triggerScrollAndHighlight = useCallback((targetId?: string, targetName?: string, targetBloodType?: string) => {
+    let resolvedId = targetId || '';
+
+    const findMatchingDonor = () => {
+      if (resolvedId && donorsRef.current.some(d => d.id === resolvedId)) {
+        return resolvedId;
+      }
+      if (targetName) {
+        const cleanName = targetName.trim().toLowerCase();
+        const found = donorsRef.current.find(d =>
+          d.fullName.toLowerCase() === cleanName ||
+          d.fullName.toLowerCase().includes(cleanName) ||
+          cleanName.includes(d.fullName.toLowerCase())
+        );
+        if (found) return found.id;
+      }
+      if (targetBloodType) {
+        const found = donorsRef.current.find(d => d.bloodType === targetBloodType);
+        if (found) return found.id;
+      }
+      return resolvedId;
+    };
+
+    const initialMatch = findMatchingDonor();
+    if (initialMatch) {
+      resolvedId = initialMatch;
+    }
+
+    if (resolvedId) {
+      setHighlightedId(resolvedId);
+      setIsBlinking(true);
+      setExpandedDonorIds(prev => new Set(prev).add(resolvedId));
+    }
     // Ensure card is never hidden by active blood type or text filters
     setSelectedFilter('ALL');
     setSearch('');
-    setExpandedDonorIds(prev => new Set(prev).add(targetId));
 
     let attempts = 0;
     const maxAttempts = 35; // Poll up to 3.5s to ensure dynamic donor records have finished rendering
     const pollInterval = setInterval(() => {
       attempts++;
-      const el = document.getElementById(`donor-card-${targetId}`);
+      const currentMatch = findMatchingDonor();
+      if (currentMatch && currentMatch !== resolvedId) {
+        resolvedId = currentMatch;
+        setHighlightedId(resolvedId);
+        setExpandedDonorIds(prev => new Set(prev).add(resolvedId));
+      }
+
+      const el = resolvedId ? document.getElementById(`donor-card-${resolvedId}`) : null;
       if (el) {
         clearInterval(pollInterval);
         // Smoothly scroll target card into center of view
@@ -180,18 +217,20 @@ export default function DonorRegistry() {
 
   // Listen to searchParams on mount or update
   useEffect(() => {
-    if (highlightParam) {
-      const cleanup = triggerScrollAndHighlight(highlightParam);
+    if (highlightParam || donorNameParam) {
+      const cleanup = triggerScrollAndHighlight(highlightParam || '', donorNameParam || '', bloodTypeParam || '');
       return cleanup;
     }
-  }, [highlightParam, triggerScrollAndHighlight]);
+  }, [highlightParam, donorNameParam, bloodTypeParam, triggerScrollAndHighlight]);
 
   // Listen to window-level custom event dispatched when clicking "View Record" from notifications dropdown
   useEffect(() => {
     const handleCustomHighlight = (e: any) => {
       const donorId = e.detail?.donorId;
-      if (donorId) {
-        triggerScrollAndHighlight(donorId);
+      const donorName = e.detail?.donorName;
+      const bloodType = e.detail?.bloodType;
+      if (donorId || donorName) {
+        triggerScrollAndHighlight(donorId || '', donorName || '', bloodType || '');
       }
     };
     window.addEventListener('bloodmatch:highlight-donor', handleCustomHighlight);

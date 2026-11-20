@@ -31,7 +31,15 @@ import { AmbientBackgroundVideo } from './AmbientBackgroundVideo';
 import { AvatarUploadModal } from './AvatarUploadModal';
 import { ClinicianAvatar } from './ClinicianAvatar';
 import { getDonors, getEmergencyRequests, getInventory } from '../services/storage';
-import { apiClient, fetchAlertsApi, fetchInventoryApi, fetchDonorsApi } from '../services/api';
+import { 
+  apiClient, 
+  fetchAlertsApi, 
+  fetchInventoryApi, 
+  fetchDonorsApi,
+  fetchReadAlertIdsApi,
+  markAlertsReadApi,
+  getWebSocketUrl
+} from '../services/api';
 import { getInitials } from '../utils/countryCodes';
 import { Donor } from '../types';
 
@@ -277,21 +285,86 @@ export default function Layout() {
     };
   }, [userEmail]);
 
+  // Sync persistent read alert IDs from backend database on load
+  useEffect(() => {
+    if (userEmail) {
+      fetchReadAlertIdsApi(userEmail).then(res => {
+        const payload = res?.data;
+        if (payload && Array.isArray(payload.read_alert_ids)) {
+          const ids: string[] = payload.read_alert_ids;
+          setReadAlertIds(prev => {
+            const merged = new Set([...prev, ...ids]);
+            localStorage.setItem(`bloodmatch_read_alerts_${userEmail}`, JSON.stringify(Array.from(merged)));
+            return merged;
+          });
+        }
+      }).catch(() => {});
+    }
+  }, [userEmail]);
+
+  // Real-time WebSocket cross-device sync for alert read states & incoming notifications
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let reconnectTimer: any = null;
+
+    const connectWs = () => {
+      try {
+        const wsUrl = getWebSocketUrl();
+        ws = new WebSocket(wsUrl);
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'ALERTS_MARKED_READ') {
+              if (data.user_email && userEmail && data.user_email.toLowerCase() === userEmail.toLowerCase()) {
+                if (Array.isArray(data.alert_ids)) {
+                  setReadAlertIds(prev => {
+                    const next = new Set([...prev, ...data.alert_ids]);
+                    localStorage.setItem(`bloodmatch_read_alerts_${userEmail}`, JSON.stringify(Array.from(next)));
+                    return next;
+                  });
+                }
+              }
+            } else if (data.type === 'DONOR_CREATED' || data.type === 'COMPATIBLE_DONOR_ARRIVED' || data.type === 'EMERGENCY_CREATED') {
+              loadAlerts();
+            }
+          } catch {}
+        };
+
+        ws.onclose = () => {
+          reconnectTimer = setTimeout(connectWs, 5000);
+        };
+      } catch {}
+    };
+
+    connectWs();
+    return () => {
+      clearTimeout(reconnectTimer);
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
+    };
+  }, [userEmail]);
+
   const markAlertAsRead = (id: string) => {
     setReadAlertIds(prev => {
       const next = new Set(prev).add(id);
       if (userEmail) {
         localStorage.setItem(`bloodmatch_read_alerts_${userEmail}`, JSON.stringify(Array.from(next)));
+        markAlertsReadApi({ user_email: userEmail, alert_ids: [id] }).catch(() => {});
       }
       return next;
     });
   };
 
   const markAllAlertsAsRead = () => {
+    if (unreadAlertsCount === 0) return;
     const allIds = new Set(alerts.map(a => a.id));
     setReadAlertIds(allIds);
     if (userEmail) {
       localStorage.setItem(`bloodmatch_read_alerts_${userEmail}`, JSON.stringify(Array.from(allIds)));
+      markAlertsReadApi({ user_email: userEmail, mark_all: true }).catch(() => {});
     }
   };
 
@@ -911,27 +984,32 @@ export default function Layout() {
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-[#D72638] animate-pulse" />
                     <span className="text-xs font-black text-[#1A1D20] uppercase tracking-wider">
-                      Transfusion Alerts Queue
+                      Blood Alerts &amp; Updates
                     </span>
                     {unreadAlertsCount > 0 ? (
                       <span className="px-2 py-0.5 rounded-full bg-[#D72638] text-white text-[10px] font-black">
-                        {unreadAlertsCount} New
+                        {unreadAlertsCount} Unread
                       </span>
                     ) : (
                       <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
-                        Optimal
+                        All caught up
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-3">
-                    {alerts.length > 0 && (
-                      <button
-                        onClick={markAllAlertsAsRead}
-                        className="text-[11px] font-semibold text-[#D72638] hover:underline cursor-pointer"
-                      >
-                        Mark all read
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      disabled={unreadAlertsCount === 0}
+                      onClick={markAllAlertsAsRead}
+                      className={`text-[11px] font-bold transition-all ${
+                        unreadAlertsCount === 0
+                          ? 'text-slate-400 opacity-40 cursor-not-allowed select-none'
+                          : 'text-[#D72638] hover:underline cursor-pointer active:scale-95'
+                      }`}
+                      title={unreadAlertsCount === 0 ? "All alerts are already marked as read" : "Mark all notifications as read"}
+                    >
+                      Mark all read
+                    </button>
                     <button
                       onClick={() => setNotificationsOpen(false)}
                       className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
@@ -953,16 +1031,16 @@ export default function Layout() {
                         </div>
                         <div>
                           <p className="text-xs font-bold text-[#1A1D20]">
-                            Transfusion Queue Clear
+                            No New Notifications
                           </p>
                           <p className="text-[11px] text-[#5A626A] mt-0.5">
-                            All 8-group donor reserves and standby pools are synchronized.
+                            You are completely up to date. New blood pledges and emergency alerts will appear here.
                           </p>
                         </div>
                       </div>
                       <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-bold shrink-0">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                        <span>Live Standby</span>
+                        <span>Live Monitoring</span>
                       </div>
                     </div>
                   ) : (
@@ -1012,11 +1090,15 @@ export default function Layout() {
                               onClick={() => {
                                 markAlertAsRead(a.id);
                                 setNotificationsOpen(false);
-                                const targetUrl = `/dashboard/donors?highlight=${encodeURIComponent(a.donor_id)}&t=${Date.now()}`;
+                                const targetUrl = `/dashboard/donors?highlight=${encodeURIComponent(a.donor_id)}&donorName=${encodeURIComponent(a.donor_name)}&bloodType=${encodeURIComponent(a.blood_type)}&t=${Date.now()}`;
                                 navigate(targetUrl);
                                 if (typeof window !== 'undefined') {
                                   window.dispatchEvent(new CustomEvent('bloodmatch:highlight-donor', {
-                                    detail: { donorId: a.donor_id }
+                                    detail: { 
+                                      donorId: a.donor_id,
+                                      donorName: a.donor_name,
+                                      bloodType: a.blood_type
+                                    }
                                   }));
                                 }
                               }}

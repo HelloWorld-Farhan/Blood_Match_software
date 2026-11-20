@@ -288,6 +288,14 @@ export async function fetchAlertsApi(userEmail?: string) {
   return apiClient.get<any[]>(endpoint);
 }
 
+export async function fetchReadAlertIdsApi(userEmail: string) {
+  return apiClient.get<{ ok: boolean; read_alert_ids: string[] }>(`/api/alerts/read-ids?user_email=${encodeURIComponent(userEmail)}`);
+}
+
+export async function markAlertsReadApi(payload: { user_email: string; alert_ids?: string[]; mark_all?: boolean }) {
+  return apiClient.post<{ ok: boolean; read_alert_ids: string[]; count: number }>('/api/alerts/mark-read', payload);
+}
+
 export async function deleteDonorApi(donorId: string, userEmail?: string) {
   const query = userEmail ? `?user_email=${encodeURIComponent(userEmail)}` : '';
   const endpoint = `/api/donors/${encodeURIComponent(donorId)}${query}`;
