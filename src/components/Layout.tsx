@@ -1021,7 +1021,11 @@ export default function Layout() {
                 {/* Horizontal Header */}
                 <div className="flex items-center justify-between pb-3 border-b border-[#D9C7C2] shrink-0">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#D72638] animate-pulse" />
+                    {unreadAlertsCount > 0 ? (
+                      <div className="w-2 h-2 rounded-full bg-[#D72638] animate-pulse" />
+                    ) : (
+                      <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                    )}
                     <span className="text-xs font-black text-[#1A1D20] uppercase tracking-wider">
                       Blood Alerts &amp; Updates
                     </span>
@@ -1030,24 +1034,23 @@ export default function Layout() {
                         {unreadAlertsCount} Unread
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
-                        All caught up
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-[10px] font-semibold tracking-normal shadow-2xs">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                        <span>All caught up</span>
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      disabled={unreadAlertsCount === 0}
-                      onClick={markAllAlertsAsRead}
-                      className={`text-[11px] font-bold transition-all ${unreadAlertsCount === 0
-                        ? 'text-slate-400 opacity-40 cursor-not-allowed select-none'
-                        : 'text-[#D72638] hover:underline cursor-pointer active:scale-95'
-                        }`}
-                      title={unreadAlertsCount === 0 ? "All alerts are already marked as read" : "Mark all notifications as read"}
-                    >
-                      Mark all read
-                    </button>
+                    {unreadAlertsCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={markAllAlertsAsRead}
+                        className="text-[11px] font-bold text-[#D72638] hover:underline cursor-pointer active:scale-95 transition-all"
+                        title="Mark all notifications as read"
+                      >
+                        Mark all read
+                      </button>
+                    )}
                     <button
                       onClick={() => setNotificationsOpen(false)}
                       className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"

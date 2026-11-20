@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, Variants } from 'framer-motion';
 import { BloodType } from '../types';
 import { BLOOD_COMPATIBILITY_TABLE } from '../utils/bloodCompatibility';
-import { HeartPulse, CheckCircle2, Info, Activity, ShieldCheck, Dna, BarChart3, ChevronLeft, ChevronRight } from 'lucide-react';
+import { HeartPulse, CheckCircle2, Info, Activity, ShieldCheck, Dna, BarChart3, ChevronLeft, ChevronRight, ArrowDown, ArrowRight, X } from 'lucide-react';
 
 const scrollBlurVariants: Variants = {
   hidden: { 
@@ -26,6 +26,7 @@ const scrollBlurVariants: Variants = {
 export default function CompatibilityMatrix() {
   const bloodTypes: BloodType[] = ['O-', 'O+', 'A-', 'A+', 'B-', 'B+', 'AB-', 'AB+'];
   const [selectedType, setSelectedType] = useState<BloodType>('O-');
+  const [hoveredCell, setHoveredCell] = useState<{ donor: BloodType; recipient: BloodType } | null>(null);
 
   const selectedInfo = BLOOD_COMPATIBILITY_TABLE[selectedType];
   const currentIndex = bloodTypes.indexOf(selectedType);
@@ -359,34 +360,82 @@ export default function CompatibilityMatrix() {
         initial="hidden"
         whileInView="visible"
         viewport={{ once: false, amount: 0.12 }}
-        className="p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-x-auto no-scrollbar"
+        className="p-4 sm:p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-x-auto no-scrollbar"
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <div>
             <h3 className="text-base font-bold text-[#1A1D20]">Full Transfusion Cross-Match Registry</h3>
-            <p className="text-xs text-[#5A626A]">Rows represent Donor group; columns represent Recipient group</p>
+            <div className="flex flex-wrap items-center gap-2 mt-1 text-xs">
+              <span className="inline-flex items-center gap-1 font-semibold text-[#D72638]">
+                <ArrowRight className="w-3.5 h-3.5" />
+                <span>Rows: DONOR (Giving Blood)</span>
+              </span>
+              <span className="text-slate-300">|</span>
+              <span className="inline-flex items-center gap-1 font-semibold text-sky-700">
+                <ArrowDown className="w-3.5 h-3.5" />
+                <span>Columns: RECIPIENT (Receiving Blood)</span>
+              </span>
+            </div>
           </div>
-          <span className="text-xs font-mono text-[#7A0C17] font-semibold">Standard Red Blood Cells (RBC)</span>
+          <span className="text-xs font-mono text-[#7A0C17] font-semibold bg-[#F5F1EF] px-2.5 py-1 rounded-md self-start sm:self-auto border border-[#D9C7C2]/60">
+            Standard Red Blood Cells (RBC)
+          </span>
         </div>
 
-        <table className="w-full min-w-[560px] text-center text-xs border-collapse">
+        <table className="w-full min-w-[620px] text-center text-xs border-collapse">
           <thead>
+            {/* Top Recipient Axis Descriptor Row */}
+            <tr>
+              <th className="p-0 border-b border-[#D9C7C2]"></th>
+              <th colSpan={8} className="py-2 px-2 text-center bg-sky-50/80 border-b border-sky-200/80 rounded-t-xl">
+                <div className="inline-flex items-center justify-center gap-2 text-sky-900 font-black text-[11px] uppercase tracking-wider">
+                  <span className="w-2 h-2 rounded-full bg-sky-600 animate-pulse"></span>
+                  <span>RECIPIENT / PATIENT (Receiving Blood ↓)</span>
+                  <span className="text-[10px] text-sky-700 font-normal lowercase hidden sm:inline">(read columns vertically)</span>
+                </div>
+              </th>
+            </tr>
             <tr className="border-b border-[#D9C7C2] text-[#5A626A]">
-              <th className="py-2.5 text-left font-bold pl-3 text-[#1A1D20]">Donor \ Recipient</th>
+              {/* Corner Cell clearly separating Axes */}
+              <th className="py-2.5 px-3 text-left bg-slate-50/90 border-r border-[#D9C7C2] align-middle w-36">
+                <div className="flex flex-col gap-1 text-[10px]">
+                  <div className="flex items-center justify-between text-sky-800 font-black">
+                    <span className="flex items-center gap-1">
+                      <ArrowDown className="w-3 h-3 text-sky-600" />
+                      <span>Cols</span>
+                    </span>
+                    <span className="uppercase text-[9px] px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 font-bold tracking-tight">Recipient</span>
+                  </div>
+                  <div className="border-t border-[#D9C7C2]/80 my-0.5" />
+                  <div className="flex items-center justify-between text-[#D72638] font-black">
+                    <span className="flex items-center gap-1">
+                      <ArrowRight className="w-3 h-3 text-[#D72638]" />
+                      <span>Rows</span>
+                    </span>
+                    <span className="uppercase text-[9px] px-1.5 py-0.5 rounded bg-red-100 text-[#D72638] font-bold tracking-tight">Donor</span>
+                  </div>
+                </div>
+              </th>
               {bloodTypes.map(rt => {
                 const isSelectedCol = rt === selectedType;
+                const isHoveredCol = hoveredCell?.recipient === rt;
                 return (
                   <th
                     key={rt}
                     onClick={() => setSelectedType(rt)}
-                    className={`py-2.5 px-1 font-bold cursor-pointer transition-all ${
-                      isSelectedCol
-                        ? 'text-[#D72638] font-black border-b-2 border-[#D72638]'
-                        : 'text-[#1A1D20] hover:text-[#D72638]'
+                    className={`py-2 px-1 font-bold cursor-pointer transition-all border-b border-[#D9C7C2] ${
+                      isHoveredCol
+                        ? 'bg-sky-100 text-sky-950 font-black'
+                        : isSelectedCol
+                        ? 'bg-sky-50 text-[#D72638] font-black border-b-2 border-[#D72638]'
+                        : 'text-[#1A1D20] hover:bg-sky-50/60'
                     }`}
-                    title={`Focus Group ${rt}`}
+                    title={`Recipient Group ${rt} (Click to focus)`}
                   >
-                    <span>{rt}</span>
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs font-black">{rt}</span>
+                      <span className="text-[9px] font-mono text-sky-700/80 font-bold">Recv ↓</span>
+                    </div>
                   </th>
                 );
               })}
@@ -395,50 +444,77 @@ export default function CompatibilityMatrix() {
           <tbody className="divide-y divide-[#D9C7C2]/60">
             {bloodTypes.map(dt => {
               const isSelectedRow = dt === selectedType;
+              const isHoveredRow = hoveredCell?.donor === dt;
               return (
                 <tr 
                   key={dt} 
                   className={`transition-colors ${
-                    isSelectedRow 
+                    isHoveredRow
+                      ? 'bg-red-50/50'
+                      : isSelectedRow 
                       ? 'bg-[#F5F1EF]/70 font-semibold' 
                       : 'hover:bg-[#F5F1EF]/40'
                   }`}
                 >
+                  {/* Donor Row Header */}
                   <td
                     onClick={() => setSelectedType(dt)}
-                    className={`py-3 text-left font-black pl-3 flex items-center gap-2 cursor-pointer transition-colors ${
-                      isSelectedRow ? 'text-[#D72638]' : 'text-[#1A1D20] hover:text-[#D72638]'
+                    className={`py-2.5 px-3 text-left font-black border-r border-[#D9C7C2] cursor-pointer transition-colors ${
+                      isHoveredRow
+                        ? 'bg-red-100 text-[#D72638]'
+                        : isSelectedRow 
+                        ? 'bg-red-50/80 text-[#D72638]' 
+                        : 'text-[#1A1D20] hover:text-[#D72638]'
                     }`}
-                    title={`Focus Group ${dt}`}
+                    title={`Donor Group ${dt} (Click to focus)`}
                   >
-                    <span className={`w-2 h-2 rounded-full ${isSelectedRow ? 'bg-[#D72638]' : 'bg-[#D72638]/50'}`}></span>
-                    <span>{dt}</span>
+                    <div className="flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${isSelectedRow || isHoveredRow ? 'bg-[#D72638]' : 'bg-[#D72638]/50'}`}></span>
+                        <span className="text-xs font-black">{dt}</span>
+                      </div>
+                      <span className="text-[9px] font-mono font-bold text-red-600/80">Give →</span>
+                    </div>
                   </td>
                   {bloodTypes.map(rt => {
                     const safe = BLOOD_COMPATIBILITY_TABLE[dt].canGiveTo.includes(rt);
                     const isSelectedCol = rt === selectedType;
                     const isIntersection = isSelectedRow && isSelectedCol;
+                    const isCellHovered = hoveredCell?.donor === dt && hoveredCell?.recipient === rt;
+                    const isCrosshair = hoveredCell?.donor === dt || hoveredCell?.recipient === rt;
 
                     return (
                       <td 
                         key={rt} 
-                        className={`py-3 transition-colors ${
-                          isIntersection
+                        onMouseEnter={() => setHoveredCell({ donor: dt, recipient: rt })}
+                        onMouseLeave={() => setHoveredCell(null)}
+                        className={`py-2.5 transition-colors cursor-pointer ${
+                          isCellHovered
+                            ? 'bg-amber-100/90 ring-2 ring-amber-400 z-10 relative'
+                            : isCrosshair
+                            ? 'bg-slate-100/60'
+                            : isIntersection
                             ? 'bg-emerald-50/60'
                             : ''
                         }`}
                       >
                         {safe ? (
                           <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-bold shadow-2xs transition-transform ${
-                            isIntersection
+                            isCellHovered
+                              ? 'bg-emerald-500 text-white scale-110 shadow-md font-black'
+                              : isIntersection
                               ? 'bg-emerald-200 text-emerald-950 font-black'
-                              : 'bg-emerald-100 text-emerald-800'
+                              : 'bg-emerald-100 text-emerald-800 hover:scale-105'
                           }`}>
                             ✓
                           </span>
                         ) : (
-                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full font-medium text-slate-300">
-                            –
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full font-bold transition-transform ${
+                            isCellHovered
+                              ? 'bg-rose-100 text-rose-700 scale-110 font-black'
+                              : 'text-slate-300'
+                          }`}>
+                            {isCellHovered ? '✕' : '–'}
                           </span>
                         )}
                       </td>
@@ -449,6 +525,57 @@ export default function CompatibilityMatrix() {
             })}
           </tbody>
         </table>
+
+        {/* Dynamic Transfusion Interpretation Card */}
+        <div className="mt-4 p-3.5 rounded-xl border border-[#D9C7C2] bg-[#FBF9F8] transition-all">
+          {hoveredCell ? (
+            (() => {
+              const safe = BLOOD_COMPATIBILITY_TABLE[hoveredCell.donor].canGiveTo.includes(hoveredCell.recipient);
+              return (
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="px-2.5 py-1 rounded-md bg-red-100 text-[#D72638] font-black text-xs flex items-center gap-1 border border-red-200">
+                      DONOR: {hoveredCell.donor}
+                      <ArrowRight className="w-3 h-3 text-[#D72638]" />
+                    </span>
+                    <span className="px-2.5 py-1 rounded-md bg-sky-100 text-sky-800 font-black text-xs flex items-center gap-1 border border-sky-200">
+                      RECIPIENT: {hoveredCell.recipient}
+                      <ArrowDown className="w-3 h-3 text-sky-700" />
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {safe ? (
+                      <span className="inline-flex items-center gap-1.5 font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 shadow-2xs">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span><strong>SAFE TRANSFUSION:</strong> Group {hoveredCell.donor} blood can be safely received by Group {hoveredCell.recipient}</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 font-bold text-rose-800 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-200 shadow-2xs">
+                        <X className="w-4 h-4 text-rose-600 shrink-0" />
+                        <span><strong>INCOMPATIBLE:</strong> Group {hoveredCell.recipient} cannot receive Group {hoveredCell.donor} RBCs (risk of acute hemolysis)</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs text-[#5A626A]">
+              <div className="flex items-center gap-2">
+                <Info className="w-4 h-4 text-[#D72638] shrink-0" />
+                <span>Hover over any cell to see real-time donor-to-recipient transfusion compatibility.</span>
+              </div>
+              <div className="flex items-center gap-3 text-[11px] font-semibold text-slate-500">
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span> ✓ Compatible
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-slate-300"></span> – Incompatible
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
       </motion.div>
     </div>
   );
