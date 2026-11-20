@@ -2182,7 +2182,7 @@ export default function DonorRegistry() {
         id={`donor-card-${donor.id}`}
         key={donor.id}
         className={`rounded-2xl transition-all duration-300 overflow-hidden w-full relative ${isTargeted
-          ? 'animate-target-record-blink ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/40 scale-[1.01] bg-[#FFF2F4] z-20'
+          ? 'animate-target-record-blink ring-2 ring-[#D72638]/40 border-l-4 border-l-[#D72638] border-y-[#D72638]/30 border-r-[#D72638]/30 shadow-md shadow-[#D72638]/10 bg-[#FFF9F9] z-10'
           : isSelfDonor
             ? 'bg-white border-2 border-[#D72638] shadow-md shadow-[#D72638]/10'
             : 'bg-white border border-[#D9C7C2] shadow-xs hover:border-[#D72638]/50 hover:shadow-sm'
@@ -2200,8 +2200,7 @@ export default function DonorRegistry() {
           <div className="flex items-center gap-3.5 min-w-0 flex-1">
             <div
               title={`Blood Group ${donor.bloodType}`}
-              className={`group/badge relative w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] flex flex-col items-center justify-center font-black text-white shadow-md shadow-[#D72638]/25 border border-white/20 shrink-0 transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#D72638]/40 hover:from-[#FF4D5E] hover:to-[#8E0E1B] active:scale-95 cursor-pointer overflow-hidden select-none ${isTargeted ? 'ring-4 ring-[#D72638] ring-offset-2 scale-110 shadow-2xl shadow-[#D72638]/60' : ''
-                }`}
+              className="group/badge relative w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] flex flex-col items-center justify-center font-black text-white shadow-md shadow-[#D72638]/25 border border-white/20 shrink-0 transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#D72638]/40 hover:from-[#FF4D5E] hover:to-[#8E0E1B] active:scale-95 cursor-pointer overflow-hidden select-none"
             >
               <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent pointer-events-none rounded-t-2xl" />
               <div className="relative z-10 flex flex-col items-center justify-center leading-none">
@@ -2226,10 +2225,9 @@ export default function DonorRegistry() {
                   </span>
                 )}
                 {isTargeted && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#D72638] text-white text-[10px] font-black uppercase tracking-wider shadow-md shadow-[#D72638]/40 shrink-0 animate-bounce">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                    <Sparkles className="w-3 h-3" />
-                    <span>Targeted Record</span>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-red-50 text-[#D72638] border border-red-200 text-[10px] font-bold tracking-tight shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#D72638]" />
+                    <span>Focused</span>
                   </span>
                 )}
                 <span className="font-mono text-xs text-[#7A0C17] bg-[#7A0C17]/10 px-2 py-0.5 rounded-md font-bold shrink-0">

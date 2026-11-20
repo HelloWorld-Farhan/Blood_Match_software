@@ -518,6 +518,23 @@ export default function EmergencyRequests() {
   const [generatingPdfReqId, setGeneratingPdfReqId] = useState<string | null>(null);
   const [downloadedPdfReqId, setDownloadedPdfReqId] = useState<string | null>(null);
   const [modalNotification, setModalNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Auto-dismiss confirmation / status messages after 4.5 seconds with smooth exit animation
+  useEffect(() => {
+    if (!boardNotification) return;
+    const timer = setTimeout(() => {
+      setBoardNotification(null);
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [boardNotification]);
+
+  useEffect(() => {
+    if (!modalNotification) return;
+    const timer = setTimeout(() => {
+      setModalNotification(null);
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [modalNotification]);
   const [lastGeneratedPdf, setLastGeneratedPdf] = useState<{
     uniqueId: string;
     filename: string;
@@ -1697,9 +1714,9 @@ export default function EmergencyRequests() {
             const targetScrollTop = mainContainer.scrollTop + (rect.top - containerRect.top) - (containerRect.height / 2) + (rect.height / 2);
             mainContainer.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
           }
-          card.classList.add('ring-4', 'ring-[#D72638]', 'ring-offset-2', 'bg-red-50/40');
+          card.classList.add('ring-2', 'ring-[#D72638]/40', 'border-l-4', 'border-l-[#D72638]', 'bg-[#FFF9F9]');
           setTimeout(() => {
-            card.classList.remove('ring-4', 'ring-[#D72638]', 'ring-offset-2', 'bg-red-50/40');
+            card.classList.remove('ring-2', 'ring-[#D72638]/40', 'border-l-4', 'border-l-[#D72638]', 'bg-[#FFF9F9]');
           }, 3000);
         }
       }, 350);
@@ -2108,9 +2125,9 @@ export default function EmergencyRequests() {
       <AnimatePresence>
         {boardNotification && (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: -10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.98, transition: { duration: 0.35, ease: 'easeOut' } }}
             className={`p-3.5 sm:p-4 rounded-2xl flex items-center justify-between text-xs font-bold shadow-md border ${boardNotification.type === 'success'
               ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
               : 'bg-red-50 text-[#D72638] border-red-200'
@@ -2209,7 +2226,7 @@ export default function EmergencyRequests() {
                   className={`rounded-2xl border transition-all duration-300 overflow-hidden shadow-xs relative ${isJustFulfilled
                     ? 'animate-fulfilled-smooth ring-4 ring-emerald-400/50 border-emerald-500 bg-emerald-50/40 z-10'
                     : isTargetHighlighted
-                      ? 'animate-target-record-blink ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/40 scale-[1.01] bg-[#FFF2F4] z-20'
+                      ? 'animate-target-record-blink ring-2 ring-[#D72638]/40 border-l-4 border-l-[#D72638] border-y-[#D72638]/30 border-r-[#D72638]/30 shadow-md shadow-[#D72638]/10 bg-[#FFF9F9] z-10'
                       : isFulfilled
                         ? 'bg-white border-emerald-200'
                         : 'bg-white border-[#D9C7C2] hover:border-[#D72638]/50'
@@ -2252,9 +2269,9 @@ export default function EmergencyRequests() {
                             {isFulfilled ? '✓ FULFILLED' : req.urgency}
                           </span>
                           {isTargetHighlighted && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-[#D72638] text-white inline-flex items-center gap-1 shadow-xs animate-pulse">
-                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping inline-block" />
-                              <span>Matched Focus</span>
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold tracking-tight bg-red-50 text-[#D72638] border border-red-200 inline-flex items-center gap-1.5 shrink-0">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#D72638]" />
+                              <span>Focused</span>
                             </span>
                           )}
                         </div>
@@ -3007,23 +3024,17 @@ export default function EmergencyRequests() {
                 animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
                 exit={{ opacity: 0, scale: 0.95, y: 12, filter: 'blur(6px)' }}
                 transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-                className={`relative w-full ${modalPhase === 'SCANNING'
-                  ? 'max-w-2xl sm:max-w-3xl overflow-hidden rounded-3xl p-0 bg-black border border-white/20 shadow-2xl'
-                  : 'max-w-4xl lg:max-w-5xl max-h-[92dvh] my-auto overflow-y-auto no-scrollbar rounded-3xl bg-white/95 backdrop-blur-2xl border border-white/60 p-4 sm:p-6 md:p-8 shadow-2xl text-[#1A1D20]'
-                  }`}
+                className="relative w-full max-w-4xl lg:max-w-5xl max-h-[92dvh] my-auto overflow-y-auto no-scrollbar rounded-3xl bg-white/95 backdrop-blur-2xl border border-white/60 p-4 sm:p-6 md:p-8 shadow-2xl text-[#1A1D20]"
                 onClick={(e) => e.stopPropagation()}
                 style={{ willChange: 'transform, opacity, filter' }}
               >
                 {/* Close Button with generous clearance & non-overlapping hover boundary */}
                 <button
                   onClick={handleCancelModal}
-                  className={`absolute top-4 right-4 sm:top-5 sm:right-5 z-40 p-2 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95 ${modalPhase === 'SCANNING'
-                    ? 'text-white/80 hover:text-white hover:bg-white/10 bg-black/40 backdrop-blur-md border border-white/15'
-                    : 'text-slate-400 hover:text-[#1A1D20] hover:bg-[#F5F1EF]'
-                    }`}
+                  className="absolute top-4 right-4 sm:top-5 sm:right-5 z-40 p-2 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95 text-slate-400 hover:text-[#1A1D20] hover:bg-[#F5F1EF]"
                   aria-label="Close dialog"
                 >
-                  <X className={`w-5 h-5 ${modalPhase === 'SCANNING' ? 'text-white' : 'text-[#D72638]'}`} />
+                  <X className="w-5 h-5 text-[#D72638]" />
                 </button>
 
                 {/* Pre-warm 119846 radar video in memory to guarantee zero lag when scan initiates */}
@@ -3040,9 +3051,9 @@ export default function EmergencyRequests() {
                 <AnimatePresence>
                   {modalNotification && (
                     <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
+                      initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.98, transition: { duration: 0.35, ease: 'easeOut' } }}
                       className={`mr-14 sm:mr-16 mb-4 p-3 rounded-xl flex items-center justify-between text-xs font-bold ${modalNotification.type === 'success'
                         ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                         : 'bg-red-50 text-red-800 border border-red-200'
@@ -3530,16 +3541,16 @@ export default function EmergencyRequests() {
                     </motion.div>
                   )}
 
-                  {/* PHASE 2: SCANNING ANIMATION (VIDEO FILLS ENTIRE POPUP, NO CIRCLES, SIMPLE ENGLISH) */}
+                  {/* PHASE 2: SCANNING ANIMATION (HIGH-TECH RADAR STAGE INSIDE CONSISTENT CARD) */}
                   {modalPhase === 'SCANNING' && (
                     <motion.div
                       key="modal-phase-scanning"
-                      initial={{ opacity: 0, filter: 'blur(10px)', scale: 0.98 }}
-                      animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
-                      exit={{ opacity: 0, filter: 'blur(10px)', scale: 0.98 }}
-                      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                      className="relative w-full h-[400px] sm:h-[460px] flex flex-col items-center justify-center p-6 sm:p-10 text-center overflow-hidden"
-                      style={{ willChange: 'transform, opacity, filter' }}
+                      initial={{ opacity: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.98 }}
+                      transition={{ duration: 0.2, ease: 'easeOut' }}
+                      className="relative w-full h-[400px] sm:h-[460px] rounded-2xl flex flex-col items-center justify-center p-6 sm:p-10 text-center overflow-hidden bg-slate-950 border border-slate-800 shadow-xl"
+                      style={{ willChange: 'transform, opacity' }}
                     >
                       {/* Video Background: 119846-719283256_medium.mp4 fills the entire popup */}
                       <video
