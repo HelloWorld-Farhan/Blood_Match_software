@@ -414,12 +414,13 @@ export async function saveEmergencyDocketApi(payload: {
   return apiClient.post<{ message: string; ok: boolean }>('/api/emergency/save-docket', payload);
 }
 
-export async function updateEmergencyLiveTrackingApi(requestId: string, liveTracking: boolean, userEmail?: string) {
-  return apiClient.patch<{ ok: boolean; request_id: string; live_tracking: boolean; message: string }>(
+export async function updateEmergencyLiveTrackingApi(requestId: string, liveTracking: boolean, userEmail?: string, updatedAt?: number) {
+  return apiClient.patch<{ ok: boolean; request_id: string; live_tracking: boolean; live_tracking_updated_at?: number; message: string }>(
     `/api/emergency/${encodeURIComponent(requestId)}/live-tracking`,
     {
       live_tracking: liveTracking,
-      user_email: userEmail
+      user_email: userEmail,
+      updated_at: updatedAt || Date.now()
     }
   );
 }

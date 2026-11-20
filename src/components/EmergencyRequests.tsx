@@ -348,6 +348,7 @@ export default function EmergencyRequests() {
   const [fulfilledViaReserve, setFulfilledViaReserve] = useState<boolean>(false);
   const [isFulfilling, setIsFulfilling] = useState<boolean>(false);
   const [boardNotification, setBoardNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const pendingLiveTrackSyncRef = useRef<Record<string, any>>({});
 
   // Modal Workflow Phase: 'INPUT' | 'SCANNING' | 'RESULTS'
   const [modalPhase, setModalPhase] = useState<'INPUT' | 'SCANNING' | 'RESULTS'>('INPUT');
@@ -659,17 +660,20 @@ export default function EmergencyRequests() {
         const allDeletedIds = new Set([...localDeletedSet, ...remoteDeletedSet]);
 
         const now = Date.now();
-        // Filter out any tombstoned requests & protect recent local live-tracking toggles from being overwritten by stale remote polling
+        // Filter out any tombstoned requests & protect local live-tracking toggles using timestamp precedence (never reverts)
         const activeRemoteReqs = remoteReqs.map(r => {
           const local = currentLocal.find(l => l.id === r.id);
+          const localUpdated = local?.liveTrackingUpdatedAt || 0;
+          const remoteUpdated = (r as any).liveTrackingUpdatedAt || (r as any).live_tracking_updated_at || 0;
+
           if (local && local.liveTracking !== undefined) {
-            const isRecent = local.liveTrackingUpdatedAt && (now - local.liveTrackingUpdatedAt < 30000);
-            if (isRecent) {
+            // If local was explicitly updated and remote doesn't have a newer timestamp, always retain local user intent
+            if (localUpdated >= remoteUpdated) {
               return {
                 ...r,
                 liveTracking: local.liveTracking,
                 live_tracking: local.liveTracking,
-                liveTrackingUpdatedAt: local.liveTrackingUpdatedAt
+                liveTrackingUpdatedAt: localUpdated
               };
             }
           }
@@ -782,8 +786,14 @@ export default function EmergencyRequests() {
             } else if (data.type === 'LIVE_TRACKING_TOGGLED') {
               const targetId = data.request_id || data.id;
               const nextStatus = Boolean(data.live_tracking);
+              const eventTs = data.live_tracking_updated_at || Date.now();
               setRequests(prev => {
-                const updated = prev.map(r => r.id === targetId ? { ...r, liveTracking: nextStatus, live_tracking: nextStatus, liveTrackingUpdatedAt: Date.now() } : r);
+                const target = prev.find(r => r.id === targetId);
+                // If local has a newer pending change, don't revert from older broadcast
+                if (target?.liveTrackingUpdatedAt && target.liveTrackingUpdatedAt > eventTs) {
+                  return prev;
+                }
+                const updated = prev.map(r => r.id === targetId ? { ...r, liveTracking: nextStatus, live_tracking: nextStatus, liveTrackingUpdatedAt: eventTs } : r);
                 saveEmergencyRequests(updated, currentUserEmail, false);
                 return updated;
               });
@@ -847,33 +857,38 @@ export default function EmergencyRequests() {
     };
   }, [currentUserEmail]);
 
-  // Toggle Live Tracking status for an active emergency request (Fast & Real-time, 0ms latency)
-  const handleToggleLiveTracking = (req: EmergencyRequest) => {
-    const isCurrentlyOn = req.liveTracking !== false && req.live_tracking !== false;
-    const nextVal = !isCurrentlyOn;
+  // Toggle Live Tracking status for an active emergency request (Fast & Real-time, 0ms latency, race-free debouncing)
+  const handleToggleLiveTracking = (targetReq: EmergencyRequest) => {
     const now = Date.now();
+    let computedNextVal = false;
 
     // 1. Instant 0ms Optimistic UI Update & Broadcast across tabs
     setRequests(prev => {
+      const current = prev.find(r => r.id === targetReq.id);
+      const isCurrentlyOn = current
+        ? (current.liveTracking !== false && current.live_tracking !== false)
+        : (targetReq.liveTracking !== false && targetReq.live_tracking !== false);
+      computedNextVal = !isCurrentlyOn;
+
       const updated = prev.map(r =>
-        r.id === req.id
-          ? { ...r, liveTracking: nextVal, live_tracking: nextVal, liveTrackingUpdatedAt: now }
+        r.id === targetReq.id
+          ? { ...r, liveTracking: computedNextVal, live_tracking: computedNextVal, liveTrackingUpdatedAt: now }
           : r
       );
       saveEmergencyRequests(updated, currentUserEmail);
       return updated;
     });
 
-    setBoardNotification({
-      message: `Live Tracking for patient ${stripHonorific(req.patientName)} is now ${nextVal ? 'ACTIVE (Radar ON)' : 'PAUSED (Radar OFF)'}.`,
-      type: 'success'
-    });
-    setTimeout(() => setBoardNotification(null), 4000);
-
-    // 2. Non-blocking asynchronous persistence to Backend API & R2
-    updateEmergencyLiveTrackingApi(req.id, nextVal, currentUserEmail).catch(err => {
-      console.warn('Background sync of live tracking failed:', err);
-    });
+    // 2. Debounce rapid toggles per request so multiple rapid clicks don't race on the network
+    if (pendingLiveTrackSyncRef.current[targetReq.id]) {
+      clearTimeout(pendingLiveTrackSyncRef.current[targetReq.id]);
+    }
+    pendingLiveTrackSyncRef.current[targetReq.id] = setTimeout(() => {
+      updateEmergencyLiveTrackingApi(targetReq.id, computedNextVal, currentUserEmail, now).catch(err => {
+        console.warn('Background sync of live tracking failed:', err);
+      });
+      delete pendingLiveTrackSyncRef.current[targetReq.id];
+    }, 150);
   };
 
   // Update coordinates whenever selected locality changes
@@ -2241,11 +2256,6 @@ export default function EmergencyRequests() {
                               ? 'bg-emerald-50/90 hover:bg-emerald-100/90 border-emerald-300 text-emerald-950'
                               : 'bg-[#F5F1EF] hover:bg-[#EAE4E0] border-[#D9C7C2] text-slate-600'
                               }`}
-                            title={
-                              req.liveTracking !== false
-                                ? 'Live Radar is ON: Automatic notifications and email alerts will trigger across all synced devices when compatible lifesavers arrive. Click to turn OFF.'
-                                : 'Live Radar is OFF: Real-time alerts paused. Click to turn ON.'
-                            }
                           >
                             <div className="flex items-center gap-1.5 pointer-events-none">
                               {req.liveTracking !== false ? (

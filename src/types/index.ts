@@ -58,6 +58,7 @@ export interface EmergencyRequest {
   liveTracking?: boolean;
   live_tracking?: boolean;
   liveTrackingUpdatedAt?: number;
+  live_tracking_updated_at?: number;
 }
 
 export interface BloodInventoryUnit {
