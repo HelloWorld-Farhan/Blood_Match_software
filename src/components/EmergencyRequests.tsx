@@ -2167,20 +2167,17 @@ export default function EmergencyRequests() {
                         </div>
 
                         <div className="text-[11px] text-[#5A626A] mt-1 flex items-center gap-2 flex-wrap">
-                          <span>Contact: <strong>{stripHonorific(req.contactName)}</strong></span>
-                          <button
-                            type="button"
-                            onClick={() => setCallModalTarget({
-                              contactName: stripHonorific(req.contactName),
-                              phoneNumber: req.contactNumber,
-                              bloodType: req.bloodType,
-                              location: req.hospitalCity || 'Delhi NCR',
-                              roleOrContext: `Emergency Transfusion Hotline • Patient: ${stripHonorific(req.patientName)}`
-                            })}
-                            className="font-mono text-[#D72638] font-bold hover:underline cursor-pointer"
-                          >
+                          <span>
+                            Contact: <strong>{stripHonorific(req.contactName)}</strong>
+                            {stripHonorific(req.contactName).toLowerCase() === stripHonorific(currentUserName).toLowerCase() && (
+                              <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                                You
+                              </span>
+                            )}
+                          </span>
+                          <span className="font-mono text-[#D72638] font-bold">
                             {req.contactNumber}
-                          </button>
+                          </span>
                           {isFulfilled && req.fulfilledByDonorName && (
                             <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                               Fulfilled by: {stripHonorific(req.fulfilledByDonorName)}
@@ -2319,29 +2316,6 @@ export default function EmergencyRequests() {
                           </div>
 
                           <div className="flex items-center gap-2 flex-wrap">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (isFulfilled) return;
-                                setCallModalTarget({
-                                  contactName: stripHonorific(req.contactName),
-                                  phoneNumber: req.contactNumber,
-                                  bloodType: req.bloodType,
-                                  location: req.hospitalCity || 'Delhi NCR',
-                                  roleOrContext: `Emergency Transfusion Hotline • Patient: ${stripHonorific(req.patientName)}`
-                                });
-                              }}
-                              disabled={isFulfilled}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${isFulfilled
-                                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-50 shadow-none'
-                                : 'bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] border border-[#D9C7C2] cursor-pointer shadow-2xs'
-                                }`}
-                              title={isFulfilled ? 'Transfusion fulfilled & closed: Hotline call blocked' : `Call Emergency Hotline: ${stripHonorific(req.contactName)} (${req.contactNumber})`}
-                            >
-                              <Phone className={`w-3.5 h-3.5 ${isFulfilled ? 'text-slate-400' : 'text-emerald-600'}`} />
-                              <span>Call Hotline ({req.contactNumber})</span>
-                            </button>
-
                             <button
                               type="button"
                               onClick={() => !isFulfilled && handleEmailRosterForRequest(req, displayedDonors)}

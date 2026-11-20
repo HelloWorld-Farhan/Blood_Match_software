@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
-  Droplet, 
-  Users, 
-  AlertTriangle, 
-  Database, 
-  TrendingUp, 
-  Activity, 
-  ArrowUpRight, 
-  CheckCircle2, 
-  XCircle, 
-  ShieldAlert, 
-  ShieldCheck, 
+import {
+  Droplet,
+  Users,
+  AlertTriangle,
+  Database,
+  TrendingUp,
+  Activity,
+  ArrowUpRight,
+  CheckCircle2,
+  XCircle,
+  ShieldAlert,
+  ShieldCheck,
   RefreshCw,
   BarChart3,
   HeartPulse,
@@ -42,38 +42,38 @@ const containerVariants: Variants = {
 };
 
 const blurSectionVariants: Variants = {
-  hidden: { 
-    opacity: 0, 
-    y: 22, 
+  hidden: {
+    opacity: 0,
+    y: 22,
     filter: 'blur(12px)',
     scale: 0.985,
   },
-  visible: { 
-    opacity: 1, 
-    y: 0, 
+  visible: {
+    opacity: 1,
+    y: 0,
     filter: 'blur(0px)',
     scale: 1,
-    transition: { 
-      duration: 0.55, 
+    transition: {
+      duration: 0.55,
       ease: [0.22, 1, 0.36, 1],
     },
   },
 };
 
 const kpiCardVariants: Variants = {
-  hidden: { 
-    opacity: 0, 
-    y: 18, 
+  hidden: {
+    opacity: 0,
+    y: 18,
     filter: 'blur(10px)',
     scale: 0.97,
   },
-  visible: { 
-    opacity: 1, 
-    y: 0, 
+  visible: {
+    opacity: 1,
+    y: 0,
     filter: 'blur(0px)',
     scale: 1,
-    transition: { 
-      duration: 0.5, 
+    transition: {
+      duration: 0.5,
       ease: [0.22, 1, 0.36, 1],
     },
   },
@@ -379,14 +379,14 @@ export const Dashboard: React.FC = () => {
     : inventory.filter(i => i.bloodType === selectedBloodFilter);
 
   return (
-    <motion.div 
+    <motion.div
       variants={containerVariants}
       initial="hidden"
       animate="visible"
       className="space-y-4 pb-2 sm:pb-3"
     >
       {/* Power BI Top Navigation & Slicer Bar */}
-      <motion.div 
+      <motion.div
         variants={blurSectionVariants}
         initial="hidden"
         whileInView="visible"
@@ -415,11 +415,10 @@ export const Dashboard: React.FC = () => {
               <button
                 key={type}
                 onClick={() => setSelectedBloodFilter(type)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-95 ${
-                  selectedBloodFilter === type
-                    ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/30 font-black'
-                    : 'text-[#4A5568] hover:text-[#1A1D20] hover:bg-white active:bg-slate-100'
-                }`}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer active:scale-95 ${selectedBloodFilter === type
+                  ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/30 font-black'
+                  : 'text-[#4A5568] hover:text-[#1A1D20] hover:bg-white active:bg-slate-100'
+                  }`}
               >
                 {type}
               </button>
@@ -432,7 +431,7 @@ export const Dashboard: React.FC = () => {
       </motion.div>
 
       {/* 4 Primary Power BI KPI Cards with Interactive Visualizations (Work 5) */}
-      <motion.div 
+      <motion.div
         variants={blurSectionVariants}
         initial="hidden"
         whileInView="visible"
@@ -440,7 +439,7 @@ export const Dashboard: React.FC = () => {
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5"
       >
         {/* KPI 1: Cryo Volume with Power BI ABO Allele Micro Bar Chart */}
-        <motion.div 
+        <motion.div
           variants={kpiCardVariants}
           whileTap={{ scale: 0.99 }}
           onClick={() => navigate('/dashboard/inventory')}
@@ -486,13 +485,12 @@ export const Dashboard: React.FC = () => {
                     >
                       <div
                         style={{ height: `${barH}%` }}
-                        className={`w-full rounded-xs transition-all duration-300 ${
-                          inv.unitsAvailable === 0
-                            ? 'bg-[#D9C7C2]/40'
-                            : isHovered
+                        className={`w-full rounded-xs transition-all duration-300 ${inv.unitsAvailable === 0
+                          ? 'bg-[#D9C7C2]/40'
+                          : isHovered
                             ? 'bg-[#D72638] shadow-sm shadow-[#D72638]/50 ring-1 ring-[#D72638]'
                             : 'bg-gradient-to-t from-[#7A0C17] to-[#D72638]'
-                        }`}
+                          }`}
                       />
                       <span className="text-[7.5px] font-bold text-[#4A5568] mt-0.5 leading-none">{inv.bloodType}</span>
                     </div>
@@ -514,7 +512,7 @@ export const Dashboard: React.FC = () => {
         </motion.div>
 
         {/* KPI 2: Certified Donors with Power BI Radial Micro Gauge */}
-        <motion.div 
+        <motion.div
           variants={kpiCardVariants}
           whileTap={{ scale: 0.99 }}
           onClick={() => navigate('/dashboard/donors')}
@@ -580,7 +578,7 @@ export const Dashboard: React.FC = () => {
         </motion.div>
 
         {/* KPI 3: Emergency Requests with Power BI Triage & Fulfillment Visual */}
-        <motion.div 
+        <motion.div
           variants={kpiCardVariants}
           whileTap={{ scale: 0.99 }}
           onClick={() => navigate('/dashboard/emergency')}
@@ -628,14 +626,14 @@ export const Dashboard: React.FC = () => {
               {/* Power BI Segmented Status Meter */}
               <div className="w-full h-2.5 bg-slate-200/90 rounded-full overflow-hidden flex p-0.5 gap-0.5 shadow-inner">
                 {urgentCount > 0 && (
-                  <div 
+                  <div
                     className="h-full bg-gradient-to-r from-red-600 to-rose-500 rounded-full transition-all duration-500"
                     style={{ width: `${totalRequestsCount > 0 ? (urgentCount / totalRequestsCount) * 100 : 0}%` }}
                     title={`Active / Not Fulfilled: ${urgentCount} (${totalRequestsCount > 0 ? Math.round((urgentCount / totalRequestsCount) * 100) : 0}%)`}
                   />
                 )}
                 {fulfilledCount > 0 && (
-                  <div 
+                  <div
                     className="h-full bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full transition-all duration-500"
                     style={{ width: `${totalRequestsCount > 0 ? (fulfilledCount / totalRequestsCount) * 100 : 100}%` }}
                     title={`Fulfilled: ${fulfilledCount} (${totalRequestsCount > 0 ? Math.round((fulfilledCount / totalRequestsCount) * 100) : 0}%)`}
@@ -669,7 +667,7 @@ export const Dashboard: React.FC = () => {
         </motion.div>
 
         {/* KPI 4: Antigen Safety Index with Power BI Concentric Ring Gauge */}
-        <motion.div 
+        <motion.div
           variants={kpiCardVariants}
           whileTap={{ scale: 0.99 }}
           onClick={() => navigate('/dashboard/matrix')}
@@ -741,7 +739,7 @@ export const Dashboard: React.FC = () => {
       >
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
           {/* Prominent High-Definition Clinical Video Monitor */}
-          <div 
+          <div
             className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black h-[220px] xs:h-[260px] sm:h-[320px] flex items-center justify-center"
             style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
           >
@@ -758,7 +756,7 @@ export const Dashboard: React.FC = () => {
             />
             {/* Clinical Live Telemetry Overlays */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 pointer-events-none" />
-            
+
             <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-xs pointer-events-none">
               <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white font-bold">
                 <span className="w-2 h-2 rounded-full bg-[#D72638] animate-ping" />
@@ -829,7 +827,7 @@ export const Dashboard: React.FC = () => {
       </motion.div>
 
       {/* Power BI Visual Row 1: Stock Bar Matrix & Dynamic 7-Day Velocity Curve */}
-      <motion.div 
+      <motion.div
         variants={blurSectionVariants}
         initial="hidden"
         whileInView="visible"
@@ -874,11 +872,10 @@ export const Dashboard: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-bold text-[#1A1D20] text-xs">{item.unitsAvailable} Pints</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          isLow ? 'bg-red-100 text-[#D72638] border border-red-200' :
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${isLow ? 'bg-red-100 text-[#D72638] border border-red-200' :
                           isMedium ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                          'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                        }`}>
+                            'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          }`}>
                           {isLow ? 'Low' : isMedium ? 'Medium' : 'High'}
                         </span>
                       </div>
@@ -891,11 +888,10 @@ export const Dashboard: React.FC = () => {
                         initial={{ width: 0 }}
                         animate={{ width: `${Math.max(item.unitsAvailable > 0 ? 4 : 0, percentage)}%` }}
                         transition={{ duration: 0.6, ease: 'easeOut' }}
-                        className={`h-full rounded-full ${
-                          isLow ? 'bg-gradient-to-r from-[#7A0C17] to-[#D72638]' :
+                        className={`h-full rounded-full ${isLow ? 'bg-gradient-to-r from-[#7A0C17] to-[#D72638]' :
                           isMedium ? 'bg-gradient-to-r from-amber-600 to-amber-400' :
-                          'bg-gradient-to-r from-[#7A0C17] via-[#D72638] to-emerald-500'
-                        }`}
+                            'bg-gradient-to-r from-[#7A0C17] via-[#D72638] to-emerald-500'
+                          }`}
                       />
                     </div>
                   </div>
@@ -967,11 +963,10 @@ export const Dashboard: React.FC = () => {
                     type="button"
                     onClick={() => setWeekOffset(prev => Math.min(0, prev + 1))}
                     disabled={weekOffset === 0}
-                    className={`shrink-0 px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap ${
-                      weekOffset === 0
-                        ? 'bg-transparent text-slate-300 cursor-not-allowed opacity-40'
-                        : 'bg-white hover:bg-slate-100 text-[#1A1D20] shadow-2xs cursor-pointer active:scale-95 border border-[#D9C7C2]/60'
-                    }`}
+                    className={`shrink-0 px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap ${weekOffset === 0
+                      ? 'bg-transparent text-slate-300 cursor-not-allowed opacity-40'
+                      : 'bg-white hover:bg-slate-100 text-[#1A1D20] shadow-2xs cursor-pointer active:scale-95 border border-[#D9C7C2]/60'
+                      }`}
                     title="Inspect Next Week"
                   >
                     <span>Next</span>
@@ -996,8 +991,8 @@ export const Dashboard: React.FC = () => {
 
             {/* SVG Wave Chart with Interactive Power BI Hover Animation & Calendar Dates */}
             <div className="w-full bg-[#F5F1EF] rounded-xl p-3 border border-[#D9C7C2]">
-              <svg 
-                viewBox={`0 0 ${chartWidth} ${chartHeight + 42}`} 
+              <svg
+                viewBox={`0 0 ${chartWidth} ${chartHeight + 42}`}
                 className="w-full h-44 sm:h-48 overflow-visible"
                 onMouseLeave={() => setHoveredTrendIndex(null)}
               >
@@ -1037,59 +1032,59 @@ export const Dashboard: React.FC = () => {
                     <g key={i}>
                       {/* Vertical Guideline on Hover */}
                       {isHovered && (
-                        <line 
-                          x1={x} 
-                          y1={10} 
-                          x2={x} 
-                          y2={chartHeight} 
-                          stroke="#D72638" 
-                          strokeWidth="1.5" 
-                          strokeDasharray="3 3" 
-                          opacity={0.7} 
+                        <line
+                          x1={x}
+                          y1={10}
+                          x2={x}
+                          y2={chartHeight}
+                          stroke="#D72638"
+                          strokeWidth="1.5"
+                          strokeDasharray="3 3"
+                          opacity={0.7}
                         />
                       )}
 
                       {/* Transfusion Point */}
-                      <circle 
-                        cx={x} 
-                        cy={yReq} 
-                        r={isHovered ? 6.5 : 4} 
-                        fill="#D72638" 
-                        stroke="#FFFFFF" 
-                        strokeWidth="2.5" 
+                      <circle
+                        cx={x}
+                        cy={yReq}
+                        r={isHovered ? 6.5 : 4}
+                        fill="#D72638"
+                        stroke="#FFFFFF"
+                        strokeWidth="2.5"
                         className="transition-all duration-200"
                       />
 
                       {/* Mobilized Point */}
-                      <circle 
-                        cx={x} 
-                        cy={yMob} 
-                        r={isHovered ? 6.5 : 4} 
-                        fill="#059669" 
-                        stroke="#FFFFFF" 
-                        strokeWidth="2.5" 
+                      <circle
+                        cx={x}
+                        cy={yMob}
+                        r={isHovered ? 6.5 : 4}
+                        fill="#059669"
+                        stroke="#FFFFFF"
+                        strokeWidth="2.5"
                         className="transition-all duration-200"
                       />
 
                       {/* Day Label (Mon to Sun) */}
-                      <text 
-                        x={x} 
-                        y={chartHeight + 14} 
-                        fill={d.isToday ? '#D72638' : isHovered ? '#1A1D20' : '#4A5568'} 
-                        fontSize="10" 
-                        textAnchor="middle" 
+                      <text
+                        x={x}
+                        y={chartHeight + 14}
+                        fill={d.isToday ? '#D72638' : isHovered ? '#1A1D20' : '#4A5568'}
+                        fontSize="10"
+                        textAnchor="middle"
                         fontWeight={d.isToday || isHovered ? '900' : 'bold'}
                       >
                         {d.day}
                       </text>
 
                       {/* Calendar Date Below Day (e.g. 16 Nov) */}
-                      <text 
-                        x={x} 
-                        y={chartHeight + 27} 
-                        fill={d.isToday ? '#D72638' : isHovered ? '#D72638' : '#718096'} 
-                        fontSize="8.5" 
-                        textAnchor="middle" 
+                      <text
+                        x={x}
+                        y={chartHeight + 27}
+                        fill={d.isToday ? '#D72638' : isHovered ? '#D72638' : '#718096'}
+                        fontSize="8.5"
+                        textAnchor="middle"
                         fontWeight={d.isToday ? '800' : '500'}
                       >
                         {d.dateStr}
@@ -1194,7 +1189,7 @@ export const Dashboard: React.FC = () => {
       </motion.div>
 
       {/* Power BI Visual Row 2: Interactive Cross-Match Simulator & Triage Feed with Blur-In Transition */}
-      <motion.div 
+      <motion.div
         variants={blurSectionVariants}
         initial="hidden"
         whileInView="visible"
@@ -1256,13 +1251,12 @@ export const Dashboard: React.FC = () => {
               </div>
 
               {/* Match Result Display */}
-              <div className={`p-4 rounded-xl border transition-all mt-4 ${
-                matchResult.isCompatible
-                  ? matchResult.matchScore === 100
-                    ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-                    : 'bg-[#F5F1EF] border-[#D9C7C2] text-[#1A1D20]'
-                  : 'bg-red-50 border-red-300 text-red-900'
-              }`}>
+              <div className={`p-4 rounded-xl border transition-all mt-4 ${matchResult.isCompatible
+                ? matchResult.matchScore === 100
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                  : 'bg-[#F5F1EF] border-[#D9C7C2] text-[#1A1D20]'
+                : 'bg-red-50 border-red-300 text-red-900'
+                }`}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-extrabold uppercase tracking-wider flex items-center gap-1.5">
                     {matchResult.isCompatible ? (
@@ -1356,11 +1350,10 @@ export const Dashboard: React.FC = () => {
                       <div>
                         <div className="font-bold text-[#1A1D20] flex items-center gap-2">
                           <span>{req.patientName}</span>
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                            req.status === 'critical' ? 'bg-red-100 text-[#D72638] border border-red-200' :
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${req.status === 'critical' ? 'bg-red-100 text-[#D72638] border border-red-200' :
                             req.status === 'urgent' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                            'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                          }`}>
+                              'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                            }`}>
                             {req.status.toUpperCase()}
                           </span>
                         </div>
