@@ -55,29 +55,25 @@ export function AvatarUploadModal({
   // Reset state on open/close
   useEffect(() => {
     if (isOpen) {
+      window.scrollTo(0, 0);
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
+
       if (initialMode === 'MANAGE' && currentAvatarUrl) {
-        if (currentAvatarUrl.startsWith('data:')) {
-          setSelectedImage(currentAvatarUrl);
-          setIsLoadingAvatar(false);
-        } else {
-          // Fetch raw Base64 data from R2 through backend to eliminate CORS & tainted canvas
-          setIsLoadingAvatar(true);
+        // 1. Immediately set selectedImage so the crop editor appears in ZERO milliseconds
+        setSelectedImage(currentAvatarUrl);
+        setIsLoadingAvatar(false);
+
+        // 2. If it's a remote URL, fetch the base64 dataUrl silently in background (only to avoid tainted canvas on export)
+        if (!currentAvatarUrl.startsWith('data:')) {
           const email = userEmail || sessionStorage.getItem('bloodmatch_user_email') || localStorage.getItem('bloodmatch_user_email') || '';
           apiClient.get(`/api/v1/auth/avatar/data?user_email=${encodeURIComponent(email)}`)
             .then((res) => {
-              setIsLoadingAvatar(false);
               if (res.ok && res.data?.dataUrl) {
                 setSelectedImage(res.data.dataUrl);
-              } else {
-                setSelectedImage(currentAvatarUrl);
               }
             })
-            .catch(() => {
-              setIsLoadingAvatar(false);
-              setSelectedImage(currentAvatarUrl);
-            });
+            .catch(() => {});
         }
       } else {
         setSelectedImage(null);
@@ -89,13 +85,14 @@ export function AvatarUploadModal({
       setCropCircleSize(220);
       setErrorMessage(null);
     } else {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
       setIsLoadingAvatar(false);
     }
+
     return () => {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
+      // Preserve Layout's overflow: hidden lock on dashboard shell so top navbar and bottom spacing NEVER glitch
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      window.scrollTo(0, 0);
     };
   }, [isOpen, initialMode, currentAvatarUrl, userEmail]);
 
@@ -336,7 +333,7 @@ export function AvatarUploadModal({
 
   return createPortal(
     <div 
-      className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
+      className="fixed inset-0 z-[9999] bg-black/75 backdrop-blur-md flex items-center justify-center p-2.5 xs:p-4 sm:p-6 overflow-y-auto"
       onClick={onClose}
     >
       <motion.div
@@ -345,19 +342,19 @@ export function AvatarUploadModal({
         exit={{ opacity: 0, scale: 0.95, y: 15 }}
         transition={{ duration: 0.25, ease: 'easeOut' }}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-xl bg-white rounded-3xl border border-[#D9C7C2] shadow-2xl overflow-hidden flex flex-col"
+        className="relative w-full max-w-xl max-h-[92dvh] sm:max-h-[90vh] my-auto bg-white rounded-2xl sm:rounded-3xl border border-[#D9C7C2] shadow-2xl overflow-hidden flex flex-col"
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#D9C7C2]/70 bg-[#F5F1EF]/60">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#7A0C17] to-[#D72638] text-white flex items-center justify-center shadow-xs">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-[#D9C7C2]/70 bg-[#F5F1EF]/60 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0 pr-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#7A0C17] to-[#D72638] text-white flex items-center justify-center shadow-xs shrink-0">
               <Camera className="w-4 h-4" />
             </div>
-            <div>
-              <h3 className="text-base font-black text-[#1A1D20] tracking-tight">
+            <div className="min-w-0">
+              <h3 className="text-sm sm:text-base font-black text-[#1A1D20] tracking-tight truncate">
                 {initialMode === 'MANAGE' ? 'Manage Framing & Portrait Crop' : 'Profile Photo & User Avatar'}
               </h3>
-              <p className="text-[11px] text-[#5A626A]">
+              <p className="text-[10px] sm:text-[11px] text-[#5A626A] truncate">
                 {initialMode === 'MANAGE' 
                   ? 'Adjust crop zoom and portrait framing for your clinician avatar' 
                   : 'Synchronized across all clinical stations and account views'}
@@ -367,14 +364,14 @@ export function AvatarUploadModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-xl bg-white hover:bg-red-50 border border-[#D9C7C2] text-slate-500 hover:text-[#D72638] flex items-center justify-center transition-colors cursor-pointer"
+            className="w-8 h-8 rounded-xl bg-white hover:bg-red-50 border border-[#D9C7C2] text-slate-500 hover:text-[#D72638] flex items-center justify-center transition-colors cursor-pointer shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 space-y-5">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-5 overflow-y-auto flex-1 no-scrollbar">
           {errorMessage && (
             <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-[#D72638] text-xs flex items-center gap-2 font-medium">
               <AlertCircle className="w-4 h-4 shrink-0" />
@@ -382,7 +379,7 @@ export function AvatarUploadModal({
             </div>
           )}
 
-          {!selectedImage ? (
+          {(!selectedImage && initialMode !== 'MANAGE') ? (
             /* Upload Drop Zone - Pointer-Events Isolated to completely eliminate mobile double-click / window blinking */
             <div
               onDragOver={(e) => { e.preventDefault(); setIsDragOverZone(true); }}
@@ -420,9 +417,9 @@ export function AvatarUploadModal({
             /* Whole-Image Interactive Canvas & Adjustable Circle Crop Zone */
             <div className="space-y-4">
               <div className="flex flex-col items-center">
-                {/* 1:1 Square & Circular Guide Container (280x280px) with Touch & Mouse Drag Support */}
+                {/* 1:1 Square & Circular Guide Container (Responsive 240px to 280px) with Touch & Mouse Drag Support */}
                 <div 
-                  className="relative w-[280px] h-[280px] rounded-2xl bg-slate-900 border-2 border-[#D72638] overflow-hidden flex items-center justify-center shadow-lg cursor-grab active:cursor-grabbing select-none"
+                  className="relative w-[240px] h-[240px] xs:w-[280px] xs:h-[280px] rounded-2xl bg-slate-900 border-2 border-[#D72638] overflow-hidden flex items-center justify-center shadow-lg cursor-grab active:cursor-grabbing select-none"
                   style={{ touchAction: 'none' }}
                   onMouseDown={handleMouseDown}
                   onMouseMove={handleMouseMove}
@@ -456,7 +453,7 @@ export function AvatarUploadModal({
                   </div>
 
                   {/* Transformed Image ("Whole Image Mode") or Loading Indicator */}
-                  {isLoadingAvatar ? (
+                  {(isLoadingAvatar && !selectedImage) ? (
                     <div className="flex flex-col items-center justify-center p-8 text-white space-y-3 z-30 pointer-events-none">
                       <RefreshCw className="w-8 h-8 animate-spin text-[#D72638]" />
                       <span className="text-xs font-bold tracking-wide">Loading Portrait for Framing...</span>
@@ -582,7 +579,7 @@ export function AvatarUploadModal({
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="px-6 py-4 border-t border-[#D9C7C2]/70 bg-[#F5F1EF]/40 flex flex-wrap items-center justify-between gap-3">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-[#D9C7C2]/70 bg-[#F5F1EF]/40 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
           <div>
             {currentAvatarUrl && (
               <button

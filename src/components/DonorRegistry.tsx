@@ -642,12 +642,12 @@ export default function DonorRegistry() {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
     }
     return () => {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
     };
   }, [isOpenModal]);
 

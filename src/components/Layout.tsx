@@ -491,16 +491,11 @@ export default function Layout() {
 
   // Lock background screen scroll when mobile sidebar drawer is open
   useEffect(() => {
-    if (sidebarOpen) {
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
     };
   }, [sidebarOpen]);
 

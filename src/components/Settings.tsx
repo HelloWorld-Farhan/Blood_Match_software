@@ -1133,19 +1133,6 @@ export default function Settings() {
               {/* Avatar Preview */}
               <div className="relative group shrink-0">
                 <div className="w-24 h-24 rounded-2xl overflow-hidden bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-2xl font-black shadow-md border-2 border-white">
-                  {avatar ? (
-                    <img
-                      src={avatar}
-                      alt="Clinician Avatar"
-                      className="w-full h-full object-cover"
-                      onError={() => {
-                        setAvatar(null);
-                        localStorage.removeItem('bloodmatch_user_avatar');
-                      }}
-                    />
-                  ) : (
-                    <span>{getInitials(name)}</span>
-                  )}
                   <ClinicianAvatar
                     src={avatar}
                     name={name}
