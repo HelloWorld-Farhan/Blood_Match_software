@@ -54,7 +54,8 @@ import {
   validatePhoneNumber, 
   validateEmail,
   parsePhoneNumberWithCountry,
-  formatFullPhone
+  formatFullPhone,
+  deduplicatePhones
 } from '../utils/countryCodes';
 import { BLOOD_COMPATIBILITY_TABLE } from '../utils/bloodCompatibility';
 import { reverseGeocodeCoordinates } from '../utils/geolocation';
@@ -295,17 +296,17 @@ export default function DonorRegistry() {
   const [devOtp, setDevOtp] = useState<string | null>(null);
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // Saved phone numbers for instant click-to-fill & cross-device sync
+  // Saved phone numbers for instant click-to-fill & cross-device sync (deduplicated by 10-digit core)
   const [savedPhones, setSavedPhones] = useState<string[]>(() => {
     try {
       const userKey = `bloodmatch_saved_phones_${currentUserEmail || 'default'}`;
       const stored = localStorage.getItem(userKey);
       let list = stored ? JSON.parse(stored) : [];
       if (!Array.isArray(list)) list = [];
-      if (userAccountPhone && !list.includes(userAccountPhone)) {
+      if (userAccountPhone) {
         list.unshift(userAccountPhone);
       }
-      return list;
+      return deduplicatePhones(list);
     } catch {
       return userAccountPhone ? [userAccountPhone] : [];
     }
@@ -333,8 +334,7 @@ export default function DonorRegistry() {
         if (res.ok && res.data && Array.isArray(res.data.saved_phones)) {
           const fetchedPhones = res.data.saved_phones;
           setSavedPhones(prev => {
-            const combined = [...fetchedPhones];
-            prev.forEach(p => { if (!combined.includes(p)) combined.push(p); });
+            const combined = deduplicatePhones([...fetchedPhones, ...prev]);
             try {
               localStorage.setItem(`bloodmatch_saved_phones_${currentUserEmail}`, JSON.stringify(combined));
             } catch { }
@@ -374,8 +374,7 @@ export default function DonorRegistry() {
     const clean = phoneStr.trim();
     if (!clean) return;
     setSavedPhones(prev => {
-      if (prev.includes(clean)) return prev;
-      const updated = [...prev, clean];
+      const updated = deduplicatePhones([...prev, clean]);
       try {
         localStorage.setItem(`bloodmatch_saved_phones_${currentUserEmail || 'default'}`, JSON.stringify(updated));
       } catch { }
@@ -1414,10 +1413,10 @@ export default function DonorRegistry() {
                               }`}
                           />
                         </div>
-                        {savedPhones.length > 0 && (
+                        {deduplicatePhones(savedPhones).length > 0 && (
                           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                             <span className="text-[10px] font-bold text-[#7A0C17] uppercase tracking-wider">Saved Numbers:</span>
-                            {savedPhones.map((p, idx) => (
+                            {deduplicatePhones(savedPhones).map((p, idx) => (
                               <button
                                 key={p + idx}
                                 type="button"

@@ -135,4 +135,44 @@ export const formatFullPhone = (dialCode: string, number: string): string => {
   return `${dialCode} ${cleanNum}`;
 };
 
+/**
+ * Extracts the core 10 digits from any phone representation (ignoring symbols, country codes, spaces).
+ */
+export const getCore10Digits = (phone?: string | null): string => {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  return digits.length >= 10 ? digits.slice(-10) : digits;
+};
+
+/**
+ * Deduplicates phone numbers based on their 10-digit core.
+ * If two numbers share the same 10-digit core (e.g. "+91 8851860838" and "8851860838"),
+ * keeps only one, prioritizing the version with country code / formatted dial code (+).
+ */
+export const deduplicatePhones = (phones: string[]): string[] => {
+  const result: string[] = [];
+  const seenMap = new Map<string, number>(); // core10 -> index in result
+
+  for (const p of phones) {
+    const clean = (p || '').trim();
+    if (!clean) continue;
+    const core10 = getCore10Digits(clean);
+    if (!core10) continue;
+
+    if (seenMap.has(core10)) {
+      const existingIdx = seenMap.get(core10)!;
+      const existingVal = result[existingIdx];
+      // If the new one has '+' (country dial code) and existing does not, upgrade it
+      if (clean.includes('+') && !existingVal.includes('+')) {
+        result[existingIdx] = clean;
+      }
+    } else {
+      seenMap.set(core10, result.length);
+      result.push(clean);
+    }
+  }
+
+  return result;
+};
+
 
