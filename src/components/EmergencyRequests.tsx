@@ -1110,6 +1110,7 @@ export default function EmergencyRequests() {
         distanceKm: d.distanceKm,
         location: d.location || d.city || 'Delhi NCR',
         phone: d.phone,
+        email: d.email || '',
         matchScore: Math.max(70, Math.round(100 - d.distanceKm * 2))
       }));
 
@@ -1176,6 +1177,7 @@ export default function EmergencyRequests() {
       distanceKm: d.distanceKm,
       location: d.location || d.city || 'Delhi NCR',
       phone: d.phone,
+      email: d.email || '',
       matchScore: Math.max(70, Math.round(100 - d.distanceKm * 2))
     }));
 
@@ -1609,6 +1611,7 @@ export default function EmergencyRequests() {
       distanceKm: d.distanceKm,
       location: d.location || d.city || 'Delhi NCR',
       phone: d.phone,
+      email: d.email || '',
       matchScore: Math.max(70, Math.round(100 - d.distanceKm * 2))
     }));
 
@@ -1708,6 +1711,7 @@ export default function EmergencyRequests() {
         distanceKm: d.distanceKm,
         location: d.location || d.city || 'Delhi NCR',
         phone: d.phone,
+        email: d.email || '',
         matchScore: Math.max(70, Math.round(100 - d.distanceKm * 2))
       }));
 
