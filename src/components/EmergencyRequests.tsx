@@ -1628,15 +1628,15 @@ export default function EmergencyRequests() {
             style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
           >
             <video
-              src="/21617-319452308.mp4"
-              poster="/21617-319452308_poster.jpg"
+              src="/119846-719283256_medium.mp4"
+              poster="/119846-719283256_medium_poster.jpg"
               autoPlay
               loop
               muted
               playsInline
               preload="auto"
               className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-              style={{ transform: 'translateZ(0)' }}
+              style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden', willChange: 'transform' }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
 
@@ -2237,118 +2237,140 @@ export default function EmergencyRequests() {
           HORIZONTAL EMERGENCY BROADCAST MODAL WITH IN-POPUP GEOSPATIAL RADAR & RESULTS
           (Spacious 2-Column Horizontal Architecture: Max-W-5xl)
           ========================================================================= */}
-      {isOpenModal && typeof document !== 'undefined' && createPortal(
-        <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 md:p-6 bg-black/75 backdrop-blur-md animate-fade-in"
-          onClick={handleCancelModal}
-        >
-          <div
-            className="relative w-full max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto no-scrollbar rounded-3xl bg-white border border-[#D9C7C2] p-5 sm:p-7 md:p-8 shadow-2xl text-[#1A1D20]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Close Button */}
-            <button
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isOpenModal && (
+            <motion.div
+              key="emergency-modal-backdrop"
+              initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+              animate={{ opacity: 1, backdropFilter: 'blur(16px)' }}
+              exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 md:p-6 bg-black/60 backdrop-blur-xl"
               onClick={handleCancelModal}
-              className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-[#1A1D20] hover:bg-[#F5F1EF] transition-colors cursor-pointer"
-              aria-label="Close dialog"
+              style={{ willChange: 'opacity, backdrop-filter' }}
             >
-              <X className="w-5 h-5 text-[#D72638]" />
-            </button>
-
-            {/* Notification Banner */}
-            <AnimatePresence>
-              {modalNotification && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className={`mb-4 p-3 rounded-xl flex items-center justify-between text-xs font-bold ${modalNotification.type === 'success'
-                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                    : 'bg-red-50 text-red-800 border border-red-200'
-                    }`}
+              <motion.div
+                key="emergency-modal-card"
+                initial={{ opacity: 0, scale: 0.94, y: 16, filter: 'blur(8px)' }}
+                animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, scale: 0.95, y: 12, filter: 'blur(6px)' }}
+                transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+                className="relative w-full max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto no-scrollbar rounded-3xl bg-white/95 backdrop-blur-2xl border border-white/60 p-5 sm:p-7 md:p-8 shadow-2xl text-[#1A1D20]"
+                onClick={(e) => e.stopPropagation()}
+                style={{ willChange: 'transform, opacity, filter' }}
+              >
+                {/* Close Button */}
+                <button
+                  onClick={handleCancelModal}
+                  className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-[#1A1D20] hover:bg-[#F5F1EF] transition-colors cursor-pointer"
+                  aria-label="Close dialog"
                 >
-                  <div className="flex items-center gap-2">
-                    {modalNotification.type === 'success' ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    ) : (
-                      <AlertTriangle className="w-4 h-4 text-red-600" />
-                    )}
-                    <span>{modalNotification.message}</span>
-                  </div>
-                  <button onClick={() => setModalNotification(null)} className="underline ml-3">Dismiss</button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  <X className="w-5 h-5 text-[#D72638]" />
+                </button>
 
-            {/* PHASE 1: HORIZONTAL ROW-BASED INPUT FORM (ONE ITEM PER HORIZONTAL ROW) */}
-            {modalPhase === 'INPUT' && (
-              <div>
-                <div className="mb-4 pb-3 border-b border-[#D9C7C2]/60">
-                  <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-bold mb-1">
-                    <Radio className="w-3.5 h-3.5 text-red-600 animate-pulse" />
-                    <span>Emergency Blood Dispatch System</span>
-                  </div>
-                  <h2 className="text-xl sm:text-2xl font-black text-[#1A1D20] flex items-center gap-2">
-                    <AlertTriangle className="w-6 h-6 text-[#D72638]" />
-                    <span>Emergency Transfusion Request &amp; Donor Check</span>
-                  </h2>
-                  <p className="text-xs text-[#5A626A] mt-0.5">
-                    Enter patient details, required blood group, and location to immediately test and find nearby matching donors.
-                  </p>
-                </div>
+                {/* Notification Banner */}
+                <AnimatePresence>
+                  {modalNotification && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className={`mb-4 p-3 rounded-xl flex items-center justify-between text-xs font-bold ${modalNotification.type === 'success'
+                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                        : 'bg-red-50 text-red-800 border border-red-200'
+                        }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {modalNotification.type === 'success' ? (
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        ) : (
+                          <AlertTriangle className="w-4 h-4 text-red-600" />
+                        )}
+                        <span>{modalNotification.message}</span>
+                      </div>
+                      <button onClick={() => setModalNotification(null)} className="underline ml-3">Dismiss</button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
-                <form onSubmit={handleSubmit} className="space-y-3">
-                  {/* Row 1: Authorized Clinician Account */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
-                    <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
-                        <Mail className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-[#1A1D20]">Authorized Clinician</div>
-                        <div className="text-[10px] text-[#5A626A]">Session security credential</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 min-w-0 flex-1 sm:max-w-xl justify-end">
-                      <span className="font-mono text-xs font-bold text-emerald-950 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg truncate">
-                        {currentUserEmail}
-                      </span>
-                      <span className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold shrink-0">
-                        Active Account
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Row 2: Patient Full Legal Name */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
-                    <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
-                      <div className="w-8 h-8 rounded-lg bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
-                        <User className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-bold text-[#1A1D20]">
-                          Patient Name <span className="text-[#D72638]">*</span>
+                {/* PHASES WITH BLUR TRANSITIONS */}
+                <AnimatePresence mode="wait">
+                  {/* PHASE 1: HORIZONTAL ROW-BASED INPUT FORM (ONE ITEM PER HORIZONTAL ROW) */}
+                  {modalPhase === 'INPUT' && (
+                    <motion.div
+                      key="modal-phase-input"
+                      initial={{ opacity: 0, filter: 'blur(6px)', y: 6 }}
+                      animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
+                      exit={{ opacity: 0, filter: 'blur(6px)', y: -6 }}
+                      transition={{ duration: 0.22, ease: 'easeOut' }}
+                    >
+                      <div className="mb-4 pb-3 border-b border-[#D9C7C2]/60">
+                        <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-bold mb-1">
+                          <Radio className="w-3.5 h-3.5 text-red-600 animate-pulse" />
+                          <span>Emergency Blood Dispatch System</span>
                         </div>
-                        <div className="text-[10px] text-[#5A626A]">Full name of the patient receiving blood</div>
+                        <h2 className="text-xl sm:text-2xl font-black text-[#1A1D20] flex items-center gap-2">
+                          <AlertTriangle className="w-6 h-6 text-[#D72638]" />
+                          <span>Emergency Transfusion Request &amp; Donor Check</span>
+                        </h2>
+                        <p className="text-xs text-[#5A626A] mt-0.5">
+                          Enter patient details, required blood group, and location to immediately test and find nearby matching donors.
+                        </p>
                       </div>
-                    </div>
-                    <div className="flex-1 sm:max-w-xl w-full">
-                      <input
-                        type="text"
-                        value={patientName}
-                        onChange={(e) => {
-                          setPatientName(e.target.value);
-                          if (formErrors.patientName) setFormErrors(prev => ({ ...prev, patientName: '' }));
-                        }}
-                        placeholder="e.g. Farhan Khalid"
-                        className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${formErrors.patientName ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                          } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
-                      />
-                      {formErrors.patientName && (
-                        <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.patientName}</p>
-                      )}
-                    </div>
-                  </div>
+
+                      <form onSubmit={handleSubmit} className="space-y-3">
+                        {/* Row 1: Authorized Clinician Account */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
+                          <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                              <Mail className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-[#1A1D20]">Authorized Clinician</div>
+                              <div className="text-[10px] text-[#5A626A]">Session security credential</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 min-w-0 flex-1 sm:max-w-xl justify-end">
+                            <span className="font-mono text-xs font-bold text-emerald-950 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg truncate">
+                              {currentUserEmail}
+                            </span>
+                            <span className="px-2 py-1 rounded-md bg-emerald-100 text-emerald-800 text-[10px] font-bold shrink-0">
+                              Active Account
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Row 2: Patient Full Legal Name */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
+                          <div className="flex items-center gap-2.5 sm:w-64 shrink-0">
+                            <div className="w-8 h-8 rounded-lg bg-red-100 text-[#D72638] flex items-center justify-center shrink-0">
+                              <User className="w-4 h-4" />
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold text-[#1A1D20]">
+                                Patient Name <span className="text-[#D72638]">*</span>
+                              </div>
+                              <div className="text-[10px] text-[#5A626A]">Full name of the patient receiving blood</div>
+                            </div>
+                          </div>
+                          <div className="flex-1 sm:max-w-xl w-full">
+                            <input
+                              type="text"
+                              value={patientName}
+                              onChange={(e) => {
+                                setPatientName(e.target.value);
+                                if (formErrors.patientName) setFormErrors(prev => ({ ...prev, patientName: '' }));
+                              }}
+                              placeholder="e.g. Farhan Khalid"
+                              className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${formErrors.patientName ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                                } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                            />
+                            {formErrors.patientName && (
+                              <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.patientName}</p>
+                            )}
+                          </div>
+                        </div>
 
                   {/* Row 3: Patient Age */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#F5F1EF]/50 border border-[#D9C7C2]/70 hover:border-[#D72638]/40 transition-colors">
@@ -2733,39 +2755,53 @@ export default function EmergencyRequests() {
                     </button>
                   </div>
                 </form>
-              </div>
-            )}
+                    </motion.div>
+                  )}
 
-            {/* PHASE 2: RADAR SCANNING ANIMATION IN THE SAME POPUP */}
-            {modalPhase === 'SCANNING' && (
-              <div className="py-12 px-6 text-center space-y-6 relative overflow-hidden">
-                {/* Radar Ripple Waves */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-72 h-72 border-2 border-red-500/20 rounded-full animate-ping" />
-                  <div className="w-56 h-56 border-2 border-red-500/30 rounded-full animate-pulse" />
-                  <div className="w-40 h-40 border-2 border-red-500/40 rounded-full" />
-                </div>
+                  {/* PHASE 2: RADAR SCANNING ANIMATION IN THE SAME POPUP */}
+                  {modalPhase === 'SCANNING' && (
+                    <motion.div
+                      key="modal-phase-scanning"
+                      initial={{ opacity: 0, filter: 'blur(6px)', scale: 0.98 }}
+                      animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
+                      exit={{ opacity: 0, filter: 'blur(6px)', scale: 0.98 }}
+                      transition={{ duration: 0.22, ease: 'easeOut' }}
+                      className="py-12 px-6 text-center space-y-6 relative overflow-hidden"
+                    >
+                      {/* Radar Ripple Waves */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-72 h-72 border-2 border-red-500/20 rounded-full animate-ping" />
+                        <div className="w-56 h-56 border-2 border-red-500/30 rounded-full animate-pulse" />
+                        <div className="w-40 h-40 border-2 border-red-500/40 rounded-full" />
+                      </div>
 
-                <div className="relative z-10 space-y-4">
-                  <div className="inline-flex p-4 rounded-full bg-red-100 text-red-600 animate-bounce">
-                    <Droplet className="w-10 h-10 fill-red-600" />
-                  </div>
-                  <h3 className="text-xl font-extrabold text-[#1A1D20]">
-                    Clinical Proximity Radar Active
-                  </h3>
-                  <div className="inline-block px-4 py-1.5 rounded-full bg-[#F5F1EF] text-xs font-bold font-mono text-[#D72638]">
-                    {scanSteps[scanStepIndex]}
-                  </div>
-                  <p className="text-xs text-slate-500">
-                    Locating nearest active lifesavers matching {bloodType} antibodies in {customLocalityInput.trim() || selectedLocality}...
-                  </p>
-                </div>
-              </div>
-            )}
+                      <div className="relative z-10 space-y-4">
+                        <div className="inline-flex p-4 rounded-full bg-red-100 text-red-600 animate-bounce">
+                          <Droplet className="w-10 h-10 fill-red-600" />
+                        </div>
+                        <h3 className="text-xl font-extrabold text-[#1A1D20]">
+                          Clinical Proximity Radar Active
+                        </h3>
+                        <div className="inline-block px-4 py-1.5 rounded-full bg-[#F5F1EF] text-xs font-bold font-mono text-[#D72638]">
+                          {scanSteps[scanStepIndex]}
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Locating nearest active lifesavers matching {bloodType} antibodies in {customLocalityInput.trim() || selectedLocality}...
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
 
-            {/* PHASE 3: PROXIMITY-RANKED DONOR RESULTS IN THE SAME POPUP */}
-            {modalPhase === 'RESULTS' && (
-              <div className="space-y-4">
+                  {/* PHASE 3: PROXIMITY-RANKED DONOR RESULTS IN THE SAME POPUP */}
+                  {modalPhase === 'RESULTS' && (
+                    <motion.div
+                      key="modal-phase-results"
+                      initial={{ opacity: 0, filter: 'blur(6px)', y: 6 }}
+                      animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
+                      exit={{ opacity: 0, filter: 'blur(6px)', y: -6 }}
+                      transition={{ duration: 0.22, ease: 'easeOut' }}
+                      className="space-y-4"
+                    >
                 {/* Results Header Bar */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D9C7C2]">
                   <div>
@@ -3069,12 +3105,15 @@ export default function EmergencyRequests() {
                     Done &amp; View on Board
                   </button>
                 </div>
-              </div>
+              </motion.div>
             )}
-          </div>
-        </div>,
-        document.body
-      )}
+          </AnimatePresence>
+        </motion.div>
+      </motion.div>
+    )}
+  </AnimatePresence>,
+  document.body
+)}
 
       {/* Clinical Mobilize Call In-App Modal (eliminates browser OS pick-an-app dialog) */}
       {callModalTarget && (
