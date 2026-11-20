@@ -344,6 +344,11 @@ export async function deleteEmergencyRequestApi(requestId: string, userEmail?: s
   return apiClient.delete<{ message: string; deleted_id: string }>(`/api/emergency/${encodeURIComponent(requestId)}${params}`);
 }
 
+export async function fetchDeletedEmergencyIdsApi(userEmail?: string) {
+  const params = userEmail ? `?user_email=${encodeURIComponent(userEmail)}` : '';
+  return apiClient.get<{ deleted_ids: string[] }>(`/api/emergency/deleted-ids${params}`);
+}
+
 export async function dispatchEmergencyDonorApi(payload: {
   donor_id?: string;
   donor_name: string;

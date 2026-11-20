@@ -53,6 +53,7 @@ import {
   emailEmergencyRosterApi,
   fulfillEmergencyRequestApi,
   deleteEmergencyRequestApi,
+  fetchDeletedEmergencyIdsApi,
   saveEmergencyDocketApi,
   fetchSavedPhonesApi,
   saveUserPhoneApi,
@@ -638,28 +639,46 @@ export default function EmergencyRequests() {
           fulfilledByDonorEmail: r.fulfilled_by_donor_email || r.fulfilledByDonorEmail,
         }));
 
-        const deletedSet = getDeletedRequestIds(currentUserEmail);
-        const activeRemoteReqs = remoteReqs.filter(r => !deletedSet.has(r.id));
+        // 1. Fetch backend tombstones for this user to sync cross-device deletions
+        const remoteDeletedSet = new Set<string>();
+        try {
+          const delRes = await fetchDeletedEmergencyIdsApi(currentUserEmail);
+          if (delRes.ok && Array.isArray(delRes.data?.deleted_ids)) {
+            delRes.data.deleted_ids.forEach(delId => {
+              remoteDeletedSet.add(delId);
+              markRequestDeleted(delId, currentUserEmail);
+            });
+          }
+        } catch { }
 
-        // Remote database is canonical truth. Filter out any tombstoned/deleted items.
-        const map = new Map<string, EmergencyRequest>();
-        activeRemoteReqs.forEach(r => map.set(r.id, r));
+        const localDeletedSet = getDeletedRequestIds(currentUserEmail);
+        const allDeletedIds = new Set([...localDeletedSet, ...remoteDeletedSet]);
 
-        // Preserve any local requests not yet on remote (ONLY if NOT marked deleted)
+        // Filter out any tombstoned requests
+        const activeRemoteReqs = remoteReqs.filter(r => !allDeletedIds.has(r.id));
+        const remoteMap = new Map<string, EmergencyRequest>();
+        activeRemoteReqs.forEach(r => remoteMap.set(r.id, r));
+
+        // 2. Prune ghost local records deleted on another device:
+        // Any request in currentLocal that is missing from remote database (and older than 15s) was deleted on another client.
+        const now = Date.now();
         currentLocal.forEach(r => {
-          if (!map.has(r.id) && !deletedSet.has(r.id)) {
-            const cleanedLocal: EmergencyRequest = {
-              ...r,
-              patientName: stripHonorific(r.patientName),
-              contactName: stripHonorific(r.contactName),
-              liveTracking: r.liveTracking !== undefined ? r.liveTracking : (r.status !== 'fulfilled'),
-              live_tracking: r.live_tracking !== undefined ? r.live_tracking : (r.status !== 'fulfilled')
-            };
-            map.set(r.id, cleanedLocal);
+          if (!remoteMap.has(r.id)) {
+            const ageMs = now - new Date(r.createdAt).getTime();
+            if (ageMs > 15000) {
+              markRequestDeleted(r.id, currentUserEmail);
+            }
           }
         });
 
-        const rawMerged = Array.from(map.values()).sort(
+        // 3. Preserve ONLY active remote records (plus any unsynced offline drafts created within last 15s)
+        const pendingFreshDrafts = currentLocal.filter(r =>
+          !remoteMap.has(r.id) &&
+          !allDeletedIds.has(r.id) &&
+          (now - new Date(r.createdAt).getTime() <= 15000)
+        );
+
+        const rawMerged = [...pendingFreshDrafts, ...activeRemoteReqs].sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
 
@@ -680,7 +699,7 @@ export default function EmergencyRequests() {
         }
 
         setRequests(merged);
-        saveEmergencyRequests(merged, currentUserEmail);
+        saveEmergencyRequests(merged, currentUserEmail, false);
       } else {
         const cleaned = currentLocal.map(r => ({
           ...r,
@@ -1393,6 +1412,7 @@ export default function EmergencyRequests() {
 
   const handleCancelModal = () => {
     if (activeEmergencyRequestId) {
+      markRequestDeleted(activeEmergencyRequestId, currentUserEmail);
       setRequests(prev => {
         const filtered = prev.filter(r => r.id !== activeEmergencyRequestId);
         saveEmergencyRequests(filtered, currentUserEmail);

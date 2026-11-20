@@ -24,8 +24,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { BloodType, EmergencyRequest, Donor } from '../types';
-import { getDonors, getEmergencyRequests, getInventory, saveDonors, saveInventory, saveEmergencyRequests, normalizeDonor } from '../services/storage';
-import { fetchDonorsApi, fetchInventoryApi, fetchEmergencyRequestsApi } from '../services/api';
+import { getDonors, getEmergencyRequests, getInventory, saveDonors, saveInventory, saveEmergencyRequests, normalizeDonor, getDeletedRequestIds, markRequestDeleted } from '../services/storage';
+import { fetchDonorsApi, fetchInventoryApi, fetchEmergencyRequestsApi, fetchDeletedEmergencyIdsApi, getWebSocketUrl } from '../services/api';
 import { checkCompatibility } from '../utils/bloodCompatibility';
 import { NetworkHealthPill } from './NetworkHealthPill';
 
@@ -116,11 +116,18 @@ export const Dashboard: React.FC = () => {
 
     // 2. Silent cross-device background sync from backend database
     try {
-      const [donorsRes, invRes, reqRes] = await Promise.allSettled([
+      const [donorsRes, invRes, reqRes, delRes] = await Promise.allSettled([
         fetchDonorsApi('ALL'),
         fetchInventoryApi(),
-        fetchEmergencyRequestsApi(currentUserEmail)
+        fetchEmergencyRequestsApi(currentUserEmail),
+        fetchDeletedEmergencyIdsApi(currentUserEmail)
       ]);
+
+      if (delRes.status === 'fulfilled' && delRes.value.ok && Array.isArray(delRes.value.data?.deleted_ids)) {
+        delRes.value.data.deleted_ids.forEach((did: string) => {
+          if (did) markRequestDeleted(did, currentUserEmail, false);
+        });
+      }
 
       if (donorsRes.status === 'fulfilled' && donorsRes.value.ok && Array.isArray(donorsRes.value.data)) {
         const mappedDonors: Donor[] = donorsRes.value.data.map(normalizeDonor);
@@ -143,24 +150,27 @@ export const Dashboard: React.FC = () => {
       }
 
       if (reqRes.status === 'fulfilled' && reqRes.value.ok && Array.isArray(reqRes.value.data)) {
-        const mappedReqs: EmergencyRequest[] = reqRes.value.data.map((r: any) => ({
-          id: r.id || `REQ-${Math.random().toString().slice(-6)}`,
-          patientName: r.patient_name || r.patientName || 'Emergency Patient',
-          patientAge: Number(r.patient_age ?? r.patientAge ?? 35),
-          bloodType: (r.blood_type || r.bloodType || 'O+') as BloodType,
-          unitsNeeded: Number(r.units_needed ?? r.unitsNeeded ?? 1),
-          hospital: r.hospital || 'Emergency Trauma Network',
-          hospitalCity: r.hospital_city || r.city || 'Delhi',
-          ward: r.ward || 'Trauma Bay 01',
-          urgency: (r.urgency || 'CRITICAL') as any,
-          contactName: r.contact_person || r.contactName || 'Trauma Desk',
-          contactNumber: r.contact_phone || r.contactNumber || '+91 98765 43210',
-          reason: r.reason || r.notes || 'Emergency transfusion',
-          status: (r.status || 'urgent') as any,
-          createdAt: r.created_at || r.createdAt || new Date().toISOString(),
-        }));
+        const deletedSet = getDeletedRequestIds(currentUserEmail);
+        const mappedReqs: EmergencyRequest[] = reqRes.value.data
+          .filter((r: any) => !deletedSet.has(r.id))
+          .map((r: any) => ({
+            id: r.id || `REQ-${Math.random().toString().slice(-6)}`,
+            patientName: r.patient_name || r.patientName || 'Emergency Patient',
+            patientAge: Number(r.patient_age ?? r.patientAge ?? 35),
+            bloodType: (r.blood_type || r.bloodType || 'O+') as BloodType,
+            unitsNeeded: Number(r.units_needed ?? r.unitsNeeded ?? 1),
+            hospital: r.hospital || 'Emergency Trauma Network',
+            hospitalCity: r.hospital_city || r.city || 'Delhi',
+            ward: r.ward || 'Trauma Bay 01',
+            urgency: (r.urgency || 'CRITICAL') as any,
+            contactName: r.contact_person || r.contactName || 'Trauma Desk',
+            contactNumber: r.contact_phone || r.contactNumber || '+91 98765 43210',
+            reason: r.reason || r.notes || 'Emergency transfusion',
+            status: (r.status || 'urgent') as any,
+            createdAt: r.created_at || r.createdAt || new Date().toISOString(),
+          }));
         setRequests(mappedReqs);
-        saveEmergencyRequests(mappedReqs, currentUserEmail, true);
+        saveEmergencyRequests(mappedReqs, currentUserEmail, false);
       }
     } catch {
       // Quiet background fallback to cached state
@@ -185,6 +195,48 @@ export const Dashboard: React.FC = () => {
       }
     }, 3000);
 
+    // Real-Time Cross-Device WebSocket Listener
+    let ws: WebSocket | null = null;
+    let pingInterval: any = null;
+    let reconnectTimer: any = null;
+
+    const connectWs = () => {
+      try {
+        const wsUrl = getWebSocketUrl();
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          pingInterval = setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'ping' }));
+            }
+          }, 25000);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'EMERGENCY_DELETED') {
+              const delId = data.deleted_id || data.id;
+              if (delId) {
+                markRequestDeleted(delId, currentUserEmail, true);
+                setRequests(prev => prev.filter(r => r.id !== delId));
+              }
+            } else if (data.type === 'EMERGENCY_CREATED' || data.type === 'EMERGENCY_UPDATED' || data.type === 'EMERGENCY_FULFILLED' || data.type === 'DONOR_CREATED' || data.type === 'INVENTORY_UPDATED') {
+              loadData();
+            }
+          } catch {}
+        };
+
+        ws.onclose = () => {
+          clearInterval(pingInterval);
+          reconnectTimer = setTimeout(connectWs, 5000);
+        };
+      } catch {}
+    };
+
+    connectWs();
+
     const handleStorage = () => {
       setRequests(getEmergencyRequests(currentUserEmail));
       setDonors(getDonors());
@@ -205,6 +257,12 @@ export const Dashboard: React.FC = () => {
 
     return () => {
       clearInterval(syncInterval);
+      clearInterval(pingInterval);
+      clearTimeout(reconnectTimer);
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('bloodmatch_donors_updated', handleStorage);
       window.removeEventListener('bloodmatch_inventory_updated', handleStorage);

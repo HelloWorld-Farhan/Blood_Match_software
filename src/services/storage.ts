@@ -168,7 +168,7 @@ export const BloodStorage = {
     }
   },
 
-  markRequestDeleted(id: string, userEmail?: string): void {
+  markRequestDeleted(id: string, userEmail?: string, emitCustomEvent: boolean = true): void {
     if (typeof window === 'undefined') return;
     try {
       const email = (userEmail || '').trim().toLowerCase();
@@ -177,7 +177,7 @@ export const BloodStorage = {
       localStorage.setItem(`bloodmatch_deleted_req_ids_${email || 'global'}`, JSON.stringify(Array.from(set)));
       // Also prune from local emergency requests storage
       const current = this.getEmergencyRequests(userEmail).filter(r => r.id !== id);
-      this.saveEmergencyRequests(current, userEmail, false);
+      this.saveEmergencyRequests(current, userEmail, emitCustomEvent);
     } catch {
       // Quiet storage fallback
     }
@@ -398,7 +398,7 @@ export const deleteDonor = (donorId: string) => BloodStorage.deleteDonor(donorId
 export const getEmergencyRequests = (userEmail?: string) => BloodStorage.getEmergencyRequests(userEmail);
 export const saveEmergencyRequests = (requests: EmergencyRequest[], userEmail?: string, emitCustomEvent: boolean = true) => BloodStorage.saveEmergencyRequests(requests, userEmail, emitCustomEvent);
 export const deleteEmergencyRequest = (id: string, userEmail?: string) => BloodStorage.deleteEmergencyRequest(id, userEmail);
-export const markRequestDeleted = (id: string, userEmail?: string) => BloodStorage.markRequestDeleted(id, userEmail);
+export const markRequestDeleted = (id: string, userEmail?: string, emitCustomEvent: boolean = true) => BloodStorage.markRequestDeleted(id, userEmail, emitCustomEvent);
 export const getDeletedRequestIds = (userEmail?: string) => BloodStorage.getDeletedRequestIds(userEmail);
 export const updateRequestLiveTracking = (id: string, liveTracking: boolean, userEmail?: string) => BloodStorage.updateRequestLiveTracking(id, liveTracking, userEmail);
 export const getInventory = () => BloodStorage.getInventory();

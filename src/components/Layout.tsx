@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation, Outlet, Link, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -30,7 +30,7 @@ import { BloodDropsCanvas } from './BloodDropsCanvas';
 import { AmbientBackgroundVideo } from './AmbientBackgroundVideo';
 import { AvatarUploadModal } from './AvatarUploadModal';
 import { ClinicianAvatar } from './ClinicianAvatar';
-import { getDonors, getEmergencyRequests, getInventory } from '../services/storage';
+import { getDonors, getEmergencyRequests, getInventory, markRequestDeleted } from '../services/storage';
 import { 
   apiClient, 
   fetchAlertsApi, 
@@ -164,6 +164,15 @@ export default function Layout() {
   const [activeRequestsCount, setActiveRequestsCount] = useState(0);
   const [donorsCount, setDonorsCount] = useState(0);
   const [totalUnits, setTotalUnits] = useState(0);
+
+  const updateStats = useCallback(() => {
+    const reqs = getEmergencyRequests(userEmail);
+    setActiveRequestsCount(reqs.filter(r => r.status === 'urgent' || r.status === 'critical').length);
+    const donors = getDonors();
+    setDonorsCount(donors.length);
+    const inv = getInventory();
+    setTotalUnits(inv.reduce((sum, item) => sum + item.unitsAvailable, 0));
+  }, [userEmail]);
 
   // Clinician Avatar
   const [avatar, setAvatar] = useState<string | null>(
@@ -325,8 +334,16 @@ export default function Layout() {
                   });
                 }
               }
-            } else if (data.type === 'DONOR_CREATED' || data.type === 'COMPATIBLE_DONOR_ARRIVED' || data.type === 'EMERGENCY_CREATED') {
+            } else if (data.type === 'EMERGENCY_DELETED') {
+              const delId = data.deleted_id || data.id;
+              if (delId) {
+                markRequestDeleted(delId, userEmail, true);
+              }
               loadAlerts();
+              updateStats();
+            } else if (data.type === 'DONOR_CREATED' || data.type === 'COMPATIBLE_DONOR_ARRIVED' || data.type === 'EMERGENCY_CREATED' || data.type === 'EMERGENCY_FULFILLED') {
+              loadAlerts();
+              updateStats();
             }
           } catch {}
         };
@@ -404,15 +421,6 @@ export default function Layout() {
   };
 
   useEffect(() => {
-    const updateStats = () => {
-      const reqs = getEmergencyRequests();
-      setActiveRequestsCount(reqs.filter(r => r.status === 'urgent' || r.status === 'critical').length);
-      const donors = getDonors();
-      setDonorsCount(donors.length);
-      const inv = getInventory();
-      setTotalUnits(inv.reduce((sum, item) => sum + item.unitsAvailable, 0));
-    };
-
     const syncLiveBackendStats = async () => {
       try {
         const [invRes, donorsRes] = await Promise.allSettled([
@@ -444,7 +452,7 @@ export default function Layout() {
       window.removeEventListener('bloodmatch_requests_updated', updateStats);
       window.removeEventListener('focus', updateStats);
     };
-  }, []);
+  }, [updateStats]);
 
   // Close dropdowns on outside click
   useEffect(() => {
