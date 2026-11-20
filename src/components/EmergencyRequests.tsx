@@ -3,28 +3,28 @@ import { useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { BloodType, EmergencyRequest, UrgencyLevel, Donor } from '../types';
-import { 
-  AlertTriangle, 
-  Plus, 
-  CheckCircle, 
-  ShieldAlert, 
-  X, 
-  Phone, 
-  BarChart3, 
-  MapPin, 
-  Navigation, 
-  Send, 
-  FileDown, 
-  Mail, 
-  RefreshCw, 
-  CheckCircle2, 
-  Droplet, 
-  Radio, 
-  Crosshair, 
-  Activity, 
-  ShieldCheck, 
-  User, 
-  Clock, 
+import {
+  AlertTriangle,
+  Plus,
+  CheckCircle,
+  ShieldAlert,
+  X,
+  Phone,
+  BarChart3,
+  MapPin,
+  Navigation,
+  Send,
+  FileDown,
+  Mail,
+  RefreshCw,
+  CheckCircle2,
+  Droplet,
+  Radio,
+  Crosshair,
+  Activity,
+  ShieldCheck,
+  User,
+  Clock,
   ArrowRight,
   ChevronDown,
   Users,
@@ -32,19 +32,19 @@ import {
   RotateCcw,
   Trash2
 } from 'lucide-react';
-import { 
-  getEmergencyRequests, 
-  saveEmergencyRequests, 
-  getDonors, 
+import {
+  getEmergencyRequests,
+  saveEmergencyRequests,
+  getDonors,
   saveDonors,
   getGpsPermission,
   setGpsPermission
 } from '../services/storage';
-import { 
-  fetchEmergencyRequestsApi, 
-  createEmergencyRequestApi, 
-  fetchDonorsApi, 
-  dispatchEmergencyDonorApi, 
+import {
+  fetchEmergencyRequestsApi,
+  createEmergencyRequestApi,
+  fetchDonorsApi,
+  dispatchEmergencyDonorApi,
   emailEmergencyRosterApi,
   fulfillEmergencyRequestApi,
   deleteEmergencyRequestApi,
@@ -54,44 +54,44 @@ import {
   fetchGpsPermissionApi,
   updateGpsPermissionApi
 } from '../services/api';
-import { 
-  COUNTRY_CODES, 
+import {
+  COUNTRY_CODES,
   validatePhoneNumber,
   parsePhoneNumberWithCountry,
   formatFullPhone,
   deduplicatePhones,
   stripHonorific
 } from '../utils/countryCodes';
-import { 
-  Coordinates, 
-  DELHI_LOCALITY_NAMES, 
-  calculateHaversineDistance, 
-  resolveCoordinatesForLocation, 
+import {
+  Coordinates,
+  DELHI_LOCALITY_NAMES,
+  calculateHaversineDistance,
+  resolveCoordinatesForLocation,
   reverseGeocodeCoordinates,
-  getCompatibleDonorTypes, 
-  getProximityTier 
+  getCompatibleDonorTypes,
+  getProximityTier
 } from '../utils/geolocation';
-import { 
-  generateEmergencyDonorDocketPdf, 
-  RankedDonorItem 
+import {
+  generateEmergencyDonorDocketPdf,
+  RankedDonorItem
 } from '../utils/docketPdfGenerator';
 import ClinicalCallModal from './ClinicalCallModal';
 import SendAlertModal, { TargetDonorSummary } from './SendAlertModal';
 
 const scrollBlurVariants: Variants = {
-  hidden: { 
-    opacity: 0, 
-    y: 24, 
+  hidden: {
+    opacity: 0,
+    y: 24,
     filter: 'blur(12px)',
     scale: 0.985,
   },
-  visible: { 
-    opacity: 1, 
-    y: 0, 
+  visible: {
+    opacity: 1,
+    y: 0,
     filter: 'blur(0px)',
     scale: 1,
-    transition: { 
-      duration: 0.55, 
+    transition: {
+      duration: 0.55,
       ease: [0.22, 1, 0.36, 1],
     },
   },
@@ -149,13 +149,12 @@ function BlurDropdown<T extends string>({
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${
-          hasError
-            ? 'border-red-500 bg-red-50/20'
-            : isOpen
+        className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${hasError
+          ? 'border-red-500 bg-red-50/20'
+          : isOpen
             ? 'border-[#D72638] ring-2 ring-[#D72638]/20'
             : 'border-[#D9C7C2] hover:border-[#D72638]/60'
-        } text-xs font-bold text-[#1A1D20] flex items-center justify-between gap-2 transition-all cursor-pointer shadow-2xs`}
+          } text-xs font-bold text-[#1A1D20] flex items-center justify-between gap-2 transition-all cursor-pointer shadow-2xs`}
       >
         <span className="flex items-center gap-2 truncate">
           {selectedOption ? (
@@ -172,9 +171,8 @@ function BlurDropdown<T extends string>({
           )}
         </span>
         <ChevronDown
-          className={`w-4 h-4 text-[#5A626A] transition-transform duration-200 shrink-0 ${
-            isOpen ? 'rotate-180 text-[#D72638]' : ''
-          }`}
+          className={`w-4 h-4 text-[#5A626A] transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-[#D72638]' : ''
+            }`}
         />
       </button>
 
@@ -196,11 +194,10 @@ function BlurDropdown<T extends string>({
                     onChange(opt.value);
                     setIsOpen(false);
                   }}
-                  className={`px-3.5 py-2 text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors ${
-                    isSelected
-                      ? 'bg-red-50/80 text-[#D72638] font-bold'
-                      : 'hover:bg-[#F5F1EF] text-[#1A1D20]'
-                  }`}
+                  className={`px-3.5 py-2 text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors ${isSelected
+                    ? 'bg-red-50/80 text-[#D72638] font-bold'
+                    : 'hover:bg-[#F5F1EF] text-[#1A1D20]'
+                    }`}
                 >
                   <div className="flex items-center gap-2 min-w-0">
                     {opt.badge && (
@@ -281,9 +278,9 @@ export default function EmergencyRequests() {
 
   // Clinician context
   const currentUserEmail = useMemo(() => {
-    return sessionStorage.getItem('bloodmatch_user_email') || 
-           localStorage.getItem('bloodmatch_user_email') || 
-           'clinician@bloodmatch.org';
+    return sessionStorage.getItem('bloodmatch_user_email') ||
+      localStorage.getItem('bloodmatch_user_email') ||
+      'clinician@bloodmatch.org';
   }, []);
 
   const currentUserName = useMemo(() => {
@@ -390,7 +387,7 @@ export default function EmergencyRequests() {
             setGpsPermission(true, currentUserEmail, false);
           }
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [currentUserEmail]);
 
@@ -399,7 +396,7 @@ export default function EmergencyRequests() {
     setIsGpsPermissionEnabled(nextVal);
     setGpsPermission(nextVal, currentUserEmail, true);
     if (currentUserEmail) {
-      updateGpsPermissionApi(nextVal, currentUserEmail).catch(() => {});
+      updateGpsPermissionApi(nextVal, currentUserEmail).catch(() => { });
     }
     if (!nextVal) {
       setGpsMessage(null);
@@ -451,7 +448,7 @@ export default function EmergencyRequests() {
             return combined;
           });
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [currentUserEmail]);
 
@@ -476,7 +473,7 @@ export default function EmergencyRequests() {
       } catch { }
       return updated;
     });
-    saveUserPhoneApi(clean, currentUserEmail).catch(() => {});
+    saveUserPhoneApi(clean, currentUserEmail).catch(() => { });
   };
 
   // Geolocation & Locality
@@ -643,7 +640,7 @@ export default function EmergencyRequests() {
               status: cleanedLocal.status,
               contact_person: cleanedLocal.contactName,
               contact_phone: cleanedLocal.contactNumber
-            }).catch(() => {});
+            }).catch(() => { });
           }
         });
 
@@ -916,6 +913,7 @@ export default function EmergencyRequests() {
 
   // Generate and download clinical PDF docket directly from horizontal request card
   const handleDownloadPdfForRequest = (req: EmergencyRequest, matches: RankedMatchDonor[]) => {
+    if (matches.length === 0) return;
     setIsGeneratingPdf(true);
     try {
       const donorItems: RankedDonorItem[] = matches.map((d, index) => ({
@@ -952,7 +950,7 @@ export default function EmergencyRequests() {
           user_email: currentUserEmail,
           filename: pdfResult.filename,
           pdf_base64: pdfResult.base64
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       setBoardNotification({
@@ -972,10 +970,7 @@ export default function EmergencyRequests() {
 
   // Email top compatible donor roster with attached PDF directly from horizontal request card
   const handleEmailRosterForRequest = async (req: EmergencyRequest, matches: RankedMatchDonor[]) => {
-    if (matches.length === 0) {
-      setBoardNotification({ message: 'No compatible donors available to email.', type: 'error' });
-      return;
-    }
+    if (matches.length === 0) return;
     setIsEmailingRoster(true);
 
     const rosterItems = matches.slice(0, 18).map((d, index) => ({
@@ -1038,7 +1033,7 @@ export default function EmergencyRequests() {
           user_email: currentUserEmail,
           filename: pdfResult.filename,
           pdf_base64: pdfResult.base64
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       if (res.ok) {
@@ -1402,10 +1397,7 @@ export default function EmergencyRequests() {
 
   // Email Top Donors Roster to Clinician along with the Attached Minimal PDF Docket
   const handleEmailRoster = async () => {
-    if (rankedDonors.length === 0) {
-      setModalNotification({ message: 'No compatible donors available to email.', type: 'error' });
-      return;
-    }
+    if (rankedDonors.length === 0) return;
     setIsEmailingRoster(true);
     setModalNotification(null);
 
@@ -1472,7 +1464,7 @@ export default function EmergencyRequests() {
           user_email: currentUserEmail,
           filename: pdfResult.filename,
           pdf_base64: pdfResult.base64
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       setLastGeneratedPdf({
@@ -1514,10 +1506,7 @@ export default function EmergencyRequests() {
 
   // Generate & Download Instant Client-Side PDF Docket
   const handleDownloadPdf = async () => {
-    if (rankedDonors.length === 0) {
-      setModalNotification({ message: 'No compatible donors available for PDF docket.', type: 'error' });
-      return;
-    }
+    if (rankedDonors.length === 0) return;
     setIsGeneratingPdf(true);
     try {
       const donorItems: RankedDonorItem[] = rankedDonors.map((d, index) => ({
@@ -1555,7 +1544,7 @@ export default function EmergencyRequests() {
           user_email: currentUserEmail,
           filename: pdfResult.filename,
           pdf_base64: pdfResult.base64
-        }).catch(() => {});
+        }).catch(() => { });
       }
 
       setLastGeneratedPdf({
@@ -1591,7 +1580,7 @@ export default function EmergencyRequests() {
   return (
     <div className="space-y-6 sm:space-y-8 pb-2 sm:pb-3 relative z-10">
       {/* Header with Scroll Blur-In */}
-      <motion.div 
+      <motion.div
         variants={scrollBlurVariants}
         initial="hidden"
         whileInView="visible"
@@ -1626,7 +1615,7 @@ export default function EmergencyRequests() {
       </motion.div>
 
       {/* Featured Video Header */}
-      <motion.div 
+      <motion.div
         variants={scrollBlurVariants}
         initial="hidden"
         whileInView="visible"
@@ -1634,7 +1623,7 @@ export default function EmergencyRequests() {
         className="p-5 sm:p-6 rounded-2xl bg-white border border-[#D9C7C2] shadow-sm overflow-hidden"
       >
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
-          <div 
+          <div
             className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black h-[220px] xs:h-[260px] sm:h-[300px] flex items-center justify-center"
             style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
           >
@@ -1650,7 +1639,7 @@ export default function EmergencyRequests() {
               style={{ transform: 'translateZ(0)' }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
-            
+
             <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-xs pointer-events-none">
               <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white font-bold">
                 <span className="w-2 h-2 rounded-full bg-[#D72638] animate-ping" />
@@ -1732,11 +1721,10 @@ export default function EmergencyRequests() {
           <button
             key={status}
             onClick={() => setFilterStatus(status)}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-              filterStatus === status
-                ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/20'
-                : 'bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
-            }`}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${filterStatus === status
+              ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/20'
+              : 'bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
+              }`}
           >
             {status.toUpperCase()} ({status === 'ALL' ? requests.length : requests.filter(r => r.status === status).length})
           </button>
@@ -1750,11 +1738,10 @@ export default function EmergencyRequests() {
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
-            className={`p-3.5 sm:p-4 rounded-2xl flex items-center justify-between text-xs font-bold shadow-md border ${
-              boardNotification.type === 'success'
-                ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
-                : 'bg-red-50 text-[#D72638] border-red-200'
-            }`}
+            className={`p-3.5 sm:p-4 rounded-2xl flex items-center justify-between text-xs font-bold shadow-md border ${boardNotification.type === 'success'
+              ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
+              : 'bg-red-50 text-[#D72638] border-red-200'
+              }`}
           >
             <div className="flex items-center gap-2">
               {boardNotification.type === 'success' ? (
@@ -1795,13 +1782,12 @@ export default function EmergencyRequests() {
                 id={`request-row-${req.id}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`rounded-2xl border transition-all duration-300 overflow-hidden shadow-xs relative ${
-                  isTargetHighlighted
-                    ? 'animate-target-blink-2s ring-4 ring-[#D72638]/40 border-[#D72638] bg-[#FFF5F6] z-10'
-                    : isFulfilled
+                className={`rounded-2xl border transition-all duration-300 overflow-hidden shadow-xs relative ${isTargetHighlighted
+                  ? 'animate-target-blink-2s ring-4 ring-[#D72638]/40 border-[#D72638] bg-[#FFF5F6] z-10'
+                  : isFulfilled
                     ? 'bg-white border-emerald-200'
                     : 'bg-white border-[#D9C7C2] hover:border-[#D72638]/50'
-                }`}
+                  }`}
               >
                 {/* Horizontal Primary Row */}
                 <div className="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -1820,13 +1806,12 @@ export default function EmergencyRequests() {
                         <span className="font-mono text-xs text-[#7A0C17] bg-[#7A0C17]/10 px-2 py-0.5 rounded-md font-bold">
                           {req.id}
                         </span>
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          isFulfilled
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                            : req.urgency === 'CRITICAL'
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${isFulfilled
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : req.urgency === 'CRITICAL'
                             ? 'bg-red-100 text-[#D72638] border border-red-200'
                             : 'bg-amber-100 text-amber-800 border border-amber-200'
-                        }`}>
+                          }`}>
                           {isFulfilled ? '✓ FULFILLED' : req.urgency}
                         </span>
                         {isTargetHighlighted && (
@@ -1854,7 +1839,7 @@ export default function EmergencyRequests() {
 
                       <div className="text-[11px] text-[#5A626A] mt-1 flex items-center gap-2 flex-wrap">
                         <span>Contact: <strong>{stripHonorific(req.contactName)}</strong></span>
-                        <button 
+                        <button
                           type="button"
                           onClick={() => setCallModalTarget({
                             contactName: stripHonorific(req.contactName),
@@ -1907,11 +1892,10 @@ export default function EmergencyRequests() {
                     {/* Expandable Dropdown Toggle Button */}
                     <button
                       onClick={() => toggleRequestExpanded(req.id)}
-                      className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border ${
-                        isExpanded
-                          ? 'bg-[#1A1D20] text-white border-[#1A1D20]'
-                          : 'bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border-[#D9C7C2]'
-                      }`}
+                      className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border ${isExpanded
+                        ? 'bg-[#1A1D20] text-white border-[#1A1D20]'
+                        : 'bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border-[#D9C7C2]'
+                        }`}
                     >
                       <Users className="w-3.5 h-3.5 text-[#D72638]" />
                       <span>Matched Lifesavers ({matches.length})</span>
@@ -1958,20 +1942,30 @@ export default function EmergencyRequests() {
                           <button
                             type="button"
                             onClick={() => handleEmailRosterForRequest(req, matches)}
-                            disabled={isEmailingRoster}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-[#D9C7C2] text-xs font-bold text-[#1A1D20] transition-colors cursor-pointer shadow-2xs disabled:opacity-50"
+                            disabled={isEmailingRoster || matches.length === 0}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                              matches.length === 0
+                                ? 'bg-[#F5F1EF]/60 text-slate-400 border border-slate-200 cursor-not-allowed opacity-40 pointer-events-none shadow-none'
+                                : 'bg-white hover:bg-slate-50 border border-[#D9C7C2] text-[#1A1D20] cursor-pointer shadow-2xs'
+                            }`}
+                            title={matches.length === 0 ? 'Unavailable: No compatible donors ranked in this search radius' : 'Email Roster & PDF'}
                           >
-                            <Mail className="w-3.5 h-3.5 text-[#D72638]" />
+                            <Mail className={`w-3.5 h-3.5 ${matches.length === 0 ? 'text-slate-400' : 'text-[#D72638]'}`} />
                             <span>{isEmailingRoster ? 'Sending...' : 'Email Roster & PDF'}</span>
                           </button>
 
                           <button
                             type="button"
                             onClick={() => handleDownloadPdfForRequest(req, matches)}
-                            disabled={isGeneratingPdf}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                            disabled={isGeneratingPdf || matches.length === 0}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                              matches.length === 0
+                                ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-40 pointer-events-none shadow-none'
+                                : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer shadow-xs'
+                            }`}
+                            title={matches.length === 0 ? 'Unavailable: No compatible donors ranked in this search radius' : 'Download PDF Docket'}
                           >
-                            <FileDown className="w-3.5 h-3.5" />
+                            <FileDown className={`w-3.5 h-3.5 ${matches.length === 0 ? 'text-slate-400' : 'text-white'}`} />
                             <span>{isGeneratingPdf ? 'Generating...' : 'Download PDF Docket'}</span>
                           </button>
                         </div>
@@ -2000,13 +1994,12 @@ export default function EmergencyRequests() {
                             return (
                               <div
                                 key={donor.id}
-                                className={`p-3.5 rounded-xl border shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
-                                  isDispatched 
-                                    ? 'bg-emerald-50/60 border-emerald-200' 
-                                    : isSelf
+                                className={`p-3.5 rounded-xl border shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${isDispatched
+                                  ? 'bg-emerald-50/60 border-emerald-200'
+                                  : isSelf
                                     ? 'bg-emerald-50/30 border-emerald-300 ring-1 ring-emerald-300'
                                     : 'bg-white border-[#D9C7C2] hover:border-[#D72638]/40'
-                                }`}
+                                  }`}
                               >
                                 <div className="flex items-center gap-3 min-w-0">
                                   <div className="w-8 h-8 rounded-lg bg-[#F5F1EF] border border-[#D9C7C2] flex items-center justify-center font-mono font-bold text-xs text-[#7A0C17] shrink-0">
@@ -2035,7 +2028,7 @@ export default function EmergencyRequests() {
                                         <span>{donor.location || donor.city}</span>
                                       </span>
                                       <span>•</span>
-                                      <button 
+                                      <button
                                         type="button"
                                         onClick={() => setCallModalTarget({
                                           contactName: donor.fullName,
@@ -2095,11 +2088,10 @@ export default function EmergencyRequests() {
                                         customMessage: `Urgent transfusion required for ${req.patientName} (Group ${req.bloodType}). Your compatible voluntary donation can save a life. Please contact our hotline immediately if you can donate.`
                                       })}
                                       disabled={isDispatched}
-                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-2xs ${
-                                        isDispatched
-                                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                          : 'bg-[#D72638] hover:bg-[#b51d2c] text-white'
-                                      }`}
+                                      className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-2xs ${isDispatched
+                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                        : 'bg-[#D72638] hover:bg-[#b51d2c] text-white'
+                                        }`}
                                     >
                                       <Send className="w-3 h-3" />
                                       <span>{isDispatched ? 'Alert Sent ✓' : 'Send Alert'}</span>
@@ -2176,11 +2168,10 @@ export default function EmergencyRequests() {
                             setFulfillmentDonorName(d.fullName);
                             setFulfillmentDonorEmail(d.email);
                           }}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer whitespace-nowrap ${
-                            selectedFulfillingDonorId === d.id
-                              ? 'bg-[#D72638] text-white border-[#D72638]'
-                              : 'bg-white hover:bg-slate-50 text-[#1A1D20] border-[#D9C7C2]'
-                          }`}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer whitespace-nowrap ${selectedFulfillingDonorId === d.id
+                            ? 'bg-[#D72638] text-white border-[#D72638]'
+                            : 'bg-white hover:bg-slate-50 text-[#1A1D20] border-[#D9C7C2]'
+                            }`}
                         >
                           {d.fullName} ({d.bloodType})
                         </button>
@@ -2247,11 +2238,11 @@ export default function EmergencyRequests() {
           (Spacious 2-Column Horizontal Architecture: Max-W-5xl)
           ========================================================================= */}
       {isOpenModal && typeof document !== 'undefined' && createPortal(
-        <div 
+        <div
           className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 md:p-6 bg-black/75 backdrop-blur-md animate-fade-in"
           onClick={handleCancelModal}
         >
-          <div 
+          <div
             className="relative w-full max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto no-scrollbar rounded-3xl bg-white border border-[#D9C7C2] p-5 sm:p-7 md:p-8 shadow-2xl text-[#1A1D20]"
             onClick={(e) => e.stopPropagation()}
           >
@@ -2271,11 +2262,10 @@ export default function EmergencyRequests() {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className={`mb-4 p-3 rounded-xl flex items-center justify-between text-xs font-bold ${
-                    modalNotification.type === 'success'
-                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                      : 'bg-red-50 text-red-800 border border-red-200'
-                  }`}
+                  className={`mb-4 p-3 rounded-xl flex items-center justify-between text-xs font-bold ${modalNotification.type === 'success'
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                    : 'bg-red-50 text-red-800 border border-red-200'
+                    }`}
                 >
                   <div className="flex items-center gap-2">
                     {modalNotification.type === 'success' ? (
@@ -2351,9 +2341,8 @@ export default function EmergencyRequests() {
                           if (formErrors.patientName) setFormErrors(prev => ({ ...prev, patientName: '' }));
                         }}
                         placeholder="e.g. Farhan Khalid"
-                        className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${
-                          formErrors.patientName ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                        } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                        className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${formErrors.patientName ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                          } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
                       />
                       {formErrors.patientName && (
                         <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.patientName}</p>
@@ -2389,9 +2378,8 @@ export default function EmergencyRequests() {
                           setPatientAge(clean);
                           if (formErrors.patientAge) setFormErrors(prev => ({ ...prev, patientAge: '' }));
                         }}
-                        className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${
-                          formErrors.patientAge ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                        } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
+                        className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${formErrors.patientAge ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                          } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
                       />
                       {formErrors.patientAge && (
                         <p className="text-red-500 text-[10px] font-semibold mt-1">{formErrors.patientAge}</p>
@@ -2472,13 +2460,12 @@ export default function EmergencyRequests() {
                                 }
                               }}
                               placeholder="Select dispatched site or type locality..."
-                              className={`w-full pl-3.5 pr-8 py-2.5 rounded-xl bg-white border ${
-                                formErrors.locality
-                                  ? 'border-red-500 bg-red-50/20'
-                                  : isLocalityDropdownOpen
+                              className={`w-full pl-3.5 pr-8 py-2.5 rounded-xl bg-white border ${formErrors.locality
+                                ? 'border-red-500 bg-red-50/20'
+                                : isLocalityDropdownOpen
                                   ? 'border-[#D72638] ring-2 ring-[#D72638]/20'
                                   : 'border-[#D9C7C2] hover:border-[#D72638]/60'
-                              } text-xs font-semibold text-[#1A1D20] outline-hidden transition-all shadow-2xs`}
+                                } text-xs font-semibold text-[#1A1D20] outline-hidden transition-all shadow-2xs`}
                             />
                             <button
                               type="button"
@@ -2548,16 +2535,14 @@ export default function EmergencyRequests() {
                                               setIsLocalityDropdownOpen(false);
                                               if (formErrors.locality) setFormErrors(prev => ({ ...prev, locality: '' }));
                                             }}
-                                            className={`px-3.5 py-2.5 text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors ${
-                                              isSelected
-                                                ? 'bg-red-50/80 text-[#D72638] font-bold'
-                                                : 'hover:bg-[#F5F1EF] text-[#1A1D20]'
-                                            }`}
+                                            className={`px-3.5 py-2.5 text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors ${isSelected
+                                              ? 'bg-red-50/80 text-[#D72638] font-bold'
+                                              : 'hover:bg-[#F5F1EF] text-[#1A1D20]'
+                                              }`}
                                           >
                                             <div className="flex items-center gap-2 min-w-0">
-                                              <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
-                                                isSelected ? 'bg-red-100 text-[#D72638]' : 'bg-slate-100 text-slate-500'
-                                              }`}>
+                                              <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? 'bg-red-100 text-[#D72638]' : 'bg-slate-100 text-slate-500'
+                                                }`}>
                                                 <MapPin className="w-3.5 h-3.5" />
                                               </div>
                                               <span className="truncate">{loc}</span>
@@ -2583,11 +2568,10 @@ export default function EmergencyRequests() {
                             type="button"
                             onClick={handleToggleGpsPermission}
                             title={isGpsPermissionEnabled ? 'GPS Permission is ON. Click to turn OFF.' : 'GPS Permission is OFF. Click to turn ON.'}
-                            className={`px-2.5 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
-                              isGpsPermissionEnabled
-                                ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
-                                : 'bg-slate-100 border-[#D9C7C2] text-slate-500 hover:bg-slate-200'
-                            }`}
+                            className={`px-2.5 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${isGpsPermissionEnabled
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                              : 'bg-slate-100 border-[#D9C7C2] text-slate-500 hover:bg-slate-200'
+                              }`}
                           >
                             <span className={`w-2 h-2 rounded-full ${isGpsPermissionEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
                             <span className="hidden md:inline">GPS Permission:</span>
@@ -2599,11 +2583,10 @@ export default function EmergencyRequests() {
                             onClick={handleDetectGps}
                             disabled={isDetectingGps || !isGpsPermissionEnabled}
                             title={!isGpsPermissionEnabled ? 'Turn ON GPS Permission first to locate' : 'Detect current GPS coordinates'}
-                            className={`px-3 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
-                              isGpsPermissionEnabled
-                                ? 'bg-white border-[#D9C7C2] hover:border-[#D72638] text-[#D72638] hover:text-[#b51d2c]'
-                                : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
-                            }`}
+                            className={`px-3 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${isGpsPermissionEnabled
+                              ? 'bg-white border-[#D9C7C2] hover:border-[#D72638] text-[#D72638] hover:text-[#b51d2c]'
+                              : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
+                              }`}
                           >
                             <Navigation className={`w-3.5 h-3.5 ${isDetectingGps ? 'animate-spin' : ''}`} />
                             <span className="hidden sm:inline">{isDetectingGps ? 'Pinpointing...' : 'Detect GPS'}</span>
@@ -2667,11 +2650,9 @@ export default function EmergencyRequests() {
                             if (formErrors.contactPhone) setFormErrors(prev => ({ ...prev, contactPhone: '' }));
                           }}
                           placeholder={countryDialCode === '+91' ? '98765 43210' : 'Emergency phone number'}
-                          className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${
-                            formErrors.contactPhone ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                          } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-all duration-300 ${
-                            phoneAnimate ? 'ring-2 ring-emerald-500 bg-emerald-50/60 scale-[1.01]' : ''
-                          }`}
+                          className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${formErrors.contactPhone ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
+                            } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-all duration-300 ${phoneAnimate ? 'ring-2 ring-emerald-500 bg-emerald-50/60 scale-[1.01]' : ''
+                            }`}
                         />
                       </div>
                       {deduplicatePhones(savedPhones).length > 0 && (
@@ -2812,10 +2793,14 @@ export default function EmergencyRequests() {
                       type="button"
                       onClick={handleEmailRoster}
                       disabled={isEmailingRoster || rankedDonors.length === 0}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-[#4A5568] bg-[#F5F1EF] border border-[#D9C7C2] hover:bg-slate-200 transition-all cursor-pointer"
-                      title="Transmit ranked roster with attached PDF docket to your email"
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        rankedDonors.length === 0
+                          ? 'bg-[#F5F1EF]/60 text-slate-400 border border-slate-200 cursor-not-allowed opacity-40 pointer-events-none shadow-none'
+                          : 'text-[#4A5568] bg-[#F5F1EF] border border-[#D9C7C2] hover:bg-slate-200 cursor-pointer shadow-2xs'
+                      }`}
+                      title={rankedDonors.length === 0 ? 'Unavailable: No compatible donors ranked in this search radius' : 'Transmit ranked roster with attached PDF docket to your email'}
                     >
-                      {isEmailingRoster ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5 text-[#D72638]" />}
+                      {isEmailingRoster ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Mail className={`w-3.5 h-3.5 ${rankedDonors.length === 0 ? 'text-slate-400' : 'text-[#D72638]'}`} />}
                       <span>Email Roster &amp; PDF</span>
                     </button>
 
@@ -2823,10 +2808,14 @@ export default function EmergencyRequests() {
                       type="button"
                       onClick={handleDownloadPdf}
                       disabled={isGeneratingPdf || rankedDonors.length === 0}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-[#D72638] hover:bg-[#b51d2c] shadow-xs transition-all cursor-pointer"
-                      title="Download clinical emergency mobilization docket PDF"
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                        rankedDonors.length === 0
+                          ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-40 pointer-events-none shadow-none'
+                          : 'text-white bg-[#D72638] hover:bg-[#b51d2c] shadow-xs cursor-pointer'
+                      }`}
+                      title={rankedDonors.length === 0 ? 'Unavailable: No compatible donors ranked in this search radius' : 'Download clinical emergency mobilization docket PDF'}
                     >
-                      {isGeneratingPdf ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
+                      {isGeneratingPdf ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <FileDown className={`w-3.5 h-3.5 ${rankedDonors.length === 0 ? 'text-slate-400' : 'text-white'}`} />}
                       <span>Download PDF Docket</span>
                     </button>
                   </div>
@@ -2866,11 +2855,10 @@ export default function EmergencyRequests() {
 
                     <div className="p-2.5 rounded-xl bg-[#F5F1EF]/60 border border-[#D9C7C2]/60">
                       <div className="text-[10px] uppercase font-bold text-[#5A626A]">Triage Urgency</div>
-                      <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold mt-0.5 ${
-                        urgency === 'CRITICAL' ? 'bg-red-100 text-[#D72638] border border-red-200' :
+                      <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold mt-0.5 ${urgency === 'CRITICAL' ? 'bg-red-100 text-[#D72638] border border-red-200' :
                         urgency === 'URGENT' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                        'bg-blue-100 text-blue-800 border border-blue-200'
-                      }`}>
+                          'bg-blue-100 text-blue-800 border border-blue-200'
+                        }`}>
                         {urgency}
                       </span>
                       <div className="text-[10px] text-[#5A626A] mt-1 truncate">{customLocalityInput.trim() || selectedLocality || 'Worldwide'}</div>
@@ -2974,11 +2962,10 @@ export default function EmergencyRequests() {
                       return (
                         <div
                           key={donor.id}
-                          className={`p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                            isImmediate
-                              ? 'bg-emerald-50/20 border-emerald-300'
-                              : 'bg-[#F5F1EF] border-[#D9C7C2]'
-                          }`}
+                          className={`p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${isImmediate
+                            ? 'bg-emerald-50/20 border-emerald-300'
+                            : 'bg-[#F5F1EF] border-[#D9C7C2]'
+                            }`}
                         >
                           <div className="flex items-center gap-3">
                             <div className="flex flex-col items-center">
@@ -3050,11 +3037,10 @@ export default function EmergencyRequests() {
                                   customMessage: `Urgent transfusion needed for ${patientName} (Group ${bloodType}). Your compatible voluntary donation can save a life. Please contact our emergency hotline immediately if you can donate.`
                                 })}
                                 disabled={isDispatched}
-                                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${
-                                  isDispatched
-                                    ? 'bg-emerald-600 text-white cursor-default'
-                                    : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer disabled:opacity-50'
-                                }`}
+                                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${isDispatched
+                                  ? 'bg-emerald-600 text-white cursor-default'
+                                  : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer disabled:opacity-50'
+                                  }`}
                               >
                                 {isDispatched ? (
                                   <CheckCircle2 className="w-3 h-3" />
