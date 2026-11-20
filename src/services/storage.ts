@@ -302,3 +302,27 @@ export const updateInventoryUnits = (type: BloodType, delta: number) => {
   BloodStorage.updateUnits(type, delta);
   return BloodStorage.getInventory();
 };
+
+export const getGpsPermission = (userEmail?: string): boolean => {
+  if (typeof window === 'undefined') return false;
+  try {
+    const key = `bloodmatch_gps_permission_${(userEmail || 'default').trim().toLowerCase()}`;
+    return localStorage.getItem(key) === 'true';
+  } catch {
+    return false;
+  }
+};
+
+export const setGpsPermission = (enabled: boolean, userEmail?: string, emitCustomEvent: boolean = true): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    const key = `bloodmatch_gps_permission_${(userEmail || 'default').trim().toLowerCase()}`;
+    localStorage.setItem(key, String(enabled));
+    if (emitCustomEvent) {
+      window.dispatchEvent(new CustomEvent('bloodmatch_gps_permission_updated', { detail: { enabled, userEmail } }));
+      window.dispatchEvent(new Event('storage'));
+    }
+  } catch {
+    // Quiet storage fallback
+  }
+};

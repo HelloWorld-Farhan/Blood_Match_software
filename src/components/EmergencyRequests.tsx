@@ -35,7 +35,9 @@ import {
   getEmergencyRequests, 
   saveEmergencyRequests, 
   getDonors, 
-  saveDonors 
+  saveDonors,
+  getGpsPermission,
+  setGpsPermission
 } from '../services/storage';
 import { 
   fetchEmergencyRequestsApi, 
@@ -46,7 +48,9 @@ import {
   fulfillEmergencyRequestApi,
   saveEmergencyDocketApi,
   fetchSavedPhonesApi,
-  saveUserPhoneApi
+  saveUserPhoneApi,
+  fetchGpsPermissionApi,
+  updateGpsPermissionApi
 } from '../services/api';
 import { 
   COUNTRY_CODES, 
@@ -345,6 +349,56 @@ export default function EmergencyRequests() {
     };
   }, [isLocalityDropdownOpen]);
 
+  // GPS Permission state (Defaults to OFF, syncs across tabs & devices, only turns off when user explicitly toggles it off)
+  const [isGpsPermissionEnabled, setIsGpsPermissionEnabled] = useState<boolean>(() => getGpsPermission(currentUserEmail));
+
+  // Sync GPS permission changes in real-time across tabs/windows
+  useEffect(() => {
+    const handleGpsUpdate = (e: Event) => {
+      const customDetail = (e as CustomEvent).detail;
+      if (customDetail && typeof customDetail.enabled === 'boolean') {
+        setIsGpsPermissionEnabled(customDetail.enabled);
+      } else {
+        setIsGpsPermissionEnabled(getGpsPermission(currentUserEmail));
+      }
+    };
+    window.addEventListener('bloodmatch_gps_permission_updated', handleGpsUpdate);
+    window.addEventListener('storage', handleGpsUpdate);
+    return () => {
+      window.removeEventListener('bloodmatch_gps_permission_updated', handleGpsUpdate);
+      window.removeEventListener('storage', handleGpsUpdate);
+    };
+  }, [currentUserEmail]);
+
+  // Sync from backend on load
+  useEffect(() => {
+    if (currentUserEmail) {
+      fetchGpsPermissionApi(currentUserEmail).then(res => {
+        if (res.data && typeof res.data.gps_permission_enabled === 'boolean') {
+          if (res.data.gps_permission_enabled) {
+            setIsGpsPermissionEnabled(true);
+            setGpsPermission(true, currentUserEmail, false);
+          }
+        }
+      }).catch(() => {});
+    }
+  }, [currentUserEmail]);
+
+  const handleToggleGpsPermission = () => {
+    const nextVal = !isGpsPermissionEnabled;
+    setIsGpsPermissionEnabled(nextVal);
+    setGpsPermission(nextVal, currentUserEmail, true);
+    if (currentUserEmail) {
+      updateGpsPermissionApi(nextVal, currentUserEmail).catch(() => {});
+    }
+    if (!nextVal) {
+      setGpsMessage(null);
+      setDetectedPills([]);
+    } else {
+      setGpsMessage('GPS Permission enabled! Click "Detect GPS" to pinpoint current location.');
+    }
+  };
+
   // User account phone
   const userAccountPhone = typeof window !== 'undefined'
     ? (sessionStorage.getItem('bloodmatch_user_phone') || localStorage.getItem('bloodmatch_user_phone') || '').trim()
@@ -630,6 +684,10 @@ export default function EmergencyRequests() {
 
   // GPS Browser Geolocation (Accurate 1-Click Permissions & Positioning)
   const handleDetectGps = async () => {
+    if (!isGpsPermissionEnabled) {
+      setGpsMessage('GPS Permission is OFF. Click "GPS Permission: OFF" to turn ON location access.');
+      return;
+    }
     if (typeof window === 'undefined' || !navigator.geolocation) {
       setGpsMessage('Geolocation is not supported by your browser.');
       return;
@@ -2374,15 +2432,37 @@ export default function EmergencyRequests() {
                             )}
                           </AnimatePresence>
                         </div>
-                        <button
-                          type="button"
-                          onClick={handleDetectGps}
-                          disabled={isDetectingGps}
-                          className="px-3 py-2.5 rounded-xl bg-white border border-[#D9C7C2] hover:border-[#D72638] text-xs font-bold text-[#D72638] hover:text-[#b51d2c] transition-all cursor-pointer flex items-center gap-1.5 shrink-0 shadow-2xs"
-                        >
-                          <Navigation className={`w-3.5 h-3.5 ${isDetectingGps ? 'animate-spin' : ''}`} />
-                          <span className="hidden sm:inline">{isDetectingGps ? 'Pinpointing...' : 'Detect GPS'}</span>
-                        </button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={handleToggleGpsPermission}
+                            title={isGpsPermissionEnabled ? 'GPS Permission is ON. Click to turn OFF.' : 'GPS Permission is OFF. Click to turn ON.'}
+                            className={`px-2.5 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                              isGpsPermissionEnabled
+                                ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                                : 'bg-slate-100 border-[#D9C7C2] text-slate-500 hover:bg-slate-200'
+                            }`}
+                          >
+                            <span className={`w-2 h-2 rounded-full ${isGpsPermissionEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                            <span className="hidden md:inline">GPS Permission:</span>
+                            <span className="font-extrabold">{isGpsPermissionEnabled ? 'ON' : 'OFF'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={handleDetectGps}
+                            disabled={isDetectingGps || !isGpsPermissionEnabled}
+                            title={!isGpsPermissionEnabled ? 'Turn ON GPS Permission first to locate' : 'Detect current GPS coordinates'}
+                            className={`px-3 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                              isGpsPermissionEnabled
+                                ? 'bg-white border-[#D9C7C2] hover:border-[#D72638] text-[#D72638] hover:text-[#b51d2c]'
+                                : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
+                            }`}
+                          >
+                            <Navigation className={`w-3.5 h-3.5 ${isDetectingGps ? 'animate-spin' : ''}`} />
+                            <span className="hidden sm:inline">{isDetectingGps ? 'Pinpointing...' : 'Detect GPS'}</span>
+                          </button>
+                        </div>
                       </div>
                       {formErrors.locality && (
                         <p className="text-red-500 text-[10px] font-semibold">{formErrors.locality}</p>

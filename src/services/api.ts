@@ -439,3 +439,15 @@ export async function saveUserVerifiedEmailApi(verifiedEmail: string, email?: st
   });
 }
 
+export async function fetchGpsPermissionApi(email?: string) {
+  const query = email ? `?email=${encodeURIComponent(email)}` : '';
+  return apiClient.get<{ user_email: string | null; gps_permission_enabled: boolean }>(`/api/user/gps-permission${query}`);
+}
+
+export async function updateGpsPermissionApi(enabled: boolean, email?: string) {
+  return apiClient.put<{ status: string; user_email: string; gps_permission_enabled: boolean }>('/api/user/gps-permission', {
+    enabled,
+    user_email: email || undefined,
+  });
+}
+

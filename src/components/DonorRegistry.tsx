@@ -28,7 +28,15 @@ import {
   Trash2,
   Clock
 } from 'lucide-react';
-import { getDonors, saveDonors, deleteDonor as deleteDonorStorage, saveInventory, getInventory } from '../services/storage';
+import { 
+  getDonors, 
+  saveDonors, 
+  deleteDonor as deleteDonorStorage, 
+  saveInventory, 
+  getInventory,
+  getGpsPermission,
+  setGpsPermission
+} from '../services/storage';
 import { 
   fetchDonorsApi, 
   sendDonorOtpApi, 
@@ -37,7 +45,9 @@ import {
   fetchSavedPhonesApi,
   saveUserPhoneApi,
   fetchVerifiedEmailsApi,
-  saveUserVerifiedEmailApi
+  saveUserVerifiedEmailApi,
+  fetchGpsPermissionApi,
+  updateGpsPermissionApi
 } from '../services/api';
 import { 
   COUNTRY_CODES, 
@@ -225,6 +235,54 @@ export default function DonorRegistry() {
   // Geolocation detector states
   const [isDetectingLocation, setIsDetectingLocation] = useState<boolean>(false);
   const [locationDetectionSuccess, setLocationDetectionSuccess] = useState<boolean>(false);
+
+  // GPS Permission (Defaults to OFF, syncs across tabs & devices, only turns off when user explicitly toggles it off)
+  const [isGpsPermissionEnabled, setIsGpsPermissionEnabled] = useState<boolean>(() => getGpsPermission(currentUserEmail));
+
+  // Sync GPS permission changes in real-time across tabs/windows
+  useEffect(() => {
+    const handleGpsUpdate = (e: Event) => {
+      const customDetail = (e as CustomEvent).detail;
+      if (customDetail && typeof customDetail.enabled === 'boolean') {
+        setIsGpsPermissionEnabled(customDetail.enabled);
+      } else {
+        setIsGpsPermissionEnabled(getGpsPermission(currentUserEmail));
+      }
+    };
+    window.addEventListener('bloodmatch_gps_permission_updated', handleGpsUpdate);
+    window.addEventListener('storage', handleGpsUpdate);
+    return () => {
+      window.removeEventListener('bloodmatch_gps_permission_updated', handleGpsUpdate);
+      window.removeEventListener('storage', handleGpsUpdate);
+    };
+  }, [currentUserEmail]);
+
+  // Sync from backend on load
+  useEffect(() => {
+    if (currentUserEmail) {
+      fetchGpsPermissionApi(currentUserEmail).then(res => {
+        if (res.data && typeof res.data.gps_permission_enabled === 'boolean') {
+          if (res.data.gps_permission_enabled) {
+            setIsGpsPermissionEnabled(true);
+            setGpsPermission(true, currentUserEmail, false);
+          }
+        }
+      }).catch(() => {});
+    }
+  }, [currentUserEmail]);
+
+  const handleToggleGpsPermission = () => {
+    const nextVal = !isGpsPermissionEnabled;
+    setIsGpsPermissionEnabled(nextVal);
+    setGpsPermission(nextVal, currentUserEmail, true);
+    if (currentUserEmail) {
+      updateGpsPermissionApi(nextVal, currentUserEmail).catch(() => {});
+    }
+    if (!nextVal) {
+      setLocationDetectionSuccess(false);
+      setDetectedSuggestions([]);
+    }
+  };
 
   // OTP Verification states
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
@@ -509,6 +567,13 @@ export default function DonorRegistry() {
 
   // Browser Geolocation Detector (Worldwide with Instant 1-Click Permissions & Positioning)
   const handleDetectLocation = async () => {
+    if (!isGpsPermissionEnabled) {
+      setFormErrors(prev => ({
+        ...prev,
+        location: 'GPS Permission is OFF. Click "GPS: OFF" button to turn ON location access.',
+      }));
+      return;
+    }
     if (typeof window === 'undefined' || !navigator.geolocation) {
       setFormErrors(prev => ({
         ...prev,
@@ -1437,19 +1502,41 @@ export default function DonorRegistry() {
                               <span>Exact Locality / Area <span className="text-[#D72638]">*</span></span>
                             </label>
 
-                            <button
-                              type="button"
-                              onClick={handleDetectLocation}
-                              disabled={isDetectingLocation}
-                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F5F1EF] border border-[#D9C7C2] hover:border-[#D72638] text-[11px] font-bold text-[#D72638] shadow-2xs transition-all cursor-pointer disabled:opacity-50"
-                            >
-                              {isDetectingLocation ? (
-                                <RefreshCw className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <Navigation className="w-3 h-3 text-[#D72638]" />
-                              )}
-                              <span>{isDetectingLocation ? 'Detecting GPS...' : 'Detect My Location'}</span>
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={handleToggleGpsPermission}
+                                title={isGpsPermissionEnabled ? 'GPS Permission is ON. Click to turn OFF.' : 'GPS Permission is OFF. Click to turn ON.'}
+                                className={`px-2 py-1 rounded-lg border text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                                  isGpsPermissionEnabled
+                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                                    : 'bg-slate-100 border-[#D9C7C2] text-slate-500 hover:bg-slate-200'
+                                }`}
+                              >
+                                <span className={`w-2 h-2 rounded-full ${isGpsPermissionEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                                <span className="hidden sm:inline">GPS Permission:</span>
+                                <span className="font-extrabold">{isGpsPermissionEnabled ? 'ON' : 'OFF'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={handleDetectLocation}
+                                disabled={isDetectingLocation || !isGpsPermissionEnabled}
+                                title={!isGpsPermissionEnabled ? 'Turn ON GPS Permission first to locate' : 'Detect My Location'}
+                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-bold shadow-2xs transition-all cursor-pointer ${
+                                  isGpsPermissionEnabled
+                                    ? 'bg-[#F5F1EF] border-[#D9C7C2] hover:border-[#D72638] text-[#D72638]'
+                                    : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
+                                }`}
+                              >
+                                {isDetectingLocation ? (
+                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Navigation className="w-3 h-3 text-[#D72638]" />
+                                )}
+                                <span>{isDetectingLocation ? 'Detecting GPS...' : 'Detect My Location'}</span>
+                              </button>
+                            </div>
                           </div>
 
                           <input
