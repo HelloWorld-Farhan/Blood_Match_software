@@ -53,6 +53,8 @@ export interface EmergencyRequest {
   fulfilledAt?: string;
   fulfilledByDonorName?: string;
   fulfilledByDonorEmail?: string;
+  liveTracking?: boolean;
+  live_tracking?: boolean;
 }
 
 export interface BloodInventoryUnit {

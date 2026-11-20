@@ -386,6 +386,36 @@ export async function saveEmergencyDocketApi(payload: {
   return apiClient.post<{ message: string; ok: boolean }>('/api/emergency/save-docket', payload);
 }
 
+export async function updateEmergencyLiveTrackingApi(requestId: string, liveTracking: boolean, userEmail?: string) {
+  return apiClient.patch<{ ok: boolean; request_id: string; live_tracking: boolean; message: string }>(
+    `/api/emergency/${encodeURIComponent(requestId)}/live-tracking`,
+    {
+      live_tracking: liveTracking,
+      user_email: userEmail
+    }
+  );
+}
+
+export function getWebSocketUrl(): string {
+  const backend = (
+    (import.meta as any).env?.VITE_BACKEND_URL ||
+    (import.meta as any).env?.VITE_API_URL ||
+    ''
+  ).replace(/\/+$/, '');
+
+  if (backend.startsWith('https://')) {
+    return backend.replace('https://', 'wss://') + '/ws';
+  } else if (backend.startsWith('http://')) {
+    return backend.replace('http://', 'ws://') + '/ws';
+  }
+
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}/ws`;
+  }
+  return 'ws://localhost:8000/ws';
+}
+
 export async function fetchSessionsApi() {
   return apiClient.get<any[]>(`/api/sessions?_t=${Date.now()}`, {
     headers: {

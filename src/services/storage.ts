@@ -187,6 +187,8 @@ export const BloodStorage = {
       ...reqData,
       id: 'REQ-' + Date.now().toString().slice(-6),
       status: 'urgent',
+      liveTracking: reqData.liveTracking !== undefined ? reqData.liveTracking : true,
+      live_tracking: reqData.live_tracking !== undefined ? reqData.live_tracking : true,
       createdAt: new Date().toISOString(),
     };
     this.saveEmergencyRequests([newReq, ...current], userEmail);
@@ -206,9 +208,25 @@ export const BloodStorage = {
           ...r, 
           status, 
           matchedDonorId: matchedDonorId || r.matchedDonorId,
+          liveTracking: status === 'fulfilled' ? false : (r.liveTracking !== false),
+          live_tracking: status === 'fulfilled' ? false : (r.live_tracking !== false),
           fulfilledAt: status === 'fulfilled' ? (fulfillmentMeta?.fulfilledAt || new Date().toISOString()) : r.fulfilledAt,
           fulfilledByDonorName: fulfillmentMeta?.fulfilledByDonorName || r.fulfilledByDonorName,
           fulfilledByDonorEmail: fulfillmentMeta?.fulfilledByDonorEmail || r.fulfilledByDonorEmail
+        };
+      }
+      return r;
+    });
+    this.saveEmergencyRequests(list, userEmail);
+  },
+
+  updateRequestLiveTracking(id: string, liveTracking: boolean, userEmail?: string): void {
+    const list = this.getEmergencyRequests(userEmail).map(r => {
+      if (r.id === id) {
+        return {
+          ...r,
+          liveTracking,
+          live_tracking: liveTracking
         };
       }
       return r;
@@ -344,6 +362,7 @@ export const saveDonors = (donors: Donor[], emitCustomEvent: boolean = true) => 
 export const deleteDonor = (donorId: string) => BloodStorage.deleteDonor(donorId);
 export const getEmergencyRequests = (userEmail?: string) => BloodStorage.getEmergencyRequests(userEmail);
 export const saveEmergencyRequests = (requests: EmergencyRequest[], userEmail?: string, emitCustomEvent: boolean = true) => BloodStorage.saveEmergencyRequests(requests, userEmail, emitCustomEvent);
+export const updateRequestLiveTracking = (id: string, liveTracking: boolean, userEmail?: string) => BloodStorage.updateRequestLiveTracking(id, liveTracking, userEmail);
 export const getInventory = () => BloodStorage.getInventory();
 export const saveInventory = (units: BloodInventoryUnit[], emitCustomEvent: boolean = true) => BloodStorage.saveInventory(units, emitCustomEvent);
 export const resetAllDataToZero = () => BloodStorage.resetAllDataToZero();

@@ -39,7 +39,8 @@ import {
   saveDonors,
   getGpsPermission,
   setGpsPermission,
-  normalizeDonor
+  normalizeDonor,
+  updateRequestLiveTracking
 } from '../services/storage';
 import {
   fetchEmergencyRequestsApi,
@@ -53,7 +54,9 @@ import {
   fetchSavedPhonesApi,
   saveUserPhoneApi,
   fetchGpsPermissionApi,
-  updateGpsPermissionApi
+  updateGpsPermissionApi,
+  updateEmergencyLiveTrackingApi,
+  getWebSocketUrl
 } from '../services/api';
 import {
   COUNTRY_CODES,
@@ -325,6 +328,7 @@ export default function EmergencyRequests() {
   const [fulfillmentDonorEmail, setFulfillmentDonorEmail] = useState<string>('');
   const [selectedFulfillingDonorId, setSelectedFulfillingDonorId] = useState<string>('');
   const [isFulfilling, setIsFulfilling] = useState<boolean>(false);
+  const [togglingLiveTrackId, setTogglingLiveTrackId] = useState<string | null>(null);
   const [boardNotification, setBoardNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Modal Workflow Phase: 'INPUT' | 'SCANNING' | 'RESULTS'
@@ -612,6 +616,8 @@ export default function EmergencyRequests() {
           contactName: stripHonorific(r.contact_person || r.contactName || 'Trauma Desk'),
           contactNumber: r.contact_phone || r.contactNumber || '+91 98765 43210',
           status: (r.status || 'urgent') as EmergencyRequest['status'],
+          liveTracking: r.live_tracking !== undefined ? Boolean(r.live_tracking) : (r.liveTracking !== undefined ? Boolean(r.liveTracking) : (r.status !== 'fulfilled')),
+          live_tracking: r.live_tracking !== undefined ? Boolean(r.live_tracking) : (r.liveTracking !== undefined ? Boolean(r.liveTracking) : (r.status !== 'fulfilled')),
           createdAt: r.created_at || r.createdAt || new Date().toISOString(),
           matchedDonorId: r.matched_donor_id || r.matchedDonorId,
           fulfilledAt: r.fulfilled_at || r.fulfilledAt,
@@ -629,7 +635,9 @@ export default function EmergencyRequests() {
             const cleanedLocal: EmergencyRequest = {
               ...r,
               patientName: stripHonorific(r.patientName),
-              contactName: stripHonorific(r.contactName)
+              contactName: stripHonorific(r.contactName),
+              liveTracking: r.liveTracking !== undefined ? r.liveTracking : (r.status !== 'fulfilled'),
+              live_tracking: r.live_tracking !== undefined ? r.live_tracking : (r.status !== 'fulfilled')
             };
             map.set(r.id, cleanedLocal);
             // Push missing local request to remote in background
@@ -646,8 +654,9 @@ export default function EmergencyRequests() {
               urgency: cleanedLocal.urgency,
               status: cleanedLocal.status,
               contact_person: cleanedLocal.contactName,
-              contact_phone: cleanedLocal.contactNumber
-            }).catch(() => { });
+              contact_phone: cleanedLocal.contactNumber,
+              live_tracking: cleanedLocal.liveTracking
+            } as any).catch(() => { });
           }
         });
 
@@ -703,6 +712,98 @@ export default function EmergencyRequests() {
       window.removeEventListener('bloodmatch_donors_updated', handleStorage);
     };
   }, [currentUserEmail]);
+
+  // Real-time WebSocket Multi-Device Synchronization & Live Tracking Alerts
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let reconnectTimer: any = null;
+    let pingInterval: any = null;
+
+    const connectWs = () => {
+      try {
+        const wsUrl = getWebSocketUrl();
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          pingInterval = setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'ping' }));
+            }
+          }, 25000);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'COMPATIBLE_DONOR_ARRIVED') {
+              // Real-time incoming donor match for an active live-tracked emergency request
+              loadData();
+              setBoardNotification({
+                message: `🚨 Live Match Alert: Compatible voluntary donor ${data.donor?.name || 'Lifesaver'} (${data.donor?.blood_type}) arrived for patient ${data.patient_name || 'Emergency'}!`,
+                type: 'success'
+              });
+              setTimeout(() => setBoardNotification(null), 8000);
+            } else if (data.type === 'LIVE_TRACKING_TOGGLED') {
+              setRequests(prev => prev.map(r => r.id === data.request_id ? { ...r, liveTracking: data.live_tracking, live_tracking: data.live_tracking } : r));
+            } else if (data.type === 'EMERGENCY_CREATED' || data.type === 'EMERGENCY_UPDATED' || data.type === 'EMERGENCY_FULFILLED') {
+              loadData();
+            }
+          } catch {}
+        };
+
+        ws.onclose = () => {
+          clearInterval(pingInterval);
+          reconnectTimer = setTimeout(connectWs, 4000);
+        };
+
+        ws.onerror = () => {
+          ws?.close();
+        };
+      } catch {}
+    };
+
+    connectWs();
+
+    return () => {
+      clearInterval(pingInterval);
+      clearTimeout(reconnectTimer);
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
+    };
+  }, [currentUserEmail]);
+
+  // Toggle Live Tracking status for an active emergency request
+  const handleToggleLiveTracking = async (req: EmergencyRequest) => {
+    const nextVal = req.liveTracking === false ? true : false;
+    setTogglingLiveTrackId(req.id);
+    try {
+      // 1. Optimistic update
+      setRequests(prev => prev.map(r => r.id === req.id ? { ...r, liveTracking: nextVal, live_tracking: nextVal } : r));
+      updateRequestLiveTracking(req.id, nextVal, currentUserEmail);
+
+      // 2. Persist to Backend API & R2
+      await updateEmergencyLiveTrackingApi(req.id, nextVal, currentUserEmail);
+
+      setBoardNotification({
+        message: `Live Tracking for patient ${stripHonorific(req.patientName)} is now ${nextVal ? 'ACTIVE (Radar ON)' : 'PAUSED (Radar OFF)'}.`,
+        type: 'success'
+      });
+      setTimeout(() => setBoardNotification(null), 5000);
+    } catch (err: any) {
+      // Revert on error
+      setRequests(prev => prev.map(r => r.id === req.id ? { ...r, liveTracking: req.liveTracking } : r));
+      updateRequestLiveTracking(req.id, req.liveTracking !== false, currentUserEmail);
+      setBoardNotification({
+        message: err.message || 'Failed to update live tracking status.',
+        type: 'error'
+      });
+      setTimeout(() => setBoardNotification(null), 5000);
+    } finally {
+      setTogglingLiveTrackId(null);
+    }
+  };
 
   // Update coordinates whenever selected locality changes
   useEffect(() => {
@@ -913,6 +1014,8 @@ export default function EmergencyRequests() {
             ...r,
             status: 'fulfilled' as const,
             matchedDonorId: selectedFulfillingDonorId || r.matchedDonorId,
+            liveTracking: false,
+            live_tracking: false,
             fulfilledAt,
             fulfilledByDonorName: fulfillmentDonorName.trim(),
             fulfilledByDonorEmail: fulfillmentDonorEmail.trim()
@@ -923,6 +1026,7 @@ export default function EmergencyRequests() {
 
       setRequests(updated);
       saveEmergencyRequests(updated, currentUserEmail);
+      updateRequestLiveTracking(targetReq.id, false, currentUserEmail);
 
       setBoardNotification({
         message: `Transfusion for ${targetReq.patientName} marked as FULFILLED! Gratitude emails transmitted to ${fulfillmentDonorEmail.trim()} and ${currentUserEmail}.`,
@@ -1894,6 +1998,42 @@ export default function EmergencyRequests() {
                   <div className="flex items-center gap-2 self-end lg:self-center shrink-0 flex-wrap">
                     {!isFulfilled && (
                       <>
+                        {/* Live Proximity Radar Toggle Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleLiveTracking(req)}
+                          disabled={togglingLiveTrackId === req.id}
+                          className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                            req.liveTracking !== false
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 shadow-2xs'
+                              : 'bg-slate-100 text-slate-500 border-slate-300 hover:bg-slate-200'
+                          }`}
+                          title={
+                            req.liveTracking !== false
+                              ? 'Live Proximity Tracking is ACTIVE: Automatic notifications and email alerts will trigger when compatible blood arrives. Click to turn OFF.'
+                              : 'Live Proximity Tracking is PAUSED: Click to turn ON to receive automatic donor arrival alerts.'
+                          }
+                        >
+                          {togglingLiveTrackId === req.id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                          ) : req.liveTracking !== false ? (
+                            <>
+                              <span className="relative flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                              </span>
+                              <Radio className="w-3.5 h-3.5 text-emerald-700" />
+                              <span>Live Track: ON</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="inline-block h-2 w-2 rounded-full bg-slate-400"></span>
+                              <Radio className="w-3.5 h-3.5 text-slate-400" />
+                              <span>Live Track: OFF</span>
+                            </>
+                          )}
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => setCallModalTarget({
@@ -1910,7 +2050,13 @@ export default function EmergencyRequests() {
                         </button>
                         <button
                           onClick={() => handleOpenFulfillModal(req)}
-                          className="py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                          disabled={matches.length === 0}
+                          title={matches.length === 0 ? "Cannot fulfill: No compatible lifesavers matched yet" : "Mark request as fulfilled"}
+                          className={`py-2 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                            matches.length === 0
+                              ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-40 pointer-events-none'
+                              : 'bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white cursor-pointer shadow-xs'
+                          }`}
                         >
                           <CheckCircle className="w-3.5 h-3.5" />
                           <span>Mark Fulfilled</span>
@@ -2884,8 +3030,8 @@ export default function EmergencyRequests() {
                       transition={{ duration: 0.22, ease: 'easeOut' }}
                       className="space-y-4"
                     >
-                {/* Results Header Bar (pr-12 sm:pr-14 ensures generous buffer so X button never overlaps on hover) */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D9C7C2] pr-12 sm:pr-14">
+                {/* Results Header Bar (pr-16 sm:pr-28 ensures generous buffer so X button never overlaps on hover) */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D9C7C2] pr-16 sm:pr-28">
                   <div>
                     <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold mb-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -2896,7 +3042,7 @@ export default function EmergencyRequests() {
                     </h3>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap mr-1 sm:mr-3">
                     <button
                       type="button"
                       onClick={() => setModalPhase('INPUT')}
