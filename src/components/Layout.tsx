@@ -454,9 +454,9 @@ export default function Layout() {
     };
   }, [updateStats]);
 
-  // Close dropdowns on outside click
+  // Close dropdowns on outside click or page scroll
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
         setProfileOpen(false);
       }
@@ -467,8 +467,35 @@ export default function Layout() {
         setSearchOpen(false);
       }
     };
+
+    const handleScroll = (e: Event) => {
+      const target = e.target as Node | null;
+      // If user is actively scrolling inside the notifications list or search dropdown, don't close
+      if (notifRef.current && target && notifRef.current.contains(target)) {
+        return;
+      }
+      if (profileRef.current && target && profileRef.current.contains(target)) {
+        return;
+      }
+      if (searchRef.current && target && searchRef.current.contains(target)) {
+        return;
+      }
+
+      // If user scrolls the main page or window, auto-close all popovers
+      setNotificationsOpen(false);
+      setProfileOpen(false);
+      setSearchOpen(false);
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside, { passive: true });
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+      window.removeEventListener('scroll', handleScroll, { capture: true });
+    };
   }, []);
 
   const formatRelativeTime = (isoString?: string) => {
