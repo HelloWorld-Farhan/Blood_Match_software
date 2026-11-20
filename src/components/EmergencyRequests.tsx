@@ -2011,6 +2011,53 @@ export default function EmergencyRequests() {
               const isJustFulfilled = justFulfilledId === req.id;
               const isTargetHighlighted = !isFulfilled && (highlightedId === req.id || highlightParam === req.id) && isBlinking;
 
+              const isReserveFulfillment = isFulfilled && (
+                !req.fulfilledByDonorName ||
+                req.fulfilledByDonorName.toLowerCase().includes('reserve') ||
+                req.fulfilledByDonorName.toLowerCase().includes('stock') ||
+                req.fulfilledByDonorName.toLowerCase().includes('no one')
+              );
+
+              // If fulfilled, only show the donor(s) that actually fulfilled it ("only show that which user do that done by no one or any one that the user clicked on fulfilled")
+              let effectiveFulfilledDonors: RankedMatchDonor[] = [];
+              if (isFulfilled && !isReserveFulfillment) {
+                effectiveFulfilledDonors = matches.filter(d =>
+                  (req.matchedDonorId && d.id === req.matchedDonorId) ||
+                  (req.fulfilledByDonorName && (
+                    req.fulfilledByDonorName.toLowerCase().includes(d.fullName.toLowerCase()) ||
+                    d.fullName.toLowerCase().includes(req.fulfilledByDonorName.toLowerCase())
+                  )) ||
+                  (req.fulfilledByDonorEmail && d.email && (
+                    req.fulfilledByDonorEmail.toLowerCase().includes(d.email.toLowerCase()) ||
+                    d.email.toLowerCase().includes(req.fulfilledByDonorEmail.toLowerCase())
+                  ))
+                );
+
+                if (effectiveFulfilledDonors.length === 0 && req.fulfilledByDonorName) {
+                  const baseDonor = normalizeDonor({
+                    id: req.matchedDonorId || 'fulfilled-donor-id',
+                    fullName: req.fulfilledByDonorName,
+                    email: req.fulfilledByDonorEmail || 'Verified Donor Contact',
+                    phone: 'Verified Clinical Roster',
+                    bloodType: req.bloodType,
+                    city: req.hospitalCity || 'Delhi NCR',
+                    location: req.hospitalCity || 'Delhi NCR'
+                  });
+                  effectiveFulfilledDonors = [{
+                    ...baseDonor,
+                    distanceKm: 0,
+                    tier: {
+                      label: 'Primary Fulfilling Lifesaver',
+                      badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+                      textColor: 'text-emerald-800',
+                      dotColor: 'bg-emerald-500'
+                    }
+                  }];
+                }
+              }
+
+              const displayedDonors = isFulfilled ? effectiveFulfilledDonors : matches;
+
               return (
                 <motion.div
                   layout
@@ -2177,7 +2224,11 @@ export default function EmergencyRequests() {
                         }`}
                     >
                       <Users className="w-3.5 h-3.5 text-[#D72638]" />
-                      <span>Matched Lifesavers ({matches.length})</span>
+                      <span>
+                        {isFulfilled
+                          ? (displayedDonors.length > 0 ? `Fulfilling Lifesaver (${displayedDonors.length})` : 'Fulfillment Record')
+                          : `Matched Lifesavers (${matches.length})`}
+                      </span>
                       <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-white' : 'text-slate-400'}`} />
                     </button>
 
@@ -2211,63 +2262,203 @@ export default function EmergencyRequests() {
                       {/* Dropdown Header Toolbar: Request Actions (Email Roster & PDF, Download PDF Docket) */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D9C7C2]">
                         <div className="flex items-center gap-2">
-                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className={`w-2.5 h-2.5 rounded-full ${isFulfilled ? 'bg-emerald-600' : 'bg-emerald-500 animate-pulse'}`} />
                           <h4 className="text-xs sm:text-sm font-bold text-[#1A1D20]">
-                            {matches.length} Compatible {req.bloodType} Lifesavers Ranked By GPS Proximity
+                            {isFulfilled
+                              ? (isReserveFulfillment
+                                  ? 'Transfusion Fulfilled • Case Closed & Archived'
+                                  : `${displayedDonors.length} Verified Fulfilling Lifesaver • Case Closed`)
+                              : `${matches.length} Compatible ${req.bloodType} Lifesavers Ranked By GPS Proximity`}
                           </h4>
                         </div>
 
                         <div className="flex items-center gap-2 flex-wrap">
                           <button
                             type="button"
-                            onClick={() => setCallModalTarget({
-                              contactName: stripHonorific(req.contactName),
-                              phoneNumber: req.contactNumber,
-                              bloodType: req.bloodType,
-                              location: req.hospitalCity || 'Delhi NCR',
-                              roleOrContext: `Emergency Transfusion Hotline • Patient: ${stripHonorific(req.patientName)}`
-                            })}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] border border-[#D9C7C2] cursor-pointer shadow-2xs"
-                            title={`Call Emergency Hotline: ${stripHonorific(req.contactName)} (${req.contactNumber})`}
+                            onClick={() => {
+                              if (isFulfilled) return;
+                              setCallModalTarget({
+                                contactName: stripHonorific(req.contactName),
+                                phoneNumber: req.contactNumber,
+                                bloodType: req.bloodType,
+                                location: req.hospitalCity || 'Delhi NCR',
+                                roleOrContext: `Emergency Transfusion Hotline • Patient: ${stripHonorific(req.patientName)}`
+                              });
+                            }}
+                            disabled={isFulfilled}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                              isFulfilled
+                                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-50 shadow-none'
+                                : 'bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] border border-[#D9C7C2] cursor-pointer shadow-2xs'
+                            }`}
+                            title={isFulfilled ? 'Transfusion fulfilled & closed: Hotline call blocked' : `Call Emergency Hotline: ${stripHonorific(req.contactName)} (${req.contactNumber})`}
                           >
-                            <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                            <Phone className={`w-3.5 h-3.5 ${isFulfilled ? 'text-slate-400' : 'text-emerald-600'}`} />
                             <span>Call Hotline ({req.contactNumber})</span>
                           </button>
 
                           <button
                             type="button"
-                            onClick={() => handleEmailRosterForRequest(req, matches)}
-                            disabled={isEmailingRoster || matches.length === 0}
+                            onClick={() => !isFulfilled && handleEmailRosterForRequest(req, displayedDonors)}
+                            disabled={isFulfilled || isEmailingRoster || displayedDonors.length === 0}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                              matches.length === 0
-                                ? 'bg-[#F5F1EF]/60 text-slate-400 border border-slate-200 cursor-not-allowed opacity-40 pointer-events-none shadow-none'
+                              isFulfilled || displayedDonors.length === 0
+                                ? 'bg-[#F5F1EF]/60 text-slate-400 border border-slate-200 cursor-not-allowed opacity-50 shadow-none'
                                 : 'bg-white hover:bg-slate-50 border border-[#D9C7C2] text-[#1A1D20] cursor-pointer shadow-2xs'
                             }`}
-                            title={matches.length === 0 ? 'Unavailable: No compatible donors ranked in this search radius' : 'Email Roster & PDF'}
+                            title={
+                              isFulfilled
+                                ? 'Transfusion fulfilled & closed: Email roster blocked'
+                                : displayedDonors.length === 0
+                                  ? 'Unavailable: No compatible donors ranked in this search radius'
+                                  : 'Email Roster & PDF'
+                            }
                           >
-                            <Mail className={`w-3.5 h-3.5 ${matches.length === 0 ? 'text-slate-400' : 'text-[#D72638]'}`} />
+                            <Mail className={`w-3.5 h-3.5 ${isFulfilled || displayedDonors.length === 0 ? 'text-slate-400' : 'text-[#D72638]'}`} />
                             <span>{isEmailingRoster ? 'Sending...' : 'Email Roster & PDF'}</span>
                           </button>
 
                           <button
                             type="button"
-                            onClick={() => handleDownloadPdfForRequest(req, matches)}
-                            disabled={isGeneratingPdf || matches.length === 0}
+                            onClick={() => !isFulfilled && handleDownloadPdfForRequest(req, displayedDonors)}
+                            disabled={isFulfilled || isGeneratingPdf || displayedDonors.length === 0}
                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                              matches.length === 0
-                                ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-40 pointer-events-none shadow-none'
+                              isFulfilled || displayedDonors.length === 0
+                                ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-50 shadow-none'
                                 : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer shadow-xs'
                             }`}
-                            title={matches.length === 0 ? 'Unavailable: No compatible donors ranked in this search radius' : 'Download PDF Docket'}
+                            title={
+                              isFulfilled
+                                ? 'Transfusion fulfilled & closed: PDF download blocked'
+                                : displayedDonors.length === 0
+                                  ? 'Unavailable: No compatible donors ranked in this search radius'
+                                  : 'Download PDF Docket'
+                            }
                           >
-                            <FileDown className={`w-3.5 h-3.5 ${matches.length === 0 ? 'text-slate-400' : 'text-white'}`} />
+                            <FileDown className={`w-3.5 h-3.5 ${isFulfilled || displayedDonors.length === 0 ? 'text-slate-400' : 'text-white'}`} />
                             <span>{isGeneratingPdf ? 'Generating...' : 'Download PDF Docket'}</span>
                           </button>
                         </div>
                       </div>
 
-                      {/* Matching Donor List */}
-                      {matches.length === 0 ? (
+                      {/* Matching Donor List or Fulfillment Status */}
+                      {isFulfilled ? (
+                        displayedDonors.length === 0 ? (
+                          <div className="p-6 text-center bg-white rounded-2xl border border-emerald-200/80 shadow-xs space-y-2">
+                            <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto shadow-2xs">
+                              <ShieldCheck className="w-6 h-6" />
+                            </div>
+                            <h4 className="text-sm font-black text-[#1A1D20]">
+                              Transfusion Fulfilled via Alternative Clinical Reserve / External Stock
+                            </h4>
+                            <p className="text-xs text-[#5A626A] max-w-md mx-auto">
+                              This emergency triage was closed using internal hospital blood reserves or verified blood bank inventory. No voluntary community lifesavers were mobilized.
+                            </p>
+                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-300 rounded-full text-[11px] font-bold">
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Case Closed • Transfusion Record Archived</span>
+                            </div>
+                          </div>
+                        ) : (
+                          (() => {
+                            const renderDrawerItem = (donor: RankedMatchDonor, idx: number, isRegional: boolean) => {
+                              const isDispatched = dispatchedDonorIds[donor.id] || false;
+                              const isSelf = Boolean(
+                                currentUserEmail && (
+                                  (donor.email && donor.email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase()) ||
+                                  (donor.user_email && donor.user_email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase())
+                                )
+                              );
+
+                              return (
+                                <div
+                                  key={donor.id}
+                                  className="p-3.5 rounded-xl border shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors bg-emerald-50/40 border-emerald-300"
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <div className="w-8 h-8 rounded-lg bg-emerald-100 border border-emerald-300 flex items-center justify-center font-mono font-bold text-xs text-emerald-800 shrink-0">
+                                      ✓
+                                    </div>
+
+                                    <div
+                                      title={`Matched Donor Group ${donor.bloodType}`}
+                                      className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] text-white font-black text-xs flex items-center justify-center shadow-xs shrink-0 select-none opacity-80"
+                                    >
+                                      {donor.bloodType}
+                                    </div>
+
+                                    <div className="min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-bold text-xs text-[#1A1D20]">{donor.fullName}</span>
+                                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                                          <CheckCircle className="w-3 h-3 text-emerald-600" />
+                                          <span>Fulfilling Lifesaver</span>
+                                        </span>
+                                        {isSelf && (
+                                          <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] border border-red-200">
+                                            You
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-[11px] text-[#5A626A] flex items-center gap-2 mt-0.5 flex-wrap">
+                                        <span className="flex items-center gap-1">
+                                          <MapPin className="w-3 h-3 text-[#D72638]" />
+                                          <span>{donor.location || donor.city}</span>
+                                        </span>
+                                        <span>•</span>
+                                        <span className="font-mono text-slate-500">{donor.phone}</span>
+                                        <span>•</span>
+                                        <span className="text-[#5A626A]">{donor.email}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                                    <button
+                                      type="button"
+                                      disabled={true}
+                                      className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-400 font-bold text-xs flex items-center gap-1 border border-slate-200 cursor-not-allowed opacity-50"
+                                      title="Transfusion fulfilled & closed: Direct calls blocked"
+                                    >
+                                      <Phone className="w-3 h-3 text-slate-400" />
+                                      <span>Call</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      disabled={true}
+                                      className="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed opacity-50 shadow-none"
+                                      title="Transfusion fulfilled & closed: Emergency alerts blocked"
+                                    >
+                                      <Send className="w-3 h-3 text-slate-400" />
+                                      <span>Case Closed</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            };
+
+                            return (
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between pb-1 border-b border-emerald-200/70">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                                      <span className="text-[11px] font-black uppercase tracking-wider text-[#1A1D20]">
+                                        Primary Fulfilling Lifesaver ({displayedDonors.length})
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                      Transfusion Completed
+                                    </span>
+                                  </div>
+                                  {displayedDonors.map((donor, idx) => renderDrawerItem(donor, idx, false))}
+                                </div>
+                              </div>
+                            );
+                          })()
+                        )
+                      ) : matches.length === 0 ? (
                         <div className="p-8 text-center bg-white rounded-xl border border-dashed border-[#D9C7C2] text-xs text-[#5A626A]">
                           <Droplet className="w-8 h-8 text-[#D72638]/40 mx-auto mb-2" />
                           <p className="font-bold text-[#1A1D20]">No active compatible donors found in this radius for {req.bloodType}</p>

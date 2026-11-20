@@ -363,10 +363,10 @@ export default function SendAlertModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 14 }}
           transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-lg bg-white rounded-3xl border border-[#D9C7C2] shadow-2xl p-6 sm:p-7 z-10 space-y-4 text-[#1A1D20] my-8 max-h-[92vh] overflow-y-auto no-scrollbar"
+          className="relative w-full max-w-4xl bg-white rounded-3xl border border-[#D9C7C2] shadow-2xl p-6 sm:p-7 z-10 space-y-4 text-[#1A1D20] my-8 max-h-[92vh] overflow-y-auto no-scrollbar"
         >
           {/* Header */}
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-3 pb-1 border-b border-[#D9C7C2]/40">
             <div className="flex items-center gap-3">
               <div className="w-11 h-11 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center text-[#D72638] shadow-2xs">
                 <Send className="w-5 h-5" />
@@ -413,310 +413,318 @@ export default function SendAlertModal({
             </motion.div>
           )}
 
-          {/* Target Voluntary Donor Summary Pill */}
-          <div className="p-3.5 rounded-2xl bg-[#FDF9F8] border border-[#D9C7C2] flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-[#D72638] text-white flex flex-col items-center justify-center font-black text-xs shadow-2xs shrink-0">
-                <span className="text-[7px] uppercase font-bold text-red-100">Blood</span>
-                <span>{targetDonor.bloodType}</span>
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-xs text-[#1A1D20] truncate">{targetDonor.fullName}</span>
-                  <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-semibold shrink-0">
-                    Voluntary Donor
-                  </span>
+          {/* Form: Horizontal 2-Column Clinical Architecture */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
+              {/* Left Column: Voluntary Donor Target & Clinical Sender Identity */}
+              <div className="space-y-3.5">
+                {/* Target Voluntary Donor Summary Card */}
+                <div className="p-3 rounded-2xl bg-[#FDF9F8] border border-[#D9C7C2] flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="group/badge relative w-11 h-11 rounded-2xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] text-white flex flex-col items-center justify-center font-black text-xs shadow-xs border border-white/20 shrink-0 select-none">
+                      <span className="text-[6.5px] uppercase font-extrabold text-red-100/90 leading-tight">GROUP</span>
+                      <span className="text-sm font-black drop-shadow-xs">{targetDonor.bloodType}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-xs text-[#1A1D20] truncate">{targetDonor.fullName}</span>
+                        <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 font-semibold shrink-0">
+                          Voluntary Donor
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-[#5A626A] flex items-center gap-1.5 mt-0.5 truncate">
+                        <Mail className="w-3 h-3 text-[#D72638] shrink-0" />
+                        <span className="truncate">{targetDonor.email}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {targetDonor.distanceKm !== undefined && targetDonor.distanceKm > 0 && (
+                    <span className="text-[11px] font-bold text-[#D72638] bg-red-50 px-2 py-1 rounded-xl border border-red-200 shrink-0">
+                      ~{targetDonor.distanceKm.toFixed(1)} km
+                    </span>
+                  )}
                 </div>
-                <div className="text-[11px] text-[#5A626A] flex items-center gap-1.5 mt-0.5 truncate">
-                  <Mail className="w-3 h-3 text-[#D72638] shrink-0" />
-                  <span className="truncate">{targetDonor.email}</span>
-                </div>
-              </div>
-            </div>
 
-            {targetDonor.distanceKm !== undefined && targetDonor.distanceKm > 0 && (
-              <span className="text-[11px] font-bold text-[#D72638] bg-red-50 px-2 py-1 rounded-xl border border-red-200 shrink-0">
-                ~{targetDonor.distanceKm.toFixed(1)} km
-              </span>
-            )}
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-3.5">
-            {/* Authenticated Sender Email (Strictly Locked) */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-[#1A1D20] flex items-center gap-1">
-                  <Lock className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Sender Account Email</span>
-                </label>
-                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <ShieldCheck className="w-3 h-3" />
-                  <span>Verified &amp; Locked</span>
-                </span>
-              </div>
-              <input
-                type="text"
-                value={currentUserEmail}
-                disabled
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-xs font-mono text-slate-600 cursor-not-allowed select-all"
-              />
-              <p className="text-[10px] text-[#5A626A]">
-                Dispatched via BloodMatch Support Service on behalf of your verified clinician account.
-              </p>
-            </div>
-
-            {/* Editable Requester Contact Name & Phone in 2 Columns */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-[#1A1D20] flex items-center gap-1">
-                  <User className="w-3.5 h-3.5 text-[#D72638]" />
-                  <span>Your Contact Name *</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={requesterName}
-                  onChange={(e) => setRequesterName(e.target.value)}
-                  placeholder="e.g. Attending Clinical Coordinator"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 text-xs font-medium text-[#1A1D20] transition-all"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-[#1A1D20] flex items-center gap-1">
-                  <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Call-Back Phone *</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={requesterPhone}
-                  onChange={(e) => setRequesterPhone(e.target.value)}
-                  placeholder="+91 98765 43210"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 text-xs font-mono font-bold text-[#1A1D20] transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Patient Name (Starts Empty / Neutral, Never defaults to Doctor name) */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-[#1A1D20] flex items-center justify-between">
-                <span className="flex items-center gap-1">
-                  <User className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Patient / Case Name</span>
-                </span>
-                <span className="text-[10px] text-[#5A626A] font-normal">Optional identifier</span>
-              </label>
-              <input
-                type="text"
-                value={patientName}
-                onChange={(e) => setPatientName(e.target.value)}
-                placeholder="e.g. Emergency Patient / Case #892"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 text-xs font-medium text-[#1A1D20] transition-all"
-              />
-            </div>
-
-            {/* Facility / Location with GPS ON/OFF Switch & Detect GPS */}
-            <div className="space-y-1.5" ref={locationDropdownRef}>
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-[#1A1D20] flex items-center gap-1">
-                  <Building2 className="w-3.5 h-3.5 text-[#D72638]" />
-                  <span>Facility / Location *</span>
-                </label>
-
-                {/* GPS Controls: ON/OFF toggle & Detect GPS */}
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={handleToggleGpsPermission}
-                    title={isGpsPermissionEnabled ? 'GPS Permission is ON. Click to turn OFF.' : 'GPS Permission is OFF. Click to turn ON.'}
-                    className={`px-2 py-1 rounded-lg border text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs ${isGpsPermissionEnabled
-                      ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
-                      : 'bg-slate-100 border-[#D9C7C2] text-slate-500 hover:bg-slate-200'
-                      }`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${isGpsPermissionEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                    <span>GPS:</span>
-                    <span className="font-extrabold">{isGpsPermissionEnabled ? 'ON' : 'OFF'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleDetectGps}
-                    disabled={isDetectingGps || !isGpsPermissionEnabled}
-                    title={!isGpsPermissionEnabled ? 'Turn ON GPS Permission first to locate' : 'Detect current GPS coordinates'}
-                    className={`px-2 py-1 rounded-lg border text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs ${isGpsPermissionEnabled
-                      ? 'bg-white border-[#D9C7C2] hover:border-[#D72638] text-[#D72638] hover:text-[#b51d2c]'
-                      : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
-                      }`}
-                  >
-                    <Navigation className={`w-3 h-3 ${isDetectingGps ? 'animate-spin' : ''}`} />
-                    <span>{isDetectingGps ? 'Locating...' : 'Detect GPS'}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Location Input with Dropdown Button */}
-              <div className="relative">
-                <div className="flex items-center rounded-xl bg-white border border-[#D9C7C2] focus-within:border-[#D72638] focus-within:ring-2 focus-within:ring-[#D72638]/20 transition-all overflow-hidden">
-                  <div className="pl-3 pr-1 text-[#D72638]">
-                    <MapPin className="w-3.5 h-3.5" />
+                {/* Authenticated Sender Email (Strictly Locked) */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-[#1A1D20] flex items-center gap-1">
+                      <Lock className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Sender Account Email</span>
+                    </label>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3" />
+                      <span>Verified &amp; Locked</span>
+                    </span>
                   </div>
                   <input
                     type="text"
-                    required
-                    value={hospital}
-                    onChange={(e) => {
-                      setHospital(e.target.value);
-                      setIsLocationDropdownOpen(true);
-                    }}
-                    onFocus={() => setIsLocationDropdownOpen(true)}
-                    placeholder="Search or enter hospital / facility location"
-                    className="w-full py-2.5 px-2 text-xs font-medium text-[#1A1D20] bg-transparent outline-none"
+                    value={currentUserEmail}
+                    disabled
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2] text-xs font-mono text-slate-600 cursor-not-allowed select-all"
                   />
-                  <button
-                    type="button"
-                    onClick={() => setIsLocationDropdownOpen(prev => !prev)}
-                    className="px-2.5 py-2.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
-                  >
-                    <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isLocationDropdownOpen ? 'rotate-180 text-[#D72638]' : ''}`} />
-                  </button>
+                  <p className="text-[10px] text-[#5A626A]">
+                    Dispatched via BloodMatch Support Service on behalf of your verified clinician account.
+                  </p>
                 </div>
 
-                {/* Animated Dropdown Menu */}
-                <AnimatePresence>
-                  {isLocationDropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute z-50 mt-1.5 w-full rounded-2xl border border-[#D9C7C2] bg-white/95 backdrop-blur-md shadow-2xl overflow-hidden py-1 max-h-52 overflow-y-auto no-scrollbar"
-                    >
-                      <div className="px-3 py-1.5 text-[10px] font-black text-[#5A626A] uppercase tracking-wider border-b border-[#D9C7C2]/40 flex items-center justify-between">
-                        <span>Standard Medical Facilities &amp; Localities</span>
-                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] font-bold">
-                          Delhi Region
-                        </span>
+                {/* Editable Requester Contact Name & Phone in 2 Columns */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#1A1D20] flex items-center gap-1">
+                      <User className="w-3.5 h-3.5 text-[#D72638]" />
+                      <span>Your Contact Name *</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={requesterName}
+                      onChange={(e) => setRequesterName(e.target.value)}
+                      placeholder="e.g. Attending Clinical Coordinator"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 text-xs font-medium text-[#1A1D20] transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-[#1A1D20] flex items-center gap-1">
+                      <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Call-Back Phone *</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={requesterPhone}
+                      onChange={(e) => setRequesterPhone(e.target.value)}
+                      placeholder="+91 98765 43210"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 text-xs font-mono font-bold text-[#1A1D20] transition-all"
+                    />
+                  </div>
+                </div>
+
+                {/* Patient Name (Neutral / Patient specific) */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-[#1A1D20] flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <User className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Patient / Case Name</span>
+                    </span>
+                    <span className="text-[10px] text-[#5A626A] font-normal">Optional identifier</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={patientName}
+                    onChange={(e) => setPatientName(e.target.value)}
+                    placeholder="e.g. Emergency Patient / Case #892"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 text-xs font-medium text-[#1A1D20] transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Right Column: Facility / Location & Urgent Message */}
+              <div className="space-y-3.5 flex flex-col h-full justify-between">
+                {/* Facility / Location with GPS ON/OFF Switch & Detect GPS */}
+                <div className="space-y-1.5" ref={locationDropdownRef}>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-[#1A1D20] flex items-center gap-1">
+                      <Building2 className="w-3.5 h-3.5 text-[#D72638]" />
+                      <span>Facility / Location *</span>
+                    </label>
+
+                    {/* GPS Controls: ON/OFF toggle & Detect GPS */}
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={handleToggleGpsPermission}
+                        title={isGpsPermissionEnabled ? 'GPS Permission is ON. Click to turn OFF.' : 'GPS Permission is OFF. Click to turn ON.'}
+                        className={`px-2 py-1 rounded-lg border text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs ${isGpsPermissionEnabled
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                          : 'bg-slate-100 border-[#D9C7C2] text-slate-500 hover:bg-slate-200'
+                          }`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${isGpsPermissionEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                        <span>GPS:</span>
+                        <span className="font-extrabold">{isGpsPermissionEnabled ? 'ON' : 'OFF'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleDetectGps}
+                        disabled={isDetectingGps || !isGpsPermissionEnabled}
+                        title={!isGpsPermissionEnabled ? 'Turn ON GPS Permission first to locate' : 'Detect current GPS coordinates'}
+                        className={`px-2 py-1 rounded-lg border text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer shadow-2xs ${isGpsPermissionEnabled
+                          ? 'bg-white border-[#D9C7C2] hover:border-[#D72638] text-[#D72638] hover:text-[#b51d2c]'
+                          : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
+                          }`}
+                      >
+                        <Navigation className={`w-3 h-3 ${isDetectingGps ? 'animate-spin' : ''}`} />
+                        <span>{isDetectingGps ? 'Locating...' : 'Detect GPS'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Location Input with Dropdown Button */}
+                  <div className="relative">
+                    <div className="flex items-center rounded-xl bg-white border border-[#D9C7C2] focus-within:border-[#D72638] focus-within:ring-2 focus-within:ring-[#D72638]/20 transition-all overflow-hidden">
+                      <div className="pl-3 pr-1 text-[#D72638]">
+                        <MapPin className="w-3.5 h-3.5" />
                       </div>
+                      <input
+                        type="text"
+                        required
+                        value={hospital}
+                        onChange={(e) => {
+                          setHospital(e.target.value);
+                          setIsLocationDropdownOpen(true);
+                        }}
+                        onFocus={() => setIsLocationDropdownOpen(true)}
+                        placeholder="Search or enter hospital / facility location"
+                        className="w-full py-2.5 px-2 text-xs font-medium text-[#1A1D20] bg-transparent outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setIsLocationDropdownOpen(prev => !prev)}
+                        className="px-2.5 py-2.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                      >
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isLocationDropdownOpen ? 'rotate-180 text-[#D72638]' : ''}`} />
+                      </button>
+                    </div>
 
-                      {(() => {
-                        const searchLower = hospital.trim().toLowerCase();
-                        const filtered = POPULAR_FACILITY_LOCATIONS.filter(item =>
-                          item.toLowerCase().includes(searchLower)
-                        );
+                    {/* Animated Dropdown Menu */}
+                    <AnimatePresence>
+                      {isLocationDropdownOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute z-50 mt-1.5 w-full rounded-2xl border border-[#D9C7C2] bg-white/95 backdrop-blur-md shadow-2xl overflow-hidden py-1 max-h-52 overflow-y-auto no-scrollbar"
+                        >
+                          <div className="px-3 py-1.5 text-[10px] font-black text-[#5A626A] uppercase tracking-wider border-b border-[#D9C7C2]/40 flex items-center justify-between">
+                            <span>Standard Medical Facilities &amp; Localities</span>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] font-bold">
+                              Delhi Region
+                            </span>
+                          </div>
 
-                        if (filtered.length === 0) {
-                          return (
-                            <div className="p-3 text-center">
-                              <p className="text-xs text-[#5A626A]">Use custom entry: "{hospital}"</p>
-                              <button
-                                type="button"
-                                onClick={() => setIsLocationDropdownOpen(false)}
-                                className="mt-1 text-xs font-bold text-[#D72638] hover:underline"
-                              >
-                                Confirm Selection
-                              </button>
-                            </div>
-                          );
-                        }
+                          {(() => {
+                            const searchLower = hospital.trim().toLowerCase();
+                            const filtered = POPULAR_FACILITY_LOCATIONS.filter(item =>
+                              item.toLowerCase().includes(searchLower)
+                            );
 
-                        return filtered.map((loc) => {
-                          const isSelected = hospital === loc;
-                          return (
-                            <div
-                              key={loc}
-                              onClick={() => {
-                                setHospital(loc);
-                                setIsLocationDropdownOpen(false);
-                              }}
-                              className={`px-3 py-2 text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors ${isSelected
-                                ? 'bg-red-50 text-[#D72638] font-bold'
-                                : 'hover:bg-[#F5F1EF] text-[#1A1D20]'
-                                }`}
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${isSelected ? 'bg-red-100 text-[#D72638]' : 'bg-slate-100 text-slate-500'}`}>
-                                  <MapPin className="w-3 h-3" />
+                            if (filtered.length === 0) {
+                              return (
+                                <div className="p-3 text-center">
+                                  <p className="text-xs text-[#5A626A]">Use custom entry: "{hospital}"</p>
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsLocationDropdownOpen(false)}
+                                    className="mt-1 text-xs font-bold text-[#D72638] hover:underline"
+                                  >
+                                    Confirm Selection
+                                  </button>
                                 </div>
-                                <span className="truncate">{loc}</span>
-                              </div>
-                              {isSelected && <CheckCircle className="w-3.5 h-3.5 text-[#D72638] shrink-0" />}
-                            </div>
-                          );
-                        });
-                      })()}
-                    </motion.div>
+                              );
+                            }
+
+                            return filtered.map((loc) => {
+                              const isSelected = hospital === loc;
+                              return (
+                                <div
+                                  key={loc}
+                                  onClick={() => {
+                                    setHospital(loc);
+                                    setIsLocationDropdownOpen(false);
+                                  }}
+                                  className={`px-3 py-2 text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors ${isSelected
+                                    ? 'bg-red-50 text-[#D72638] font-bold'
+                                    : 'hover:bg-[#F5F1EF] text-[#1A1D20]'
+                                    }`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${isSelected ? 'bg-red-100 text-[#D72638]' : 'bg-slate-100 text-slate-500'}`}>
+                                      <MapPin className="w-3 h-3" />
+                                    </div>
+                                    <span className="truncate">{loc}</span>
+                                  </div>
+                                  {isSelected && <CheckCircle className="w-3.5 h-3.5 text-[#D72638] shrink-0" />}
+                                </div>
+                              );
+                            });
+                          })()}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* GPS Status Message & Suggestion Pills */}
+                  {gpsMessage && (
+                    <p className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                      <span>{gpsMessage}</span>
+                    </p>
                   )}
-                </AnimatePresence>
-              </div>
 
-              {/* GPS Status Message & Suggestion Pills */}
-              {gpsMessage && (
-                <p className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-                  <span>{gpsMessage}</span>
-                </p>
-              )}
-
-              {detectedPills.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-0.5">
-                  {detectedPills.map((pill) => (
-                    <button
-                      key={pill}
-                      type="button"
-                      onClick={() => {
-                        setHospital(pill);
-                        setIsLocationDropdownOpen(false);
-                      }}
-                      className="text-[10px] font-semibold px-2 py-0.5 rounded-lg border bg-white text-[#4A5568] border-[#D9C7C2] hover:bg-slate-100 cursor-pointer"
-                    >
-                      {pill}
-                    </button>
-                  ))}
+                  {detectedPills.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {detectedPills.map((pill) => (
+                        <button
+                          key={pill}
+                          type="button"
+                          onClick={() => {
+                            setHospital(pill);
+                            setIsLocationDropdownOpen(false);
+                          }}
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded-lg border bg-white text-[#4A5568] border-[#D9C7C2] hover:bg-slate-100 cursor-pointer"
+                        >
+                          {pill}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
+
+                {/* Clinical Urgency Message Textarea */}
+                <div className="space-y-1 flex-1 flex flex-col">
+                  <label className="text-xs font-bold text-[#1A1D20] flex items-center gap-1">
+                    <FileText className="w-3.5 h-3.5 text-[#D72638]" />
+                    <span>Urgent Transfusion Message *</span>
+                  </label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={customMessage}
+                    onChange={(e) => setCustomMessage(e.target.value)}
+                    className="w-full p-3 rounded-xl bg-white border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 text-xs text-[#1A1D20] leading-relaxed resize-none transition-all flex-1 min-h-[80px]"
+                  />
+                </div>
+
+                {/* Error Message */}
+                {errorMessage && (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-[#D72638] flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
+
+                {/* Success Notification */}
+                {isSuccess && (
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-800 flex items-center gap-2 font-bold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Emergency alert transmitted to {targetDonor.fullName}! Confirmation receipt dispatched to {currentUserEmail}.</span>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Clinical Urgency Message Textarea */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-[#1A1D20] flex items-center gap-1">
-                <FileText className="w-3.5 h-3.5 text-[#D72638]" />
-                <span>Urgent Transfusion Message *</span>
-              </label>
-              <textarea
-                required
-                rows={3}
-                value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value)}
-                className="w-full p-3 rounded-xl bg-white border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 text-xs text-[#1A1D20] leading-relaxed resize-none transition-all"
-              />
-            </div>
-
-            {/* Error Message */}
-            {errorMessage && (
-              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-[#D72638] flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
-
-            {/* Success Notification */}
-            {isSuccess && (
-              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-800 flex items-center gap-2 font-bold">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Emergency alert transmitted to {targetDonor.fullName}! Confirmation receipt dispatched to {currentUserEmail}.</span>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="pt-2 flex items-center gap-2.5">
+            {/* Action Buttons Footer */}
+            <div className="pt-3 border-t border-[#D9C7C2]/50 flex items-center justify-end gap-2.5">
               <button
                 type="button"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#1A1D20] font-bold text-xs transition-colors cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-[#1A1D20] font-bold text-xs transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -724,7 +732,7 @@ export default function SendAlertModal({
               <button
                 type="submit"
                 disabled={isSubmitting || isSuccess || cooldown.inCooldown}
-                className={`flex-1 py-2.5 rounded-xl font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 ${cooldown.inCooldown
+                className={`px-6 py-2.5 rounded-xl font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 ${cooldown.inCooldown
                   ? 'bg-amber-100 border border-amber-300 text-amber-800 cursor-not-allowed opacity-80'
                   : 'bg-[#D72638] hover:bg-[#b51d2c] disabled:opacity-50 text-white cursor-pointer'
                   }`}
