@@ -169,8 +169,16 @@ export const Dashboard: React.FC = () => {
             status: (r.status || 'urgent') as any,
             createdAt: r.created_at || r.createdAt || new Date().toISOString(),
           }));
-        setRequests(mappedReqs);
-        saveEmergencyRequests(mappedReqs, currentUserEmail, false);
+
+        const local = getEmergencyRequests(currentUserEmail);
+        const remoteIds = new Set(mappedReqs.map(r => r.id));
+        const validLocal = local.filter(l => !deletedSet.has(l.id) && !remoteIds.has(l.id));
+        const combined = [...validLocal, ...mappedReqs].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+
+        setRequests(combined);
+        saveEmergencyRequests(combined, currentUserEmail, false);
       }
     } catch {
       // Quiet background fallback to cached state

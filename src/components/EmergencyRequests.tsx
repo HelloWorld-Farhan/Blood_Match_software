@@ -37,6 +37,7 @@ import {
   getEmergencyRequests,
   saveEmergencyRequests,
   markRequestDeleted,
+  unmarkRequestDeleted,
   getDeletedRequestIds,
   getDonors,
   saveDonors,
@@ -703,40 +704,45 @@ export default function EmergencyRequests() {
         const remoteMap = new Map<string, EmergencyRequest>();
         activeRemoteReqs.forEach(r => remoteMap.set(r.id, r));
 
-        // 2. Prune ghost local records deleted on another device:
-        // Any request in currentLocal that is missing from remote database (and older than 15s) was deleted on another client.
+        // 2. Resilient local preservation:
+        // Any request in currentLocal that is NOT tombstoned should be kept.
+        // If it's missing from remoteMap, automatically re-sync it to the remote backend database!
         currentLocal.forEach(r => {
-          if (!remoteMap.has(r.id)) {
-            const ageMs = now - new Date(r.createdAt).getTime();
-            if (ageMs > 15000) {
-              markRequestDeleted(r.id, currentUserEmail);
-            }
+          if (!allDeletedIds.has(r.id) && !remoteMap.has(r.id)) {
+            createEmergencyRequestApi({
+              id: r.id,
+              user_email: currentUserEmail,
+              patient_name: r.patientName,
+              patient_age: r.patientAge,
+              hospital: r.hospital,
+              hospital_city: r.hospitalCity,
+              ward: r.ward,
+              blood_type: r.bloodType,
+              units_needed: r.unitsNeeded,
+              urgency: r.urgency,
+              status: r.status,
+              contact_person: r.contactName,
+              contact_phone: r.contactNumber
+            }).catch(() => { });
           }
         });
 
-        // 3. Preserve ONLY active remote records (plus any unsynced offline drafts created within last 15s)
-        const pendingFreshDrafts = currentLocal.filter(r =>
+        // 3. Preserve active remote records and all valid local records
+        const validLocalDrafts = currentLocal.filter(r =>
           !remoteMap.has(r.id) &&
-          !allDeletedIds.has(r.id) &&
-          (now - new Date(r.createdAt).getTime() <= 15000)
+          !allDeletedIds.has(r.id)
         );
 
-        const rawMerged = [...pendingFreshDrafts, ...activeRemoteReqs].sort(
+        const rawMerged = [...validLocalDrafts, ...activeRemoteReqs].sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
 
-        // Deduplicate duplicate urgent test cases created during previous multi-test cycles
-        const seenTestSignatures = new Set<string>();
+        // Deduplicate strictly by unique request ID
+        const seenIds = new Set<string>();
         const merged: EmergencyRequest[] = [];
         for (const req of rawMerged) {
-          if (req.status === 'urgent') {
-            const phoneCore = (req.contactNumber || '').replace(/\D/g, '').slice(-10);
-            const sig = `${req.patientName.toLowerCase()}_${req.bloodType}_${phoneCore}_${(req.hospitalCity || '').toLowerCase()}`;
-            if (!seenTestSignatures.has(sig)) {
-              seenTestSignatures.add(sig);
-              merged.push(req);
-            }
-          } else {
+          if (!seenIds.has(req.id)) {
+            seenIds.add(req.id);
             merged.push(req);
           }
         }
@@ -794,6 +800,21 @@ export default function EmergencyRequests() {
       window.removeEventListener('bloodmatch_requests_updated', handleStorage);
       window.removeEventListener('bloodmatch_donors_updated', handleStorage);
       window.removeEventListener('bloodmatch_donor_alert_dispatched', handleDonorAlertDispatched);
+    };
+  }, [currentUserEmail]);
+
+  // Auto-sync across devices when user switches to tab or window regains focus
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadData();
+      }
+    };
+    window.addEventListener('focus', handleVisibility);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('focus', handleVisibility);
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [currentUserEmail]);
 
@@ -1514,15 +1535,6 @@ export default function EmergencyRequests() {
   };
 
   const handleCancelModal = () => {
-    if (activeEmergencyRequestId) {
-      markRequestDeleted(activeEmergencyRequestId, currentUserEmail);
-      setRequests(prev => {
-        const filtered = prev.filter(r => r.id !== activeEmergencyRequestId);
-        saveEmergencyRequests(filtered, currentUserEmail);
-        return filtered;
-      });
-      deleteEmergencyRequestApi(activeEmergencyRequestId, currentUserEmail).catch(() => { });
-    }
     handleCloseModal();
   };
 
@@ -1608,6 +1620,7 @@ export default function EmergencyRequests() {
     // Use active draft ID if already modifying and re-testing; otherwise assign a fresh unique ID
     const reqId = activeEmergencyRequestId || `REQ-${Math.floor(100000 + Math.random() * 900000)}`;
     setActiveEmergencyRequestId(reqId);
+    unmarkRequestDeleted(reqId, currentUserEmail);
 
     const currentRequest: EmergencyRequest = {
       id: reqId,
@@ -1628,15 +1641,37 @@ export default function EmergencyRequests() {
     setActiveEmergencyDraft(currentRequest);
     saveCustomPhone(fullPhone);
 
-    // Modify the unique one in board state in place (replaces if exists, avoids duplicates on re-test)
+    // Modify the unique one in board state in place and save immediately to localStorage
+    let updatedList: EmergencyRequest[] = [];
     setRequests(prev => {
       const idx = prev.findIndex(r => r.id === reqId);
       if (idx >= 0) {
-        const copy = [...prev];
-        copy[idx] = currentRequest;
-        return copy;
+        updatedList = [...prev];
+        updatedList[idx] = currentRequest;
+      } else {
+        updatedList = [currentRequest, ...prev];
       }
-      return [currentRequest, ...prev];
+      saveEmergencyRequests(updatedList, currentUserEmail);
+      return updatedList;
+    });
+
+    // Immediately persist to backend database & Cloudflare R2 for this separate user
+    createEmergencyRequestApi({
+      id: currentRequest.id,
+      user_email: currentUserEmail,
+      patient_name: currentRequest.patientName,
+      patient_age: currentRequest.patientAge,
+      hospital: currentRequest.hospital,
+      hospital_city: currentRequest.hospitalCity,
+      ward: currentRequest.ward,
+      blood_type: currentRequest.bloodType,
+      units_needed: currentRequest.unitsNeeded,
+      urgency: currentRequest.urgency,
+      status: currentRequest.status,
+      contact_person: currentRequest.contactName,
+      contact_phone: currentRequest.contactNumber
+    }).catch(err => {
+      console.warn('Backend emergency request auto-sync error:', err);
     });
 
     // Seamlessly transition to Radar Scanning state inside the same popup
