@@ -1,31 +1,31 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, Variants, AnimatePresence } from 'framer-motion';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  Lock, 
-  ShieldCheck, 
-  KeyRound, 
-  Camera, 
-  Trash2, 
-  CheckCircle2, 
-  AlertCircle, 
-  RefreshCw, 
-  Eye, 
-  EyeOff, 
-  Smartphone, 
-  Laptop, 
-  Monitor, 
-  Clock, 
-  Shield, 
-  Check, 
-  Droplet, 
-  Sparkles, 
-  Layers, 
-  LogOut, 
-  ArrowRight, 
+import {
+  User,
+  Mail,
+  Phone,
+  Lock,
+  ShieldCheck,
+  KeyRound,
+  Camera,
+  Trash2,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  Eye,
+  EyeOff,
+  Smartphone,
+  Laptop,
+  Monitor,
+  Clock,
+  Shield,
+  Check,
+  Droplet,
+  Sparkles,
+  Layers,
+  LogOut,
+  ArrowRight,
   Save,
   CheckCircle,
   Pencil,
@@ -45,19 +45,19 @@ import { ClinicianAvatar } from './ClinicianAvatar';
 import { DeleteAccountModal } from './DeleteAccountModal';
 
 const scrollBlurVariants: Variants = {
-  hidden: { 
-    opacity: 0, 
-    y: 20, 
+  hidden: {
+    opacity: 0,
+    y: 20,
     filter: 'blur(10px)',
     scale: 0.99,
   },
-  visible: { 
-    opacity: 1, 
-    y: 0, 
+  visible: {
+    opacity: 1,
+    y: 0,
     filter: 'blur(0px)',
     scale: 1,
-    transition: { 
-      duration: 0.5, 
+    transition: {
+      duration: 0.5,
       ease: [0.22, 1, 0.36, 1],
     },
   },
@@ -113,8 +113,8 @@ export default function Settings() {
     setIsRemovingAvatar(true);
     try {
       const userEmail = email || sessionStorage.getItem('bloodmatch_user_email') || localStorage.getItem('bloodmatch_user_email') || '';
-      const endpoint = userEmail 
-        ? `/api/v1/auth/avatar?user_email=${encodeURIComponent(userEmail)}` 
+      const endpoint = userEmail
+        ? `/api/v1/auth/avatar?user_email=${encodeURIComponent(userEmail)}`
         : '/api/v1/auth/avatar';
       await apiClient.delete(endpoint);
     } catch (err) {
@@ -132,6 +132,7 @@ export default function Settings() {
     }
   };
 
+  // Requirement 3: Instant Multi-Component Re-render (Zero Page Refresh)
   // Instant Multi-Component Re-render & Cross-Tab Sync (Zero Page Refresh)
   useEffect(() => {
     const handleAvatarUpdate = (e: Event) => {
@@ -144,6 +145,9 @@ export default function Settings() {
       setAvatar(stored);
     };
     window.addEventListener('user_avatar_updated', handleAvatarUpdate);
+    window.addEventListener('bloodmatch_profile_updated', () => {
+      setAvatar(localStorage.getItem('bloodmatch_user_avatar') || null);
+    });
     window.addEventListener('bloodmatch_profile_updated', handleStorageUpdate);
     window.addEventListener('storage', handleStorageUpdate);
     return () => {
@@ -213,7 +217,7 @@ export default function Settings() {
         setIs2FAEnabled(enabled);
         localStorage.setItem('bloodmatch_2fa_enabled', enabled ? 'true' : 'false');
       }
-    }).catch(() => {});
+    }).catch(() => { });
     return () => { isMounted = false; };
   }, []);
 
@@ -224,8 +228,8 @@ export default function Settings() {
     localStorage.setItem('bloodmatch_2fa_enabled', newVal ? 'true' : 'false');
     sessionStorage.setItem('bloodmatch_2fa_enabled', newVal ? 'true' : 'false');
     setTwoFactorFeedback(
-      newVal 
-        ? 'Two-Factor Authentication is now ON. Email OTP verification is automatically enforced on sign-in.' 
+      newVal
+        ? 'Two-Factor Authentication is now ON. Email OTP verification is automatically enforced on sign-in.'
         : 'Two-Factor Authentication is now OFF. Both channels disabled; direct password login active.'
     );
 
@@ -371,8 +375,8 @@ export default function Settings() {
           if (!item.is_current) {
             if (item.last_active) {
               const d = new Date(item.last_active);
-              formattedLastActive = isNaN(d.getTime()) 
-                ? 'Recently' 
+              formattedLastActive = isNaN(d.getTime())
+                ? 'Recently'
                 : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' at ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
             } else {
               formattedLastActive = 'Unknown';
@@ -899,8 +903,8 @@ export default function Settings() {
       const res = await toggleSessionPrimaryApi(sess.id, nextPrimary);
       if (res.ok) {
         setSessionRefreshNotice(
-          nextPrimary 
-            ? '✓ Primary Workstation ON: This device is now your sole primary trusted terminal. All other terminals have been switched to non-primary.' 
+          nextPrimary
+            ? '✓ Primary Workstation ON: This device is now your sole primary trusted terminal. All other terminals have been switched to non-primary.'
             : '✓ Primary Workstation OFF: Device untrusted. Login security alerts will be dispatched on future sign-ins.'
         );
         setTimeout(() => setSessionRefreshNotice(null), 4500);
@@ -926,7 +930,7 @@ export default function Settings() {
       {/* =========================================================================
           PAGE HEADER
           ========================================================================= */}
-      <motion.div 
+      <motion.div
         variants={scrollBlurVariants}
         initial="hidden"
         animate="visible"
@@ -955,7 +959,7 @@ export default function Settings() {
       {/* =========================================================================
           FEATURED LARGE-FORMAT SECURITY TELEMETRY VIDEO MONITOR (299518.mp4)
           ========================================================================= */}
-      <motion.div 
+      <motion.div
         variants={scrollBlurVariants}
         initial="hidden"
         animate="visible"
@@ -963,7 +967,7 @@ export default function Settings() {
       >
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
           {/* Prominent High-Definition Video Monitor */}
-          <div 
+          <div
             className="relative w-full lg:w-3/5 rounded-2xl overflow-hidden border border-[#D72638]/40 shadow-md bg-black h-[220px] xs:h-[260px] sm:h-[290px] flex items-center justify-center"
             style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
           >
@@ -980,7 +984,7 @@ export default function Settings() {
             />
             {/* Live Telemetry Overlays */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-black/30 pointer-events-none" />
-            
+
             <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-xs pointer-events-none">
               <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white font-bold">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
@@ -1059,7 +1063,7 @@ export default function Settings() {
       {/* =========================================================================
           TAB NAVIGATION SWITCHER
           ========================================================================= */}
-      <motion.div 
+      <motion.div
         variants={scrollBlurVariants}
         initial="hidden"
         animate="visible"
@@ -1067,11 +1071,10 @@ export default function Settings() {
       >
         <button
           onClick={() => setActiveTab('PROFILE')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === 'PROFILE'
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'PROFILE'
               ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/25'
               : 'bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
-          }`}
+            }`}
         >
           <User className="w-3.5 h-3.5" />
           <span>Clinician Profile & Avatar</span>
@@ -1079,11 +1082,10 @@ export default function Settings() {
 
         <button
           onClick={() => setActiveTab('SECURITY')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === 'SECURITY'
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'SECURITY'
               ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/25'
               : 'bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
-          }`}
+            }`}
         >
           <Lock className="w-3.5 h-3.5" />
           <span>Password & 2FA Channels</span>
@@ -1091,11 +1093,10 @@ export default function Settings() {
 
         <button
           onClick={() => setActiveTab('SESSIONS')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === 'SESSIONS'
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'SESSIONS'
               ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/25'
               : 'bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
-          }`}
+            }`}
         >
           <Monitor className="w-3.5 h-3.5" />
           <span>Active Sessions ({sessions.filter(s => s.status === 'active').length})</span>
@@ -1132,6 +1133,19 @@ export default function Settings() {
               {/* Avatar Preview */}
               <div className="relative group shrink-0">
                 <div className="w-24 h-24 rounded-2xl overflow-hidden bg-gradient-to-tr from-[#7A0C17] to-[#D72638] flex items-center justify-center text-white text-2xl font-black shadow-md border-2 border-white">
+                  {avatar ? (
+                    <img
+                      src={avatar}
+                      alt="Clinician Avatar"
+                      className="w-full h-full object-cover"
+                      onError={() => {
+                        setAvatar(null);
+                        localStorage.removeItem('bloodmatch_user_avatar');
+                      }}
+                    />
+                  ) : (
+                    <span>{getInitials(name)}</span>
+                  )}
                   <ClinicianAvatar
                     src={avatar}
                     name={name}
@@ -1239,8 +1253,8 @@ export default function Settings() {
                 )}
               </div>
               <p className="text-xs text-[#5A626A] mt-0.5">
-                {isEditingProfile 
-                  ? 'Update your full legal name. Email address, verified mobile, and Clinical ID remain strictly locked.' 
+                {isEditingProfile
+                  ? 'Update your full legal name. Email address, verified mobile, and Clinical ID remain strictly locked.'
                   : 'Your clinical credentials across all stations. Click Edit Profile to modify name.'}
               </p>
             </div>
@@ -1292,9 +1306,8 @@ export default function Settings() {
                   )}
                 </div>
                 <div className="relative group">
-                  <User className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
-                    isEditingProfile ? 'text-[#D72638]' : 'text-slate-400'
-                  }`} />
+                  <User className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${isEditingProfile ? 'text-[#D72638]' : 'text-slate-400'
+                    }`} />
                   <input
                     type="text"
                     value={name}
@@ -1302,11 +1315,10 @@ export default function Settings() {
                     readOnly={!isEditingProfile}
                     disabled={!isEditingProfile}
                     placeholder="Enter full clinician legal name"
-                    className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold transition-all outline-hidden ${
-                      isEditingProfile
+                    className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold transition-all outline-hidden ${isEditingProfile
                         ? 'bg-white border-2 border-[#D72638] ring-2 ring-[#D72638]/20 text-[#1A1D20] shadow-xs'
                         : 'bg-[#F5F1EF]/80 border border-[#D9C7C2] text-[#1A1D20] cursor-not-allowed select-text opacity-95'
-                    }`}
+                      }`}
                   />
                 </div>
                 {profileErrors.name && (
@@ -1465,15 +1477,14 @@ export default function Settings() {
                   const percent = resetChannel === 'EMAIL_OTP' ? emailPwCriteria.strengthPercent : prevPwCriteria.strengthPercent;
                   const isOptimal = percent === 100;
                   return (
-                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-bold font-mono shrink-0 transition-all ${
-                      isOptimal 
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
-                        : percent >= 75 
-                          ? 'bg-blue-50 border-blue-200 text-blue-800' 
-                          : percent >= 50 
-                            ? 'bg-amber-50 border-amber-200 text-amber-800' 
+                    <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-bold font-mono shrink-0 transition-all ${isOptimal
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : percent >= 75
+                          ? 'bg-blue-50 border-blue-200 text-blue-800'
+                          : percent >= 50
+                            ? 'bg-amber-50 border-amber-200 text-amber-800'
                             : 'bg-red-50 border-red-200 text-[#D72638]'
-                    }`}>
+                      }`}>
                       <span className={`w-2 h-2 rounded-full ${isOptimal ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
                       <span>{percent}% Policy Verified</span>
                     </div>
@@ -1494,16 +1505,14 @@ export default function Settings() {
                   setEmailOtpError(null);
                   setEmailPwErrors({});
                 }}
-                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                  resetChannel === 'EMAIL_OTP'
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${resetChannel === 'EMAIL_OTP'
                     ? 'border-[#D72638] bg-red-50/50 shadow-xs ring-1 ring-[#D72638]/20'
                     : 'border-[#D9C7C2] bg-white hover:border-[#D72638]/40'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                    resetChannel === 'EMAIL_OTP' ? 'bg-[#D72638] text-white shadow-xs' : 'bg-[#F5F1EF] text-[#5A626A]'
-                  }`}>
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${resetChannel === 'EMAIL_OTP' ? 'bg-[#D72638] text-white shadow-xs' : 'bg-[#F5F1EF] text-[#5A626A]'
+                    }`}>
                     <Mail className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
@@ -1527,16 +1536,14 @@ export default function Settings() {
                   setPrevConfirmPassword('');
                   setPrevPwErrors({});
                 }}
-                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
-                  resetChannel === 'PREVIOUS_PW'
+                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${resetChannel === 'PREVIOUS_PW'
                     ? 'border-[#D72638] bg-red-50/50 shadow-xs ring-1 ring-[#D72638]/20'
                     : 'border-[#D9C7C2] bg-white hover:border-[#D72638]/40'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                    resetChannel === 'PREVIOUS_PW' ? 'bg-[#D72638] text-white shadow-xs' : 'bg-[#F5F1EF] text-[#5A626A]'
-                  }`}>
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${resetChannel === 'PREVIOUS_PW' ? 'bg-[#D72638] text-white shadow-xs' : 'bg-[#F5F1EF] text-[#5A626A]'
+                    }`}>
                     <KeyRound className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
@@ -1735,19 +1742,17 @@ export default function Settings() {
                         New Security Password
                       </label>
                       <div className="relative group">
-                        <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
-                          emailPwErrors.emailNewPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
-                        }`} />
+                        <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${emailPwErrors.emailNewPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                          }`} />
                         <input
                           type={showEmailNewPw ? 'text' : 'password'}
                           value={emailNewPassword}
                           onChange={(e) => setEmailNewPassword(e.target.value)}
                           placeholder="Min. 8 chars, 1 uppercase, 2 numbers, 1 symbol"
-                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
-                            emailPwErrors.emailNewPassword 
-                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${emailPwErrors.emailNewPassword
+                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
                               : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
-                          }`}
+                            }`}
                         />
                         <button
                           type="button"
@@ -1762,42 +1767,37 @@ export default function Settings() {
                       <div className="w-full bg-[#E8DFDC] h-2 rounded-full overflow-hidden mt-1.5 relative">
                         <div
                           style={{ width: `${emailPwCriteria.strengthPercent}%` }}
-                          className={`h-full rounded-full transition-all duration-200 ease-out ${
-                            emailPwCriteria.strengthPercent === 100
+                          className={`h-full rounded-full transition-all duration-200 ease-out ${emailPwCriteria.strengthPercent === 100
                               ? 'bg-gradient-to-r from-[#D72638] to-emerald-500 shadow-[0_0_8px_rgba(215,38,56,0.5)]'
                               : emailPwCriteria.strengthPercent >= 50
-                              ? 'bg-gradient-to-r from-amber-500 to-[#D72638]'
-                              : 'bg-[#D72638]'
-                          }`}
+                                ? 'bg-gradient-to-r from-amber-500 to-[#D72638]'
+                                : 'bg-[#D72638]'
+                            }`}
                         />
                       </div>
 
                       {/* Criteria Chips */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-2">
-                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
-                          emailPwCriteria.hasMinLength ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
-                        }`}>
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${emailPwCriteria.hasMinLength ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
+                          }`}>
                           {emailPwCriteria.hasMinLength ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
                           <span>8+ Chars</span>
                         </span>
 
-                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
-                          emailPwCriteria.hasUppercase ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
-                        }`}>
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${emailPwCriteria.hasUppercase ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
+                          }`}>
                           {emailPwCriteria.hasUppercase ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
                           <span>1 Big (A-Z)</span>
                         </span>
 
-                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
-                          emailPwCriteria.hasTwoNumbers ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
-                        }`}>
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${emailPwCriteria.hasTwoNumbers ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
+                          }`}>
                           {emailPwCriteria.hasTwoNumbers ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
                           <span>2 Numbers</span>
                         </span>
 
-                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
-                          emailPwCriteria.hasSpecialChar ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
-                        }`}>
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${emailPwCriteria.hasSpecialChar ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
+                          }`}>
                           {emailPwCriteria.hasSpecialChar ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
                           <span>1 Symbol (!@#)</span>
                         </span>
@@ -1818,9 +1818,8 @@ export default function Settings() {
                           Confirm New Password
                         </label>
                         {emailConfirmPassword && (
-                          <span className={`text-[11px] font-semibold flex items-center gap-1 ${
-                            emailPwMatch ? 'text-emerald-700' : 'text-[#D72638]'
-                          }`}>
+                          <span className={`text-[11px] font-semibold flex items-center gap-1 ${emailPwMatch ? 'text-emerald-700' : 'text-[#D72638]'
+                            }`}>
                             {emailPwMatch ? (
                               <>
                                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />
@@ -1836,19 +1835,17 @@ export default function Settings() {
                         )}
                       </div>
                       <div className="relative group">
-                        <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
-                          emailPwErrors.emailConfirmPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
-                        }`} />
+                        <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${emailPwErrors.emailConfirmPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                          }`} />
                         <input
                           type={showEmailConfirmPw ? 'text' : 'password'}
                           value={emailConfirmPassword}
                           onChange={(e) => setEmailConfirmPassword(e.target.value)}
                           placeholder="Re-enter new password"
-                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
-                            emailPwErrors.emailConfirmPassword 
-                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${emailPwErrors.emailConfirmPassword
+                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
                               : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
-                          }`}
+                            }`}
                         />
                         <button
                           type="button"
@@ -1946,19 +1943,17 @@ export default function Settings() {
                         Previous (Current) Security Password
                       </label>
                       <div className="relative group">
-                        <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
-                          prevPwErrors.previousPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
-                        }`} />
+                        <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${prevPwErrors.previousPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                          }`} />
                         <input
                           type={showPrevPassword ? 'text' : 'password'}
                           value={previousPassword}
                           onChange={(e) => setPreviousPassword(e.target.value)}
                           placeholder="Enter your current terminal password"
-                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
-                            prevPwErrors.previousPassword 
-                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${prevPwErrors.previousPassword
+                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
                               : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
-                          }`}
+                            }`}
                         />
                         <button
                           type="button"
@@ -2024,19 +2019,17 @@ export default function Settings() {
                         New Security Password
                       </label>
                       <div className="relative group">
-                        <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
-                          prevPwErrors.prevNewPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
-                        }`} />
+                        <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${prevPwErrors.prevNewPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                          }`} />
                         <input
                           type={showPrevNewPw ? 'text' : 'password'}
                           value={prevNewPassword}
                           onChange={(e) => setPrevNewPassword(e.target.value)}
                           placeholder="Min. 8 chars, 1 uppercase, 2 numbers, 1 symbol"
-                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
-                            prevPwErrors.prevNewPassword 
-                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${prevPwErrors.prevNewPassword
+                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
                               : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
-                          }`}
+                            }`}
                         />
                         <button
                           type="button"
@@ -2051,42 +2044,37 @@ export default function Settings() {
                       <div className="w-full bg-[#E8DFDC] h-2 rounded-full overflow-hidden mt-1.5 relative">
                         <div
                           style={{ width: `${prevPwCriteria.strengthPercent}%` }}
-                          className={`h-full rounded-full transition-all duration-200 ease-out ${
-                            prevPwCriteria.strengthPercent === 100
+                          className={`h-full rounded-full transition-all duration-200 ease-out ${prevPwCriteria.strengthPercent === 100
                               ? 'bg-gradient-to-r from-[#D72638] to-emerald-500 shadow-[0_0_8px_rgba(215,38,56,0.5)]'
                               : prevPwCriteria.strengthPercent >= 50
-                              ? 'bg-gradient-to-r from-amber-500 to-[#D72638]'
-                              : 'bg-[#D72638]'
-                          }`}
+                                ? 'bg-gradient-to-r from-amber-500 to-[#D72638]'
+                                : 'bg-[#D72638]'
+                            }`}
                         />
                       </div>
 
                       {/* Criteria Chips */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-2">
-                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
-                          prevPwCriteria.hasMinLength ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
-                        }`}>
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${prevPwCriteria.hasMinLength ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
+                          }`}>
                           {prevPwCriteria.hasMinLength ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
                           <span>8+ Chars</span>
                         </span>
 
-                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
-                          prevPwCriteria.hasUppercase ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
-                        }`}>
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${prevPwCriteria.hasUppercase ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
+                          }`}>
                           {prevPwCriteria.hasUppercase ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
                           <span>1 Big (A-Z)</span>
                         </span>
 
-                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
-                          prevPwCriteria.hasTwoNumbers ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
-                        }`}>
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${prevPwCriteria.hasTwoNumbers ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
+                          }`}>
                           {prevPwCriteria.hasTwoNumbers ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
                           <span>2 Numbers</span>
                         </span>
 
-                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${
-                          prevPwCriteria.hasSpecialChar ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
-                        }`}>
+                        <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg border flex items-center justify-center gap-1 transition-colors ${prevPwCriteria.hasSpecialChar ? 'bg-emerald-50 text-emerald-800 border-emerald-300' : 'bg-white text-[#5A626A] border-[#D9C7C2]'
+                          }`}>
                           {prevPwCriteria.hasSpecialChar ? <Check className="w-2.5 h-2.5 text-emerald-600" /> : <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />}
                           <span>1 Symbol (!@#)</span>
                         </span>
@@ -2107,9 +2095,8 @@ export default function Settings() {
                           Confirm New Password
                         </label>
                         {prevConfirmPassword && (
-                          <span className={`text-[11px] font-semibold flex items-center gap-1 ${
-                            prevPwMatch ? 'text-emerald-700' : 'text-[#D72638]'
-                          }`}>
+                          <span className={`text-[11px] font-semibold flex items-center gap-1 ${prevPwMatch ? 'text-emerald-700' : 'text-[#D72638]'
+                            }`}>
                             {prevPwMatch ? (
                               <>
                                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />
@@ -2125,19 +2112,17 @@ export default function Settings() {
                         )}
                       </div>
                       <div className="relative group">
-                        <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${
-                          prevPwErrors.prevConfirmPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
-                        }`} />
+                        <Lock className={`absolute left-3.5 top-3 w-4 h-4 transition-colors ${prevPwErrors.prevConfirmPassword ? 'text-[#D72638]' : 'text-slate-400 group-focus-within:text-[#D72638]'
+                          }`} />
                         <input
                           type={showPrevConfirmPw ? 'text' : 'password'}
                           value={prevConfirmPassword}
                           onChange={(e) => setPrevConfirmPassword(e.target.value)}
                           placeholder="Re-enter new password"
-                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${
-                            prevPwErrors.prevConfirmPassword 
-                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20' 
+                          className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${prevPwErrors.prevConfirmPassword
+                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
                               : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
-                          }`}
+                            }`}
                         />
                         <button
                           type="button"
@@ -2251,26 +2236,23 @@ export default function Settings() {
                   type="button"
                   onClick={() => handleToggle2FA(!is2FAEnabled)}
                   disabled={isToggling2FA}
-                  className={`relative inline-flex h-6 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden disabled:opacity-50 ${
-                    is2FAEnabled ? 'bg-[#D72638]' : 'bg-slate-300'
-                  }`}
+                  className={`relative inline-flex h-6 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden disabled:opacity-50 ${is2FAEnabled ? 'bg-[#D72638]' : 'bg-slate-300'
+                    }`}
                   aria-label="Toggle Two-Factor Authentication"
                 >
                   <span
-                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                      is2FAEnabled ? 'translate-x-6' : 'translate-x-0'
-                    }`}
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${is2FAEnabled ? 'translate-x-6' : 'translate-x-0'
+                      }`}
                   />
                 </button>
               </div>
             </div>
 
             {twoFactorFeedback && (
-              <div className={`mb-4 p-3 rounded-xl border text-xs flex items-center gap-2 font-semibold ${
-                is2FAEnabled 
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+              <div className={`mb-4 p-3 rounded-xl border text-xs flex items-center gap-2 font-semibold ${is2FAEnabled
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                   : 'bg-amber-50 border-amber-200 text-amber-800'
-              }`}>
+                }`}>
                 {is2FAEnabled ? <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />}
                 <span>{twoFactorFeedback}</span>
               </div>
@@ -2281,15 +2263,13 @@ export default function Settings() {
               {/* Left Column: 2FA Authentication Channels */}
               <div className="flex flex-col gap-4 justify-between">
                 {/* Channel 1: Email OTP */}
-                <div className={`p-4 rounded-2xl transition-all duration-200 flex items-start justify-between gap-3 ${
-                  is2FAEnabled 
-                    ? 'border-2 border-[#D72638] bg-red-50/40 shadow-xs' 
+                <div className={`p-4 rounded-2xl transition-all duration-200 flex items-start justify-between gap-3 ${is2FAEnabled
+                    ? 'border-2 border-[#D72638] bg-red-50/40 shadow-xs'
                     : 'border border-[#D9C7C2] bg-slate-50/70 opacity-60'
-                }`}>
+                  }`}>
                   <div className="flex items-start gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs transition-colors ${
-                      is2FAEnabled ? 'bg-[#D72638] text-white' : 'bg-slate-200 text-slate-400'
-                    }`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs transition-colors ${is2FAEnabled ? 'bg-[#D72638] text-white' : 'bg-slate-200 text-slate-400'
+                      }`}>
                       <Mail className="w-5 h-5" />
                     </div>
                     <div>
@@ -2362,7 +2342,7 @@ export default function Settings() {
                   className="absolute inset-0 w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/25 pointer-events-none" />
-                
+
                 {/* Top Badge Overlay */}
                 <div className="relative top-0 left-0 right-0 p-3 sm:p-4 flex items-center justify-between z-10">
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-[11px] font-bold">
@@ -2498,28 +2478,26 @@ export default function Settings() {
             {/* Unique Active Devices List */}
             <div className="space-y-3">
               {uniqueActiveSessions.map((sess) => {
-                const isPhone = (sess.os || '').toLowerCase().includes('android') || 
-                                (sess.os || '').toLowerCase().includes('ios') || 
-                                (sess.device || '').toLowerCase().includes('phone') || 
-                                (sess.device || '').toLowerCase().includes('mobile');
-                const isTablet = (sess.device || '').toLowerCase().includes('ipad') || 
-                                 (sess.device || '').toLowerCase().includes('tablet');
+                const isPhone = (sess.os || '').toLowerCase().includes('android') ||
+                  (sess.os || '').toLowerCase().includes('ios') ||
+                  (sess.device || '').toLowerCase().includes('phone') ||
+                  (sess.device || '').toLowerCase().includes('mobile');
+                const isTablet = (sess.device || '').toLowerCase().includes('ipad') ||
+                  (sess.device || '').toLowerCase().includes('tablet');
 
                 return (
                   <div
                     key={sess.id}
-                    className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-                      sess.isCurrent 
-                        ? 'border-[#D72638] bg-red-50/30' 
+                    className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${sess.isCurrent
+                        ? 'border-[#D72638] bg-red-50/30'
                         : 'border-[#D9C7C2] bg-white hover:border-[#D72638]/40'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-start sm:items-center gap-3.5">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                        sess.isCurrent 
-                          ? 'bg-[#D72638] text-white shadow-xs' 
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${sess.isCurrent
+                          ? 'bg-[#D72638] text-white shadow-xs'
                           : 'bg-[#F5F1EF] text-[#5A626A]'
-                      }`}>
+                        }`}>
                         {isPhone ? <Smartphone className="w-5 h-5" /> : isTablet ? <Laptop className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
                       </div>
                       <div>
@@ -2579,18 +2557,16 @@ export default function Settings() {
                             ? "Primary Workstation is ON: Click to turn OFF (enables login alert emails)"
                             : "Primary Workstation is OFF: Click to turn ON (mutes login alert emails and sets as sole primary device)"
                         }
-                        className={`group relative inline-flex items-center gap-2.5 px-3 py-1.5 rounded-xl border transition-all cursor-pointer select-none active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${
-                          sess.isPrimary
+                        className={`group relative inline-flex items-center gap-2.5 px-3 py-1.5 rounded-xl border transition-all cursor-pointer select-none active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${sess.isPrimary
                             ? 'bg-emerald-50/90 hover:bg-emerald-100/90 border-emerald-300 text-emerald-900 shadow-2xs'
                             : 'bg-[#F5F1EF]/80 hover:bg-[#EAE4E0] border-[#D9C7C2] text-[#5A626A]'
-                        }`}
+                          }`}
                         aria-pressed={Boolean(sess.isPrimary)}
                         aria-label={`Toggle Primary Status. Currently ${sess.isPrimary ? 'ON' : 'OFF'}`}
                       >
                         <div
-                          className={`relative w-8 h-4.5 rounded-full p-0.5 transition-colors duration-200 ease-in-out shrink-0 flex items-center ${
-                            sess.isPrimary ? 'bg-emerald-600 justify-end' : 'bg-slate-300 justify-start'
-                          }`}
+                          className={`relative w-8 h-4.5 rounded-full p-0.5 transition-colors duration-200 ease-in-out shrink-0 flex items-center ${sess.isPrimary ? 'bg-emerald-600 justify-end' : 'bg-slate-300 justify-start'
+                            }`}
                         >
                           <motion.div
                             layout
@@ -2609,11 +2585,10 @@ export default function Settings() {
                           <div className="flex items-center gap-1.5 text-[11px] font-extrabold leading-tight">
                             <span>Primary</span>
                             <span
-                              className={`px-1.5 py-0.2 rounded font-mono text-[9px] uppercase tracking-wider font-black ${
-                                sess.isPrimary
+                              className={`px-1.5 py-0.2 rounded font-mono text-[9px] uppercase tracking-wider font-black ${sess.isPrimary
                                   ? 'bg-emerald-600 text-white'
                                   : 'bg-slate-200 text-slate-600'
-                              }`}
+                                }`}
                             >
                               {sess.isPrimary ? 'ON' : 'OFF'}
                             </span>
@@ -2671,12 +2646,12 @@ export default function Settings() {
             {/* Horizontal History Cards */}
             <div className="space-y-3">
               {paginatedHistory.map((sess, idx) => {
-                const isPhone = (sess.os || '').toLowerCase().includes('android') || 
-                                (sess.os || '').toLowerCase().includes('ios') || 
-                                (sess.device || '').toLowerCase().includes('phone') || 
-                                (sess.device || '').toLowerCase().includes('mobile');
-                const isTablet = (sess.device || '').toLowerCase().includes('ipad') || 
-                                 (sess.device || '').toLowerCase().includes('tablet');
+                const isPhone = (sess.os || '').toLowerCase().includes('android') ||
+                  (sess.os || '').toLowerCase().includes('ios') ||
+                  (sess.device || '').toLowerCase().includes('phone') ||
+                  (sess.device || '').toLowerCase().includes('mobile');
+                const isTablet = (sess.device || '').toLowerCase().includes('ipad') ||
+                  (sess.device || '').toLowerCase().includes('tablet');
 
                 return (
                   <div
@@ -2685,11 +2660,10 @@ export default function Settings() {
                   >
                     {/* Left: Device & Hardware info */}
                     <div className="flex items-center gap-3 min-w-[240px]">
-                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                        sess.status === 'active' 
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                      <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${sess.status === 'active'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                           : 'bg-slate-100 text-slate-500 border border-slate-200'
-                      }`}>
+                        }`}>
                         {isPhone ? <Smartphone className="w-4 h-4" /> : isTablet ? <Laptop className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
                       </div>
                       <div>
@@ -2725,9 +2699,8 @@ export default function Settings() {
                       </div>
                       <div>
                         <span className="text-[10px] text-slate-400 uppercase font-bold block">Ended / Logout</span>
-                        <span className={`text-[11px] font-semibold ${
-                          sess.status === 'active' ? 'text-emerald-700' : 'text-slate-600'
-                        }`}>
+                        <span className={`text-[11px] font-semibold ${sess.status === 'active' ? 'text-emerald-700' : 'text-slate-600'
+                          }`}>
                           {sess.endedTime || (sess.status === 'active' ? 'Session Active' : 'Logged Out')}
                         </span>
                       </div>
