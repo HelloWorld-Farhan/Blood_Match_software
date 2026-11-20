@@ -1917,32 +1917,47 @@ export default function EmergencyRequests() {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
 
-            <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-xs pointer-events-none">
-              <span className="flex items-center gap-2 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white font-bold">
-                <span className="w-2 h-2 rounded-full bg-[#D72638] animate-ping" />
-                Live Trauma Dispatch Bay 01
+            <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 right-2.5 sm:right-3 flex items-center justify-between gap-1.5 text-xs pointer-events-none">
+              <span className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white font-bold text-[10px] sm:text-xs shrink-0">
+                <span className="w-2 h-2 rounded-full bg-[#D72638] animate-ping shrink-0" />
+                <span className="truncate">Live Trauma Dispatch Bay 01</span>
               </span>
-              <span className="px-2.5 py-0.5 rounded-full bg-[#D72638]/90 text-white font-mono font-bold text-[11px] shadow-xs">
+              <span className="px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full bg-[#D72638]/90 backdrop-blur-sm text-white font-mono font-bold text-[9px] sm:text-[11px] shadow-xs shrink-0 whitespace-nowrap">
                 Emergency Feed 60fps
               </span>
             </div>
 
-            <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white pointer-events-none">
-              <div>
-                <div className="text-[10px] uppercase font-mono tracking-wider text-slate-300">Active Triage Board</div>
-                <div className="text-sm sm:text-base font-black tracking-tight flex items-center gap-1.5">
-                  <span className="text-[#D72638]">{requests.length}</span>
-                  <span>Total Registered Calls</span>
+            <div className="absolute bottom-2.5 sm:bottom-3 left-2.5 sm:left-3 right-2.5 sm:right-3 pointer-events-none">
+              <div className="bg-black/65 backdrop-blur-md rounded-xl p-2 sm:p-2.5 border border-white/15 grid grid-cols-3 gap-1.5 sm:gap-3 items-center text-white">
+                {/* Active Triage Board */}
+                <div className="min-w-0 pr-1 border-r border-white/10">
+                  <div className="text-[8.5px] sm:text-[10px] uppercase font-mono tracking-wider text-slate-300 truncate">
+                    Active Triage
+                  </div>
+                  <div className="text-xs sm:text-sm font-black tracking-tight flex items-baseline gap-1 mt-0.5">
+                    <span className="text-[#D72638] font-mono text-sm sm:text-base font-black">{requests.length}</span>
+                    <span className="text-[10px] sm:text-xs text-white truncate">Calls</span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-4 text-right">
-                <div>
-                  <div className="text-[10px] uppercase font-mono tracking-wider text-slate-300">Cross-Match Latency</div>
-                  <div className="text-xs font-mono font-bold text-emerald-400">&lt; 15m Dispatch</div>
+
+                {/* Cross-Match Latency */}
+                <div className="min-w-0 px-1 border-r border-white/10 text-center sm:text-left">
+                  <div className="text-[8.5px] sm:text-[10px] uppercase font-mono tracking-wider text-slate-300 truncate">
+                    Cross-Match
+                  </div>
+                  <div className="text-[10px] sm:text-xs font-mono font-bold text-emerald-400 mt-0.5 truncate">
+                    &lt; 15m Dispatch
+                  </div>
                 </div>
-                <div>
-                  <div className="text-[10px] uppercase font-mono tracking-wider text-slate-300">Standby Pool</div>
-                  <div className="text-xs font-mono font-bold text-emerald-400">{donors.length} Donors Ready</div>
+
+                {/* Standby Pool */}
+                <div className="min-w-0 pl-1 text-right">
+                  <div className="text-[8.5px] sm:text-[10px] uppercase font-mono tracking-wider text-slate-300 truncate">
+                    Standby Pool
+                  </div>
+                  <div className="text-[10px] sm:text-xs font-mono font-bold text-emerald-400 mt-0.5 truncate">
+                    {donors.length} Donors Ready
+                  </div>
                 </div>
               </div>
             </div>

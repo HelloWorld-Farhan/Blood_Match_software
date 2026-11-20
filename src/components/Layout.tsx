@@ -990,7 +990,10 @@ export default function Layout() {
             </button>
 
             {notificationsOpen && (
-              <div className="fixed sm:absolute top-16 sm:top-full left-3 sm:left-auto right-3 sm:right-0 mt-2 w-[calc(100vw-24px)] sm:w-[540px] md:w-[600px] max-h-[85dvh] flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl p-3.5 sm:p-4 border border-[#D9C7C2] z-50 animate-slide-up text-[#1A1D20]">
+              <div className="fixed sm:absolute top-16 sm:top-full left-3 sm:left-auto right-3 sm:right-0 mt-2.5 w-[calc(100vw-24px)] sm:w-[540px] md:w-[600px] max-h-[85dvh] flex flex-col rounded-2xl bg-white shadow-2xl p-3.5 sm:p-4 border border-[#D9C7C2] z-50 animate-slide-up text-[#1A1D20]">
+                {/* Visual Caret Arrow pointing directly to Bell Icon */}
+                <div className="absolute -top-1.5 right-[52px] sm:right-3.5 w-3.5 h-3.5 bg-white border-t border-l border-[#D9C7C2] transform rotate-45 z-10 pointer-events-none shadow-2xs" />
+
                 {/* Horizontal Header */}
                 <div className="flex items-center justify-between pb-3 border-b border-[#D9C7C2] shrink-0">
                   <div className="flex items-center gap-2">
@@ -1148,7 +1151,10 @@ export default function Layout() {
             </button>
 
             {profileOpen && (
-              <div className="absolute top-full right-0 mt-2 w-72 max-w-[calc(100vw-24px)] rounded-2xl bg-white shadow-2xl p-3.5 sm:p-4 border border-[#D9C7C2] z-50 animate-slide-up text-[#1A1D20]">
+              <div className="absolute top-full right-0 mt-2.5 w-72 max-w-[calc(100vw-24px)] rounded-2xl bg-white shadow-2xl p-3.5 sm:p-4 border border-[#D9C7C2] z-50 animate-slide-up text-[#1A1D20]">
+                {/* Visual Caret Arrow pointing directly to Avatar Icon */}
+                <div className="absolute -top-1.5 right-3.5 sm:right-8 w-3.5 h-3.5 bg-white border-t border-l border-[#D9C7C2] transform rotate-45 z-10 pointer-events-none shadow-2xs" />
+
                 <div className="p-2 border-b border-[#D9C7C2]">
                   <div className="text-xs font-bold text-[#1A1D20]">{userName}</div>
                   <div className="text-[11px] text-slate-500 truncate">{userEmail}</div>
