@@ -2342,10 +2342,10 @@ export default function EmergencyRequests() {
                 onClick={(e) => e.stopPropagation()}
                 style={{ willChange: 'transform, opacity, filter' }}
               >
-                {/* Close Button */}
+                {/* Close Button with generous clearance & non-overlapping hover boundary */}
                 <button
                   onClick={handleCancelModal}
-                  className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-[#1A1D20] hover:bg-[#F5F1EF] transition-colors cursor-pointer"
+                  className="absolute top-3.5 right-3.5 sm:top-5 sm:right-5 z-30 p-2 rounded-xl text-slate-400 hover:text-[#1A1D20] hover:bg-[#F5F1EF] transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95"
                   aria-label="Close dialog"
                 >
                   <X className="w-5 h-5 text-[#D72638]" />
@@ -2387,7 +2387,7 @@ export default function EmergencyRequests() {
                       exit={{ opacity: 0, filter: 'blur(6px)', y: -6 }}
                       transition={{ duration: 0.22, ease: 'easeOut' }}
                     >
-                      <div className="mb-4 pb-3 border-b border-[#D9C7C2]/60">
+                      <div className="mb-4 pb-3 border-b border-[#D9C7C2]/60 pr-12 sm:pr-14">
                         <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-bold mb-1">
                           <Radio className="w-3.5 h-3.5 text-red-600 animate-pulse" />
                           <span>Emergency Blood Dispatch System</span>
@@ -2884,8 +2884,8 @@ export default function EmergencyRequests() {
                       transition={{ duration: 0.22, ease: 'easeOut' }}
                       className="space-y-4"
                     >
-                {/* Results Header Bar */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D9C7C2]">
+                {/* Results Header Bar (pr-12 sm:pr-14 ensures generous buffer so X button never overlaps on hover) */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D9C7C2] pr-12 sm:pr-14">
                   <div>
                     <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold mb-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />

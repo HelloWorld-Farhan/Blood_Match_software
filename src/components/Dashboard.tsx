@@ -17,11 +17,14 @@ import {
   HeartPulse,
   Plus,
   MapPin,
-  Clock
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  Calendar
 } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { BloodType, EmergencyRequest, Donor } from '../types';
-import { getDonors, getEmergencyRequests, getInventory, saveDonors, saveInventory, saveEmergencyRequests } from '../services/storage';
+import { getDonors, getEmergencyRequests, getInventory, saveDonors, saveInventory, saveEmergencyRequests, normalizeDonor } from '../services/storage';
 import { fetchDonorsApi, fetchInventoryApi, fetchEmergencyRequestsApi } from '../services/api';
 import { checkCompatibility } from '../utils/bloodCompatibility';
 import { NetworkHealthPill } from './NetworkHealthPill';
@@ -120,24 +123,7 @@ export const Dashboard: React.FC = () => {
       ]);
 
       if (donorsRes.status === 'fulfilled' && donorsRes.value.ok && Array.isArray(donorsRes.value.data)) {
-        const mappedDonors: Donor[] = donorsRes.value.data.map((d: any) => ({
-          id: d.id || `DNR-${Math.random().toString().slice(-6)}`,
-          fullName: d.name || d.fullName || 'Anonymous Donor',
-          bloodType: (d.blood_type || d.bloodType || 'O+') as BloodType,
-          age: d.age || 28,
-          gender: (d.gender || 'MALE') as Donor['gender'],
-          phone: d.phone || '+91 98765 43210',
-          email: d.email || 'donor@bloodmatch.io',
-          city: d.city || 'Delhi',
-          state: d.state || 'Delhi',
-          location: d.location || d.city || 'Delhi, India',
-          user_email: d.user_email || d.email,
-          hospital: d.hospital || 'BloodMatch Emergency Network',
-          lastDonationDate: d.last_donation_date || d.lastDonationDate,
-          isAvailable: d.is_available ?? d.available ?? true,
-          registeredAt: d.created_at || d.registeredAt || new Date().toISOString(),
-          unitsDonatedTotal: d.units_donated_total ?? d.unitsDonatedTotal ?? 0,
-        }));
+        const mappedDonors: Donor[] = donorsRes.value.data.map(normalizeDonor);
         setDonors(mappedDonors);
         saveDonors(mappedDonors, true);
       }
@@ -234,30 +220,85 @@ export const Dashboard: React.FC = () => {
   const targetReserve = 160; // 20 pints per 8 groups = 160 pints ideal vault capacity
   const capacityPercent = Math.min(100, Math.round((totalUnits / targetReserve) * 100));
 
-  // Dynamic 7-day trend data derived directly from real events (0 when storage is empty)
-  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const trendData = days.map(day => ({
-    day,
-    requests: requests.filter(r => {
-      try {
-        return new Date(r.createdAt).toLocaleDateString('en-US', { weekday: 'short' }) === day;
-      } catch {
-        return false;
-      }
-    }).length,
-    mobilized: donors.filter(d => {
-      try {
-        return new Date(d.registeredAt).toLocaleDateString('en-US', { weekday: 'short' }) === day;
-      } catch {
-        return false;
-      }
-    }).length,
-    stock: totalUnits,
-  }));
+  // State for navigating across weeks: 0 = current week, -1 = previous week, -2 = 2 weeks ago, etc.
+  const [weekOffset, setWeekOffset] = useState<number>(0);
+
+  // Computes the Monday-to-Sunday 7-day range for the selected week
+  // Automatically advances every Sunday midnight to the new Monday-to-Sunday week
+  const weekDays = useMemo(() => {
+    const now = new Date();
+    const d = new Date(now);
+    d.setHours(0, 0, 0, 0);
+    const dayOfWeek = d.getDay(); // 0 is Sunday, 1 is Monday, ... 6 is Saturday
+    const diffToMon = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    d.setDate(d.getDate() - diffToMon + (weekOffset * 7));
+
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const todayIso = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+
+    const daysList = [];
+    for (let i = 0; i < 7; i++) {
+      const cur = new Date(d);
+      cur.setDate(d.getDate() + i);
+      const isoDateKey = cur.toLocaleDateString('en-CA');
+      const dateNum = cur.getDate();
+      const monthShort = cur.toLocaleDateString('en-US', { month: 'short' });
+      daysList.push({
+        dayName: dayNames[i],
+        dateStr: `${dateNum} ${monthShort}`,
+        fullDateStr: cur.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+        isoDateKey,
+        isToday: isoDateKey === todayIso,
+      });
+    }
+
+    return daysList;
+  }, [weekOffset]);
+
+  const weekRangeLabel = useMemo(() => {
+    if (weekDays.length === 0) return '';
+    const first = weekDays[0];
+    const last = weekDays[6];
+    return `${first.dateStr} – ${last.dateStr}`;
+  }, [weekDays]);
+
+  // Dynamic 7-day trend data derived directly from real events on each exact calendar date
+  const trendData = useMemo(() => {
+    return weekDays.map(({ dayName, dateStr, fullDateStr, isoDateKey, isToday }) => {
+      const dayReqs = requests.filter(r => {
+        try {
+          const rDate = new Date(r.createdAt).toLocaleDateString('en-CA');
+          return rDate === isoDateKey;
+        } catch {
+          return false;
+        }
+      });
+
+      const dayDonors = donors.filter(d => {
+        try {
+          const dDate = new Date(d.registeredAt || (d as any).created_at).toLocaleDateString('en-CA');
+          return dDate === isoDateKey;
+        } catch {
+          return false;
+        }
+      });
+
+      return {
+        day: dayName,
+        dateStr,
+        fullDateStr,
+        isoDateKey,
+        isToday,
+        requests: dayReqs.length,
+        mobilized: dayDonors.length,
+        stock: totalUnits,
+      };
+    });
+  }, [weekDays, requests, donors, totalUnits]);
 
   const maxVal = Math.max(10, ...trendData.map(d => Math.max(d.requests, d.mobilized)));
   const chartWidth = 520;
-  const chartHeight = 140;
+  const chartHeight = 135;
 
   const pointsReq = trendData.map((d, i) => {
     const x = (i / (trendData.length - 1)) * (chartWidth - 40) + 20;
@@ -778,31 +819,82 @@ export const Dashboard: React.FC = () => {
         {/* Power BI Visual 2: 7-Day Influx vs Response Multi-Series Curve */}
         <div className="p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-2.5">
               <div className="flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-[#D72638]" />
                 <h2 className="text-sm font-bold text-[#1A1D20] uppercase tracking-wider">
                   7-Day Requests &amp; Donor Activity
                 </h2>
               </div>
-              <div className="flex items-center gap-3 text-[11px]">
-                <span className="flex items-center gap-1.5 text-[#D72638] font-bold">
-                  <span className="w-2.5 h-1 bg-[#D72638] rounded-sm"></span> Hospital Requests
-                </span>
-                <span className="flex items-center gap-1.5 text-emerald-600 font-bold">
-                  <span className="w-2.5 h-1 bg-emerald-600 rounded-sm"></span> Responded Donors
-                </span>
+
+              {/* Weekly Navigation: Previous Week, Current Mon-Sun Week Range, Next Week */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="inline-flex items-center gap-1 bg-[#F5F1EF] p-1 rounded-xl border border-[#D9C7C2]">
+                  <button
+                    type="button"
+                    onClick={() => setWeekOffset(prev => prev - 1)}
+                    className="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-[#1A1D20] text-xs font-bold transition-all shadow-2xs flex items-center gap-1 cursor-pointer active:scale-95 border border-[#D9C7C2]/60"
+                    title="Inspect Previous Week"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5 text-[#D72638]" />
+                    <span>Previous</span>
+                  </button>
+
+                  <div className="px-3 py-1 text-xs font-bold text-[#1A1D20] flex items-center gap-1.5 font-mono">
+                    <Calendar className="w-3.5 h-3.5 text-[#D72638]" />
+                    <span>{weekRangeLabel}</span>
+                    {weekOffset === 0 ? (
+                      <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                        Current Week
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setWeekOffset(0)}
+                        className="ml-1 text-[10px] text-[#D72638] underline font-bold hover:text-red-800 cursor-pointer"
+                        title="Return to Current Active Week"
+                      >
+                        Reset
+                      </button>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setWeekOffset(prev => Math.min(0, prev + 1))}
+                    disabled={weekOffset === 0}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                      weekOffset === 0
+                        ? 'bg-transparent text-slate-300 cursor-not-allowed opacity-40'
+                        : 'bg-white hover:bg-slate-100 text-[#1A1D20] shadow-2xs cursor-pointer active:scale-95 border border-[#D9C7C2]/60'
+                    }`}
+                    title="Inspect Next Week"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-3.5 h-3.5 text-[#D72638]" />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-3 text-[11px] ml-auto lg:ml-0">
+                  <span className="flex items-center gap-1.5 text-[#D72638] font-bold">
+                    <span className="w-2.5 h-1 bg-[#D72638] rounded-sm"></span> Hospital Requests
+                  </span>
+                  <span className="flex items-center gap-1.5 text-emerald-600 font-bold">
+                    <span className="w-2.5 h-1 bg-emerald-600 rounded-sm"></span> Responded Donors
+                  </span>
+                </div>
               </div>
             </div>
+
             <p className="text-xs text-[#5A626A] mb-4">
-              Track emergency hospital requests and voluntary donor responses over the past week.
+              Track emergency hospital requests and voluntary donor responses for Monday through Sunday. Automatically rolls over to the next week after Sunday midnight.
             </p>
 
-            {/* SVG Wave Chart with Interactive Power BI Hover Animation */}
+            {/* SVG Wave Chart with Interactive Power BI Hover Animation & Calendar Dates */}
             <div className="w-full bg-[#F5F1EF] rounded-xl p-3 border border-[#D9C7C2]">
               <svg 
-                viewBox={`0 0 ${chartWidth} ${chartHeight}`} 
-                className="w-full h-40 overflow-visible"
+                viewBox={`0 0 ${chartWidth} ${chartHeight + 42}`} 
+                className="w-full h-44 sm:h-48 overflow-visible"
                 onMouseLeave={() => setHoveredTrendIndex(null)}
               >
                 {/* Horizontal Grid lines */}
@@ -875,16 +967,28 @@ export const Dashboard: React.FC = () => {
                         className="transition-all duration-200"
                       />
 
-                      {/* Day Label */}
+                      {/* Day Label (Mon to Sun) */}
                       <text 
                         x={x} 
                         y={chartHeight + 14} 
-                        fill={isHovered ? '#D72638' : '#5A626A'} 
+                        fill={d.isToday ? '#D72638' : isHovered ? '#1A1D20' : '#4A5568'} 
                         fontSize="10" 
                         textAnchor="middle" 
-                        fontWeight={isHovered ? '900' : 'bold'}
+                        fontWeight={d.isToday || isHovered ? '900' : 'bold'}
                       >
                         {d.day}
+                      </text>
+
+                      {/* Calendar Date Below Day (e.g. 16 Nov) */}
+                      <text 
+                        x={x} 
+                        y={chartHeight + 27} 
+                        fill={d.isToday ? '#D72638' : isHovered ? '#D72638' : '#718096'} 
+                        fontSize="8.5" 
+                        textAnchor="middle" 
+                        fontWeight={d.isToday ? '800' : '500'}
+                      >
+                        {d.dateStr}
                       </text>
 
                       {/* Invisible Broad Hit Target Column for Seamless Mouse & Touch Hover */}
@@ -892,7 +996,7 @@ export const Dashboard: React.FC = () => {
                         x={x - 26}
                         y={0}
                         width={52}
-                        height={chartHeight + 25}
+                        height={chartHeight + 35}
                         fill="transparent"
                         className="cursor-pointer"
                         onMouseEnter={() => setHoveredTrendIndex(i)}
@@ -908,7 +1012,7 @@ export const Dashboard: React.FC = () => {
               <div className="mt-3 min-h-[50px] p-2.5 sm:p-3 rounded-xl bg-white border border-[#D9C7C2]/80 shadow-xs flex items-center justify-between transition-all">
                 {hoveredTrendIndex !== null && trendData[hoveredTrendIndex] ? (
                   <motion.div
-                    key={`telemetry-${hoveredTrendIndex}`}
+                    key={`telemetry-${hoveredTrendIndex}-${trendData[hoveredTrendIndex].isoDateKey}`}
                     initial={{ opacity: 0, y: 3 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.15 }}
@@ -917,8 +1021,13 @@ export const Dashboard: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#D72638] animate-ping shrink-0" />
                       <span className="font-bold text-[#1A1D20]">
-                        {trendData[hoveredTrendIndex].day} Activity Summary
+                        {trendData[hoveredTrendIndex].day} ({trendData[hoveredTrendIndex].dateStr}) Activity Summary
                       </span>
+                      {trendData[hoveredTrendIndex].isToday && (
+                        <span className="px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] text-[10px] font-bold">
+                          Today
+                        </span>
+                      )}
                     </div>
                     <div className="flex flex-wrap items-center gap-3.5 text-[11px]">
                       <span className="flex items-center gap-1 font-bold text-[#D72638]">
@@ -940,11 +1049,11 @@ export const Dashboard: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                       <span className="font-medium text-[#1A1D20]">
-                        Hover over any day to see requests, donor responses, and stored units
+                        Hover over any day to see requests, donor responses, and stored units for {weekRangeLabel}
                       </span>
                     </div>
                     <span className="text-[10px] font-mono text-slate-400">
-                      7-Day Activity
+                      Weekly Activity • Mon–Sun
                     </span>
                   </div>
                 )}
