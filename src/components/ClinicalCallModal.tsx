@@ -81,7 +81,7 @@ export default function ClinicalCallModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 12 }}
           transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-md bg-white rounded-3xl border border-[#D9C7C2] shadow-2xl p-6 sm:p-7 z-10 space-y-5 text-[#1A1D20]"
+          className="relative w-full max-w-md bg-white rounded-3xl border border-[#D9C7C2] shadow-2xl p-4 sm:p-6 lg:p-7 z-10 space-y-4 sm:space-y-5 text-[#1A1D20] my-auto max-h-[92dvh] overflow-y-auto no-scrollbar"
         >
           {/* Top Header */}
           <div className="flex items-start justify-between gap-3">

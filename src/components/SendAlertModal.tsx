@@ -363,7 +363,7 @@ export default function SendAlertModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 14 }}
           transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-4xl bg-white rounded-3xl border border-[#D9C7C2] shadow-2xl p-6 sm:p-7 z-10 space-y-4 text-[#1A1D20] my-8 max-h-[92vh] overflow-y-auto no-scrollbar"
+          className="relative w-full max-w-4xl bg-white rounded-3xl border border-[#D9C7C2] shadow-2xl p-4 sm:p-6 lg:p-7 z-10 space-y-4 text-[#1A1D20] my-auto max-h-[92dvh] overflow-y-auto no-scrollbar flex flex-col"
         >
           {/* Header */}
           <div className="flex items-start justify-between gap-3 pb-1 border-b border-[#D9C7C2]/40">

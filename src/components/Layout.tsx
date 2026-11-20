@@ -990,9 +990,9 @@ export default function Layout() {
             </button>
 
             {notificationsOpen && (
-              <div className="fixed sm:absolute top-16 sm:top-full left-3 sm:left-auto right-3 sm:right-0 mt-2 w-[calc(100vw-24px)] sm:w-[540px] md:w-[600px] rounded-2xl bg-white shadow-2xl p-4 border border-[#D9C7C2] z-50 animate-slide-up text-[#1A1D20]">
+              <div className="fixed sm:absolute top-16 sm:top-full left-3 sm:left-auto right-3 sm:right-0 mt-2 w-[calc(100vw-24px)] sm:w-[540px] md:w-[600px] max-h-[85dvh] flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl p-3.5 sm:p-4 border border-[#D9C7C2] z-50 animate-slide-up text-[#1A1D20]">
                 {/* Horizontal Header */}
-                <div className="flex items-center justify-between pb-3 border-b border-[#D9C7C2]">
+                <div className="flex items-center justify-between pb-3 border-b border-[#D9C7C2] shrink-0">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-[#D72638] animate-pulse" />
                     <span className="text-xs font-black text-[#1A1D20] uppercase tracking-wider">
@@ -1033,7 +1033,7 @@ export default function Layout() {
                 </div>
 
                 {/* Content Container */}
-                <div className="pt-3 max-h-80 overflow-y-auto no-scrollbar">
+                <div className="pt-3 max-h-80 overflow-y-auto no-scrollbar flex-1">
                   {alerts.length === 0 ? (
                     /* Horizontal Elegant Empty State */
                     <div className="p-4 rounded-xl bg-[#FBF9F8] border border-[#D9C7C2]/70 flex items-center justify-between gap-3">
@@ -1148,7 +1148,7 @@ export default function Layout() {
             </button>
 
             {profileOpen && (
-              <div className="fixed sm:absolute top-16 sm:top-full left-4 sm:left-auto right-4 sm:right-0 mt-2 sm:w-64 rounded-2xl bg-white shadow-2xl p-3 border border-[#D9C7C2] z-50 animate-slide-up text-[#1A1D20]">
+              <div className="absolute top-full right-0 mt-2 w-72 max-w-[calc(100vw-24px)] rounded-2xl bg-white shadow-2xl p-3.5 sm:p-4 border border-[#D9C7C2] z-50 animate-slide-up text-[#1A1D20]">
                 <div className="p-2 border-b border-[#D9C7C2]">
                   <div className="text-xs font-bold text-[#1A1D20]">{userName}</div>
                   <div className="text-[11px] text-slate-500 truncate">{userEmail}</div>

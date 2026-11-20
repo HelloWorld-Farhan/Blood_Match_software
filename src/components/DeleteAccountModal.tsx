@@ -180,8 +180,8 @@ export function DeleteAccountModal({
   if (!isOpen) return null;
 
   const modalContent = (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg rounded-3xl bg-white border border-red-200 shadow-2xl p-6 sm:p-8 overflow-hidden">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
+      <div className="relative w-full max-w-lg rounded-3xl bg-white border border-red-200 shadow-2xl p-4 sm:p-6 lg:p-8 overflow-y-auto max-h-[92dvh] my-auto no-scrollbar">
         {/* Header Ribbon */}
         <div className="flex items-center justify-between pb-4 border-b border-red-100">
           <div className="flex items-center gap-2.5 text-red-600">

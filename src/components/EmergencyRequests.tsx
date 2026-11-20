@@ -2729,16 +2729,16 @@ export default function EmergencyRequests() {
           ========================================================================= */}
       {fulfillmentModalReq && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md animate-fade-in overflow-y-auto"
           onClick={() => !isFulfilling && setFulfillmentModalReq(null)}
         >
           <div
-            className="relative w-full max-w-xl rounded-3xl bg-white border border-[#D9C7C2] p-6 sm:p-7 shadow-2xl text-[#1A1D20]"
+            className="relative w-full max-w-xl rounded-3xl bg-white border border-[#D9C7C2] p-4 sm:p-6 lg:p-7 shadow-2xl text-[#1A1D20] my-auto max-h-[92dvh] flex flex-col overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-[#D9C7C2]">
+            <div className="flex items-center justify-between pb-3 border-b border-[#D9C7C2] shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-800 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 border border-emerald-300 text-emerald-800 flex items-center justify-center shrink-0">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                 </div>
                 <div>
@@ -2754,7 +2754,7 @@ export default function EmergencyRequests() {
               </button>
             </div>
 
-            <div className="py-4 space-y-4 text-xs">
+            <div className="py-3 space-y-3.5 text-xs overflow-y-auto flex-1 no-scrollbar pr-0.5">
               <div className="p-3.5 rounded-2xl bg-[#F5F1EF] border border-[#D9C7C2] space-y-1">
                 <span className="text-[10px] text-[#7A0C17] font-bold uppercase tracking-wider block">Transfusion Case</span>
                 <p className="text-sm font-bold text-[#1A1D20]">
@@ -2860,7 +2860,7 @@ export default function EmergencyRequests() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#D9C7C2]">
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#D9C7C2] shrink-0">
               <button
                 type="button"
                 onClick={() => setFulfillmentModalReq(null)}
@@ -2909,7 +2909,7 @@ export default function EmergencyRequests() {
                 transition={{ type: 'spring', damping: 28, stiffness: 350 }}
                 className={`relative w-full ${modalPhase === 'SCANNING'
                   ? 'max-w-2xl sm:max-w-3xl overflow-hidden rounded-3xl p-0 bg-black border border-white/20 shadow-2xl'
-                  : 'max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto no-scrollbar rounded-3xl bg-white/95 backdrop-blur-2xl border border-white/60 p-5 sm:p-7 md:p-8 shadow-2xl text-[#1A1D20]'
+                  : 'max-w-4xl lg:max-w-5xl max-h-[92dvh] my-auto overflow-y-auto no-scrollbar rounded-3xl bg-white/95 backdrop-blur-2xl border border-white/60 p-4 sm:p-6 md:p-8 shadow-2xl text-[#1A1D20]'
                   }`}
                 onClick={(e) => e.stopPropagation()}
                 style={{ willChange: 'transform, opacity, filter' }}
@@ -4030,7 +4030,7 @@ export default function EmergencyRequests() {
                 animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
                 exit={{ opacity: 0, scale: 0.95, y: 12, filter: 'blur(6px)' }}
                 transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-                className="relative w-full max-w-md bg-white/95 rounded-3xl border border-[#D9C7C2] shadow-2xl p-6 sm:p-7 text-left space-y-4 backdrop-blur-2xl text-[#1A1D20]"
+                className="relative w-full max-w-md bg-white/95 rounded-3xl border border-[#D9C7C2] shadow-2xl p-4 sm:p-6 lg:p-7 text-left space-y-4 backdrop-blur-2xl text-[#1A1D20] my-auto max-h-[92dvh] overflow-y-auto no-scrollbar"
                 onClick={(e) => e.stopPropagation()}
                 style={{ willChange: 'transform, opacity, filter' }}
               >
