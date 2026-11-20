@@ -785,10 +785,7 @@ export default function Layout() {
   return (
     <div className="fixed inset-0 h-[100dvh] max-h-[100dvh] w-full bg-[#F5F1EF] font-sans text-[#1A1D20] flex flex-col overflow-hidden selection:bg-[#D72638] selection:text-white">
       {/* Ambient Red Fluid / Cell Video Layer in Background */}
-      <AmbientBackgroundVideo 
-        videoSrc={location.pathname.startsWith('/dashboard/emergency') ? "/119846-719283256_medium.mp4" : "/3995-176277710.mp4?v=3"}
-        posterSrc={location.pathname.startsWith('/dashboard/emergency') ? "/119846-719283256_medium_poster.jpg" : "/3995-176277710_poster.jpg"}
-      />
+      <AmbientBackgroundVideo />
 
       {/* Floating Blood Drops Canvas in Background */}
       <BloodDropsCanvas />

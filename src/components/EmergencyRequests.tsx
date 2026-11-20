@@ -1812,8 +1812,8 @@ export default function EmergencyRequests() {
             style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
           >
             <video
-              src="/119846-719283256_medium.mp4"
-              poster="/119846-719283256_medium_poster.jpg"
+              src="/21617-319452308.mp4"
+              poster="/21617-319452308_poster.jpg"
               autoPlay
               loop
               muted
@@ -2612,6 +2612,16 @@ export default function EmergencyRequests() {
                   <X className="w-5 h-5 text-[#D72638]" />
                 </button>
 
+                {/* Pre-warm 119846 radar video in memory to guarantee zero lag when scan initiates */}
+                <video
+                  src="/119846-719283256_medium.mp4"
+                  preload="auto"
+                  muted
+                  playsInline
+                  className="hidden"
+                  aria-hidden="true"
+                />
+
                 {/* Notification Banner */}
                 <AnimatePresence>
                   {modalNotification && (
@@ -3101,35 +3111,53 @@ export default function EmergencyRequests() {
                     </motion.div>
                   )}
 
-                  {/* PHASE 2: RADAR SCANNING ANIMATION IN THE SAME POPUP */}
+                  {/* PHASE 2: RADAR SCANNING ANIMATION IN THE SAME POPUP (119846 VIDEO & HARDWARE-ACCELERATED BLUR) */}
                   {modalPhase === 'SCANNING' && (
                     <motion.div
                       key="modal-phase-scanning"
-                      initial={{ opacity: 0, filter: 'blur(6px)', scale: 0.98 }}
+                      initial={{ opacity: 0, filter: 'blur(14px)', scale: 0.95 }}
                       animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
-                      exit={{ opacity: 0, filter: 'blur(6px)', scale: 0.98 }}
-                      transition={{ duration: 0.22, ease: 'easeOut' }}
-                      className="py-12 px-6 text-center space-y-6 relative overflow-hidden"
+                      exit={{ opacity: 0, filter: 'blur(14px)', scale: 0.95 }}
+                      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                      className="py-14 sm:py-16 px-6 text-center space-y-6 relative overflow-hidden rounded-2xl min-h-[380px] sm:min-h-[440px] flex flex-col items-center justify-center bg-black shadow-2xl border border-red-500/20"
+                      style={{ willChange: 'transform, opacity, filter' }}
                     >
+                      {/* Video Background: 119846-719283256_medium.mp4 */}
+                      <video
+                        src="/119846-719283256_medium.mp4"
+                        poster="/119846-719283256_medium_poster.jpg"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        preload="auto"
+                        className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-80"
+                        style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden', willChange: 'transform' }}
+                      />
+                      {/* Dark Vignette & Frosted Blur Layer for High-Contrast Text Legibility */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/80 backdrop-blur-[1.5px] pointer-events-none" />
+
                       {/* Radar Ripple Waves */}
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="w-72 h-72 border-2 border-red-500/20 rounded-full animate-ping" />
-                        <div className="w-56 h-56 border-2 border-red-500/30 rounded-full animate-pulse" />
-                        <div className="w-40 h-40 border-2 border-red-500/40 rounded-full" />
+                        <div className="w-80 h-80 border-2 border-red-500/25 rounded-full animate-ping" />
+                        <div className="w-64 h-64 border-2 border-red-500/35 rounded-full animate-pulse" />
+                        <div className="w-48 h-48 border border-red-500/40 rounded-full" />
                       </div>
 
-                      <div className="relative z-10 space-y-4">
-                        <div className="inline-flex p-4 rounded-full bg-red-100 text-red-600 animate-bounce">
-                          <Droplet className="w-10 h-10 fill-red-600" />
+                      <div className="relative z-10 space-y-4 max-w-lg mx-auto">
+                        <div className="inline-flex p-4 rounded-2xl bg-[#D72638]/20 border border-[#D72638]/50 text-[#ff4d5e] shadow-xl shadow-[#D72638]/30 backdrop-blur-md animate-bounce">
+                          <Droplet className="w-10 h-10 fill-current" />
                         </div>
-                        <h3 className="text-xl font-extrabold text-[#1A1D20]">
-                          Clinical Proximity Radar Active
-                        </h3>
-                        <div className="inline-block px-4 py-1.5 rounded-full bg-[#F5F1EF] text-xs font-bold font-mono text-[#D72638]">
-                          {scanSteps[scanStepIndex]}
+                        <div>
+                          <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow-md">
+                            Clinical Proximity Radar Active
+                          </h3>
+                          <div className="mt-3 inline-block px-4 py-1.5 rounded-full bg-black/60 border border-[#D72638]/50 text-xs font-bold font-mono text-[#ff4d5e] backdrop-blur-md shadow-inner">
+                            {scanSteps[scanStepIndex]}
+                          </div>
                         </div>
-                        <p className="text-xs text-slate-500">
-                          Locating nearest active lifesavers matching {bloodType} antibodies in {customLocalityInput.trim() || selectedLocality}...
+                        <p className="text-xs sm:text-sm text-slate-200 font-medium drop-shadow-sm leading-relaxed">
+                          Locating nearest active lifesavers matching <span className="font-bold text-white bg-[#D72638]/70 px-2 py-0.5 rounded-md">{bloodType}</span> antibodies in {customLocalityInput.trim() || selectedLocality}...
                         </p>
                       </div>
                     </motion.div>
