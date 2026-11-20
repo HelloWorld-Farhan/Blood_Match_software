@@ -32,13 +32,61 @@ function getUserRequestsKey(email?: string): string {
   return targetEmail ? `bloodmatch_requests_v2_${targetEmail}` : STORAGE_KEYS.REQUESTS;
 }
 
+// Helper to normalize any donor object across snake_case and camelCase API/storage formats
+export function normalizeDonor(raw: any): Donor {
+  if (!raw) {
+    return {
+      id: `DNR-${Math.random().toString().slice(-6)}`,
+      fullName: 'Anonymous Donor',
+      bloodType: 'O+',
+      age: 28,
+      gender: 'MALE',
+      phone: '',
+      email: '',
+      city: 'Delhi',
+      state: 'Delhi',
+      location: 'Delhi NCR',
+      hospital: 'BloodMatch Emergency Network',
+      isAvailable: true,
+      available: true,
+      registeredAt: new Date().toISOString(),
+      unitsDonatedTotal: 0
+    };
+  }
+  const bloodType = ((raw.bloodType || raw.blood_type || 'O+') as string).trim().toUpperCase() as BloodType;
+  const fullName = (raw.fullName || raw.name || 'Anonymous Donor').trim();
+  const city = (raw.city || raw.location || 'Delhi').trim();
+  const location = (raw.location || raw.city || 'Delhi NCR').trim();
+  const isAvailable = raw.isAvailable !== false && raw.is_available !== false && raw.available !== false;
+  return {
+    id: String(raw.id || `DNR-${Math.random().toString().slice(-6)}`),
+    fullName,
+    bloodType,
+    age: Number(raw.age) || 28,
+    gender: (raw.gender || 'MALE') as Donor['gender'],
+    phone: raw.phone || '',
+    email: raw.email || raw.user_email || '',
+    city,
+    state: raw.state || 'Delhi',
+    location,
+    hospital: raw.hospital || 'BloodMatch Emergency Network',
+    user_email: raw.user_email || raw.email || '',
+    lastDonationDate: raw.lastDonationDate || raw.last_donation_date,
+    available: isAvailable,
+    isAvailable,
+    registeredAt: raw.registeredAt || raw.created_at || new Date().toISOString(),
+    unitsDonatedTotal: Number(raw.unitsDonatedTotal ?? raw.units_donated_total ?? 0),
+  };
+}
+
 export const BloodStorage = {
   // --- Donors (Initially 0) ---
   getDonors(): Donor[] {
     if (typeof window === 'undefined') return [];
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.DONORS);
-      return raw ? JSON.parse(raw) : [];
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed.map(normalizeDonor) : [];
     } catch {
       return [];
     }
@@ -47,7 +95,8 @@ export const BloodStorage = {
   saveDonors(donors: Donor[], emitCustomEvent: boolean = true): void {
     if (typeof window === 'undefined') return;
     try {
-      localStorage.setItem(STORAGE_KEYS.DONORS, JSON.stringify(donors));
+      const cleanDonors = Array.isArray(donors) ? donors.map(normalizeDonor) : [];
+      localStorage.setItem(STORAGE_KEYS.DONORS, JSON.stringify(cleanDonors));
       if (emitCustomEvent) {
         window.dispatchEvent(new CustomEvent('bloodmatch_donors_updated'));
         window.dispatchEvent(new CustomEvent('bloodmatch_inventory_updated'));

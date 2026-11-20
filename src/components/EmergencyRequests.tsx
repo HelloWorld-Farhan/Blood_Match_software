@@ -38,7 +38,8 @@ import {
   getDonors,
   saveDonors,
   getGpsPermission,
-  setGpsPermission
+  setGpsPermission,
+  normalizeDonor
 } from '../services/storage';
 import {
   fetchEmergencyRequestsApi,
@@ -586,9 +587,15 @@ export default function EmergencyRequests() {
         fetchDonorsApi()
       ]);
 
-      if (donorRes.status === 'fulfilled' && donorRes.value.ok && Array.isArray(donorRes.value.data) && donorRes.value.data.length > 0) {
-        setDonors(donorRes.value.data);
-        saveDonors(donorRes.value.data);
+      if (donorRes.status === 'fulfilled' && donorRes.value.ok && Array.isArray(donorRes.value.data)) {
+        const normalized = donorRes.value.data.map(normalizeDonor);
+        if (normalized.length > 0) {
+          setDonors(normalized);
+          saveDonors(normalized);
+        } else {
+          const local = getDonors();
+          if (local.length > 0) setDonors(local);
+        }
       }
 
       if (reqRes.status === 'fulfilled' && reqRes.value.ok && Array.isArray(reqRes.value.data)) {
@@ -785,14 +792,16 @@ export default function EmergencyRequests() {
     return getCompatibleDonorTypes(bloodType as BloodType);
   }, [bloodType]);
 
-  // Ranked Compatible Donors List
+  // Ranked Compatible Donors List (Fully Normalized & Proximity Ranked)
   const rankedDonors: RankedMatchDonor[] = useMemo(() => {
     if (!donors || donors.length === 0) return [];
 
     return donors
+      .map(normalizeDonor)
       .filter((donor) => {
         const isAvail = donor.isAvailable !== false && donor.available !== false;
-        return isAvail && compatibleBloodTypes.includes(donor.bloodType);
+        const bType = (donor.bloodType || (donor as any).blood_type || '').toUpperCase() as BloodType;
+        return isAvail && compatibleBloodTypes.includes(bType);
       })
       .map((donor) => {
         const donorCoords = resolveCoordinatesForLocation(donor.location || donor.city || 'Delhi');
@@ -813,6 +822,24 @@ export default function EmergencyRequests() {
       .sort((a, b) => a.distanceKm - b.distanceKm);
   }, [donors, compatibleBloodTypes, userCoords]);
 
+  // Two Categorized Proximity Sections:
+  // 1. Close / Same Locality & State Donors (<= 50 km)
+  // 2. Regional & Extended Network Donors (> 50 km)
+  const { closeDonors, extendedDonors } = useMemo(() => {
+    const close: RankedMatchDonor[] = [];
+    const extended: RankedMatchDonor[] = [];
+
+    rankedDonors.forEach((donor) => {
+      if (donor.distanceKm <= 50.0) {
+        close.push(donor);
+      } else {
+        extended.push(donor);
+      }
+    });
+
+    return { closeDonors: close, extendedDonors: extended };
+  }, [rankedDonors]);
+
   // Dynamic matched donors calculator for any specific emergency request
   const getMatchesForRequest = (req: EmergencyRequest): RankedMatchDonor[] => {
     if (!donors || donors.length === 0) return [];
@@ -820,9 +847,11 @@ export default function EmergencyRequests() {
     const reqCoords = resolveCoordinatesForLocation(req.hospitalCity || 'Delhi');
 
     return donors
+      .map(normalizeDonor)
       .filter((donor) => {
         const isAvail = donor.isAvailable !== false && donor.available !== false;
-        return isAvail && compTypes.includes(donor.bloodType);
+        const bType = (donor.bloodType || (donor as any).blood_type || '').toUpperCase() as BloodType;
+        return isAvail && compTypes.includes(bType);
       })
       .map((donor) => {
         const donorCoords = resolveCoordinatesForLocation(donor.location || donor.city || 'Delhi');
@@ -1979,11 +2008,12 @@ export default function EmergencyRequests() {
                           <p className="text-[11px] mt-0.5">Emergency broadcast remains active across all hospital nodes.</p>
                         </div>
                       ) : (
-                        <div className="space-y-2.5">
-                          {matches.map((donor, idx) => {
-                            const isDispatched = dispatchedDonorIds[donor.id] || false;
-                            const isDispatching = dispatchingDonorId === donor.id;
+                        (() => {
+                          const localMatches = matches.filter(d => d.distanceKm <= 50.0);
+                          const regionalMatches = matches.filter(d => d.distanceKm > 50.0);
 
+                          const renderDrawerItem = (donor: RankedMatchDonor, idx: number, isRegional: boolean) => {
+                            const isDispatched = dispatchedDonorIds[donor.id] || false;
                             const isSelf = Boolean(
                               currentUserEmail && (
                                 (donor.email && donor.email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase()) ||
@@ -1994,12 +2024,15 @@ export default function EmergencyRequests() {
                             return (
                               <div
                                 key={donor.id}
-                                className={`p-3.5 rounded-xl border shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${isDispatched
-                                  ? 'bg-emerald-50/60 border-emerald-200'
-                                  : isSelf
-                                    ? 'bg-emerald-50/30 border-emerald-300 ring-1 ring-emerald-300'
-                                    : 'bg-white border-[#D9C7C2] hover:border-[#D72638]/40'
-                                  }`}
+                                className={`p-3.5 rounded-xl border shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+                                  isDispatched
+                                    ? 'bg-emerald-50/60 border-emerald-200'
+                                    : isSelf
+                                      ? 'bg-emerald-50/30 border-emerald-300 ring-1 ring-emerald-300'
+                                      : isRegional
+                                        ? 'bg-[#FDFBF7] border-amber-200/80 hover:border-amber-300'
+                                        : 'bg-white border-[#D9C7C2] hover:border-[#D72638]/40'
+                                }`}
                               >
                                 <div className="flex items-center gap-3 min-w-0">
                                   <div className="w-8 h-8 rounded-lg bg-[#F5F1EF] border border-[#D9C7C2] flex items-center justify-center font-mono font-bold text-xs text-[#7A0C17] shrink-0">
@@ -2021,6 +2054,11 @@ export default function EmergencyRequests() {
                                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${donor.tier.badgeClass}`}>
                                         {donor.tier.label} • {donor.distanceKm < 1 ? '< 1 km' : `${donor.distanceKm.toFixed(1)} km`}
                                       </span>
+                                      {isRegional && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                          Extended Network
+                                        </span>
+                                      )}
                                     </div>
                                     <div className="text-[11px] text-[#5A626A] flex items-center gap-2 mt-0.5 flex-wrap">
                                       <span className="flex items-center gap-1">
@@ -2100,8 +2138,52 @@ export default function EmergencyRequests() {
                                 )}
                               </div>
                             );
-                          })}
-                        </div>
+                          };
+
+                          return (
+                            <div className="space-y-4">
+                              {/* Section 1: Immediate & Same State Lifesavers */}
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between pb-1 border-b border-emerald-200/70">
+                                  <div className="flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                    <span className="text-[11px] font-black uppercase tracking-wider text-[#1A1D20]">
+                                      Immediate &amp; Same State Lifesavers ({localMatches.length})
+                                    </span>
+                                  </div>
+                                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                    High Priority &bull; &le; 50 km
+                                  </span>
+                                </div>
+                                {localMatches.length === 0 ? (
+                                  <div className="p-3 text-center rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500">
+                                    No local lifesavers detected in immediate 50 km radius. Showing extended network donors below.
+                                  </div>
+                                ) : (
+                                  localMatches.map((donor, idx) => renderDrawerItem(donor, idx, false))
+                                )}
+                              </div>
+
+                              {/* Section 2: Regional & Extended Network */}
+                              {regionalMatches.length > 0 && (
+                                <div className="space-y-2 pt-2">
+                                  <div className="flex items-center justify-between pb-1 border-b border-amber-200/80">
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                                      <span className="text-[11px] font-black uppercase tracking-wider text-[#1A1D20]">
+                                        Regional &amp; Extended Network ({regionalMatches.length})
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                                      Out of State / &gt; 50 km
+                                    </span>
+                                  </div>
+                                  {regionalMatches.map((donor, idx) => renderDrawerItem(donor, localMatches.length + idx, true))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()
                       )}
                     </motion.div>
                   )}
@@ -2975,8 +3057,8 @@ export default function EmergencyRequests() {
                   </motion.div>
                 )}
 
-                {/* Ranked Donor List */}
-                <div className="space-y-2.5 max-h-[45vh] overflow-y-auto no-scrollbar pr-1">
+                {/* Two Categorized Proximity Sections (Close/Same State in Top, Regional/Interstate in Bottom) */}
+                <div className="space-y-4 max-h-[48vh] overflow-y-auto no-scrollbar pr-1">
                   {rankedDonors.length === 0 ? (
                     <div className="p-8 text-center rounded-2xl bg-[#F5F1EF] text-slate-500">
                       <Droplet className="w-10 h-10 text-slate-300 mx-auto mb-2" />
@@ -2984,112 +3066,263 @@ export default function EmergencyRequests() {
                       <p className="text-2xs text-slate-400 mt-0.5">Emergency request is active on the triage board.</p>
                     </div>
                   ) : (
-                    rankedDonors.map((donor, index) => {
-                      const isImmediate = donor.distanceKm <= 3.0;
-                      const isDispatched = dispatchedDonorIds[donor.id];
-                      const isDispatching = dispatchingDonorId === donor.id;
-                      const isSelf = Boolean(
-                        currentUserEmail && (
-                          (donor.email && donor.email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase()) ||
-                          (donor.user_email && donor.user_email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase())
-                        )
-                      );
-
-                      return (
-                        <div
-                          key={donor.id}
-                          className={`p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${isImmediate
-                            ? 'bg-emerald-50/20 border-emerald-300'
-                            : 'bg-[#F5F1EF] border-[#D9C7C2]'
-                            }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex flex-col items-center">
-                              <span className="text-2xs font-extrabold text-slate-400">#{index + 1}</span>
-                              <div className="w-9 h-9 rounded-xl bg-[#D72638] text-white flex items-center justify-center font-black text-xs shadow-2xs">
-                                {donor.bloodType}
-                              </div>
-                            </div>
-
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h4 className="text-xs font-bold text-[#1A1D20]">{donor.fullName}</h4>
-                                {isSelf && (
-                                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] border border-red-200">
-                                    You
-                                  </span>
-                                )}
-                                <span className={`text-2xs font-bold px-1.5 py-0.5 rounded-md border ${donor.tier.badgeClass}`}>
-                                  {donor.tier.label} • {donor.distanceKm.toFixed(1)} km
-                                </span>
-                              </div>
-                              <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                                <MapPin className="w-3 h-3 text-[#D72638]" />
-                                <span>{donor.location || donor.city || 'Delhi NCR'}</span>
-                                <span>•</span>
-                                <span className="font-mono">{donor.phone}</span>
-                              </div>
-                            </div>
+                    <>
+                      {/* SECTION 1: Close / Same Locality & State Lifesavers (<= 50 km) */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between pb-1.5 border-b border-emerald-200/70">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <h4 className="text-xs font-black uppercase tracking-wider text-[#1A1D20]">
+                              Immediate &amp; Same State Lifesavers
+                            </h4>
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                              {closeDonors.length} Local
+                            </span>
                           </div>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                            High Priority &bull; Immediate Dispatch (&le; 50 km)
+                          </span>
+                        </div>
 
-                          {isSelf ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-2xs">
-                                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                                <span>Your Standby Pledge</span>
+                        {closeDonors.length === 0 ? (
+                          <div className="p-3 text-center rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500">
+                            No local lifesavers detected in immediate 50 km radius. Showing extended network donors below.
+                          </div>
+                        ) : (
+                          closeDonors.map((donor, index) => {
+                            const isImmediate = donor.distanceKm <= 3.0;
+                            const isDispatched = dispatchedDonorIds[donor.id];
+                            const isSelf = Boolean(
+                              currentUserEmail && (
+                                (donor.email && donor.email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase()) ||
+                                (donor.user_email && donor.user_email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase())
+                              )
+                            );
+
+                            return (
+                              <div
+                                key={donor.id}
+                                className={`p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                                  isImmediate
+                                    ? 'bg-emerald-50/20 border-emerald-300'
+                                    : 'bg-[#F5F1EF] border-[#D9C7C2]'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-2xs font-extrabold text-slate-400">#{index + 1}</span>
+                                    <div className="w-9 h-9 rounded-xl bg-[#D72638] text-white flex items-center justify-center font-black text-xs shadow-2xs">
+                                      {donor.bloodType}
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <h4 className="text-xs font-bold text-[#1A1D20]">{donor.fullName}</h4>
+                                      {isSelf && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] border border-red-200">
+                                          You
+                                        </span>
+                                      )}
+                                      <span className={`text-2xs font-bold px-1.5 py-0.5 rounded-md border ${donor.tier.badgeClass}`}>
+                                        {donor.tier.label} • {donor.distanceKm < 1 ? '< 1 km' : `${donor.distanceKm.toFixed(1)} km`}
+                                      </span>
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                      <MapPin className="w-3 h-3 text-[#D72638]" />
+                                      <span>{donor.location || donor.city || 'Delhi NCR'}</span>
+                                      <span>•</span>
+                                      <span className="font-mono">{donor.phone}</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {isSelf ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-2xs">
+                                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                      <span>Your Standby Pledge</span>
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setCallModalTarget({
+                                        contactName: donor.fullName,
+                                        phoneNumber: donor.phone,
+                                        bloodType: donor.bloodType,
+                                        location: donor.location || donor.city || 'Delhi NCR',
+                                        roleOrContext: `Voluntary Standby Donor (Group ${donor.bloodType})`
+                                      })}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#1A1D20] bg-white border border-[#D9C7C2] hover:bg-slate-100 transition-all cursor-pointer"
+                                    >
+                                      <Phone className="w-3 h-3 text-emerald-600" />
+                                      <span>Call</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => setAlertModalTarget({
+                                        donor: {
+                                          id: donor.id,
+                                          fullName: donor.fullName,
+                                          email: donor.email,
+                                          phone: donor.phone,
+                                          bloodType: donor.bloodType,
+                                          location: donor.location || donor.city || 'Delhi NCR',
+                                          distanceKm: donor.distanceKm
+                                        },
+                                        patientName: patientName,
+                                        hospital: 'Emergency Trauma Network',
+                                        customMessage: `Urgent transfusion needed for ${patientName} (Group ${bloodType}). Your compatible voluntary donation can save a life. Please contact our emergency hotline immediately if you can donate.`
+                                      })}
+                                      disabled={isDispatched}
+                                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${isDispatched
+                                        ? 'bg-emerald-600 text-white cursor-default'
+                                        : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer disabled:opacity-50'
+                                        }`}
+                                    >
+                                      {isDispatched ? (
+                                        <CheckCircle2 className="w-3 h-3" />
+                                      ) : (
+                                        <Send className="w-3 h-3" />
+                                      )}
+                                      <span>{isDispatched ? 'Dispatched' : 'Send Alert'}</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {/* SECTION 2: Regional & Extended Network Donors (> 50 km) */}
+                      {extendedDonors.length > 0 && (
+                        <div className="space-y-2 pt-2">
+                          <div className="flex items-center justify-between pb-1.5 border-b border-amber-200/80">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                              <h4 className="text-xs font-black uppercase tracking-wider text-[#1A1D20]">
+                                Regional &amp; Extended Network Donors
+                              </h4>
+                              <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
+                                {extendedDonors.length} Standby
                               </span>
                             </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setCallModalTarget({
-                                  contactName: donor.fullName,
-                                  phoneNumber: donor.phone,
-                                  bloodType: donor.bloodType,
-                                  location: donor.location || donor.city || 'Delhi NCR',
-                                  roleOrContext: `Voluntary Standby Donor (Group ${donor.bloodType})`
-                                })}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#1A1D20] bg-white border border-[#D9C7C2] hover:bg-slate-100 transition-all cursor-pointer"
-                              >
-                                <Phone className="w-3 h-3 text-emerald-600" />
-                                <span>Call</span>
-                              </button>
+                            <span className="text-[10px] font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                              Secondary Priority &bull; Out of State / Extended Transit (&gt; 50 km)
+                            </span>
+                          </div>
 
-                              <button
-                                type="button"
-                                onClick={() => setAlertModalTarget({
-                                  donor: {
-                                    id: donor.id,
-                                    fullName: donor.fullName,
-                                    email: donor.email,
-                                    phone: donor.phone,
-                                    bloodType: donor.bloodType,
-                                    location: donor.location || donor.city || 'Delhi NCR',
-                                    distanceKm: donor.distanceKm
-                                  },
-                                  patientName: patientName,
-                                  hospital: 'Emergency Trauma Network',
-                                  customMessage: `Urgent transfusion needed for ${patientName} (Group ${bloodType}). Your compatible voluntary donation can save a life. Please contact our emergency hotline immediately if you can donate.`
-                                })}
-                                disabled={isDispatched}
-                                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${isDispatched
-                                  ? 'bg-emerald-600 text-white cursor-default'
-                                  : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer disabled:opacity-50'
-                                  }`}
+                          {extendedDonors.map((donor, index) => {
+                            const isDispatched = dispatchedDonorIds[donor.id];
+                            const isSelf = Boolean(
+                              currentUserEmail && (
+                                (donor.email && donor.email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase()) ||
+                                (donor.user_email && donor.user_email.trim().toLowerCase() === currentUserEmail.trim().toLowerCase())
+                              )
+                            );
+
+                            return (
+                              <div
+                                key={donor.id}
+                                className="p-3.5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#FDFBF7] border-amber-200/80 hover:border-amber-300"
                               >
-                                {isDispatched ? (
-                                  <CheckCircle2 className="w-3 h-3" />
+                                <div className="flex items-center gap-3">
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-2xs font-extrabold text-slate-400">#{closeDonors.length + index + 1}</span>
+                                    <div className="w-9 h-9 rounded-xl bg-[#D72638] text-white flex items-center justify-center font-black text-xs shadow-2xs">
+                                      {donor.bloodType}
+                                    </div>
+                                  </div>
+
+                                  <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <h4 className="text-xs font-bold text-[#1A1D20]">{donor.fullName}</h4>
+                                      {isSelf && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] border border-red-200">
+                                          You
+                                        </span>
+                                      )}
+                                      <span className={`text-2xs font-bold px-1.5 py-0.5 rounded-md border ${donor.tier.badgeClass}`}>
+                                        {donor.tier.label} • {donor.distanceKm.toFixed(1)} km
+                                      </span>
+                                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                                        Extended Network
+                                      </span>
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                                      <MapPin className="w-3 h-3 text-[#D72638]" />
+                                      <span>{donor.location || donor.city || 'Delhi NCR'}</span>
+                                      <span>•</span>
+                                      <span className="font-mono">{donor.phone}</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {isSelf ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 shadow-2xs">
+                                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                                      <span>Your Standby Pledge</span>
+                                    </span>
+                                  </div>
                                 ) : (
-                                  <Send className="w-3 h-3" />
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => setCallModalTarget({
+                                        contactName: donor.fullName,
+                                        phoneNumber: donor.phone,
+                                        bloodType: donor.bloodType,
+                                        location: donor.location || donor.city || 'Delhi NCR',
+                                        roleOrContext: `Voluntary Standby Donor (Group ${donor.bloodType})`
+                                      })}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold text-[#1A1D20] bg-white border border-[#D9C7C2] hover:bg-slate-100 transition-all cursor-pointer"
+                                    >
+                                      <Phone className="w-3 h-3 text-emerald-600" />
+                                      <span>Call</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => setAlertModalTarget({
+                                        donor: {
+                                          id: donor.id,
+                                          fullName: donor.fullName,
+                                          email: donor.email,
+                                          phone: donor.phone,
+                                          bloodType: donor.bloodType,
+                                          location: donor.location || donor.city || 'Delhi NCR',
+                                          distanceKm: donor.distanceKm
+                                        },
+                                        patientName: patientName,
+                                        hospital: 'Emergency Trauma Network',
+                                        customMessage: `Urgent transfusion needed for ${patientName} (Group ${bloodType}). Your compatible voluntary donation can save a life. Please contact our emergency hotline immediately if you can donate.`
+                                      })}
+                                      disabled={isDispatched}
+                                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs ${isDispatched
+                                        ? 'bg-emerald-600 text-white cursor-default'
+                                        : 'bg-[#D72638] hover:bg-[#b51d2c] text-white cursor-pointer disabled:opacity-50'
+                                        }`}
+                                    >
+                                      {isDispatched ? (
+                                        <CheckCircle2 className="w-3 h-3" />
+                                      ) : (
+                                        <Send className="w-3 h-3" />
+                                      )}
+                                      <span>{isDispatched ? 'Dispatched' : 'Send Alert'}</span>
+                                    </button>
+                                  </div>
                                 )}
-                                <span>{isDispatched ? 'Dispatched' : 'Send Alert'}</span>
-                              </button>
-                            </div>
-                          )}
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })
+                      )}
+                    </>
                   )}
                 </div>
 
