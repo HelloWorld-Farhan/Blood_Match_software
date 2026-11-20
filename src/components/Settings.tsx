@@ -211,6 +211,8 @@ export default function Settings() {
   // Synchronize 2FA state from database profile on mount
   useEffect(() => {
     let isMounted = true;
+    const token = sessionStorage.getItem('bloodmatch_auth_token') || localStorage.getItem('bloodmatch_auth_token');
+    if (!token) return;
     apiClient.get('/api/auth/me').then((res) => {
       if (isMounted && res.ok && res.data?.user) {
         const enabled = Boolean(res.data.user.is_2fa_enabled);
@@ -364,8 +366,17 @@ export default function Settings() {
   const [isBulkTerminating, setIsBulkTerminating] = useState(false);
   const [bulkTerminateError, setBulkTerminateError] = useState<string | null>(null);
 
-  // Load live multi-device sessions from backend
+  const isFetchingSessionsRef = useRef(false);
+  const lastSessionsFetchRef = useRef(0);
+
+  // Load live multi-device sessions from backend (throttled to prevent focus/touch request spam)
   const loadSessions = async (showNotice: boolean = false) => {
+    const now = Date.now();
+    if (!showNotice && (isFetchingSessionsRef.current || now - lastSessionsFetchRef.current < 15000)) {
+      return;
+    }
+    isFetchingSessionsRef.current = true;
+    lastSessionsFetchRef.current = now;
     setIsLoadingSessions(true);
     try {
       const res = await fetchSessionsApi();
@@ -444,14 +455,14 @@ export default function Settings() {
           setTimeout(() => setSessionRefreshNotice(null), 3500);
         }
       }
-    } catch (err) {
-      console.warn('Failed to fetch sessions:', err);
+    } catch {
       if (showNotice) {
         setSessionRefreshNotice('Active sessions updated from terminal connection.');
         setTimeout(() => setSessionRefreshNotice(null), 3500);
       }
     } finally {
       setIsLoadingSessions(false);
+      isFetchingSessionsRef.current = false;
     }
   };
 
@@ -459,29 +470,33 @@ export default function Settings() {
     loadSessions();
   }, []);
 
-  // Real-time cross-device synchronization: polls active sessions and synchronizes on window focus or custom events
+  // Real-time cross-device synchronization: polls active sessions on tab visibility (throttled)
   useEffect(() => {
     if (activeTab !== 'SESSIONS') return;
     loadSessions();
 
     const interval = setInterval(() => {
-      loadSessions(false);
-    }, 10000);
+      if (document.visibilityState === 'visible') {
+        loadSessions(false);
+      }
+    }, 20000);
 
-    const handleFocus = () => {
-      loadSessions(false);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadSessions(false);
+      }
     };
 
     const handleCustomUpdate = () => {
       loadSessions(false);
     };
 
-    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('bloodmatch_sessions_updated', handleCustomUpdate);
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('bloodmatch_sessions_updated', handleCustomUpdate);
     };
   }, [activeTab]);

@@ -121,13 +121,17 @@ export default function Layout() {
     };
   }, [isAuth]);
 
-  // Real-time remote termination heartbeat: Detects if another device terminated or deleted this account
+  // Real-time remote termination heartbeat: Detects if another device terminated or deleted this account (throttled 30s)
   useEffect(() => {
     if (!isAuth) return;
+    let lastCheckTime = 0;
     const checkSessionStatus = async () => {
+      const now = Date.now();
+      if (now - lastCheckTime < 25000) return;
       try {
         const token = sessionStorage.getItem('bloodmatch_auth_token') || localStorage.getItem('bloodmatch_auth_token');
         if (!token) return;
+        lastCheckTime = now;
         const res = await apiClient.get<any[]>('/api/sessions');
         if (res.status === 401) {
           sessionStorage.clear();
@@ -138,19 +142,17 @@ export default function Layout() {
       } catch {}
     };
 
-    const interval = setInterval(checkSessionStatus, 10000);
+    const interval = setInterval(checkSessionStatus, 30000);
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         checkSessionStatus();
       }
     };
     window.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', checkSessionStatus);
 
     return () => {
       clearInterval(interval);
       window.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', checkSessionStatus);
     };
   }, [isAuth]);
 

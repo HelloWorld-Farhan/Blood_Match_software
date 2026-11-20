@@ -67,7 +67,8 @@ export async function fetchWithRetry(
     }
   }
 
-  if (!headers.has('Content-Type') && !(fetchOptions.body instanceof FormData)) {
+  const method = (fetchOptions.method || 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD' && !headers.has('Content-Type') && !(fetchOptions.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }
 
@@ -444,11 +445,9 @@ export function getWebSocketUrl(): string {
 }
 
 export async function fetchSessionsApi() {
-  return apiClient.get<any[]>(`/api/sessions?_t=${Date.now()}`, {
-    headers: {
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-    },
+  return apiClient.get<any[]>('/api/sessions', {
+    timeoutMs: 8000,
+    retries: 0
   });
 }
 
