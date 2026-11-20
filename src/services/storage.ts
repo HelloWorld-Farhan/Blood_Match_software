@@ -261,7 +261,8 @@ export const BloodStorage = {
         return {
           ...r,
           liveTracking,
-          live_tracking: liveTracking
+          live_tracking: liveTracking,
+          liveTrackingUpdatedAt: Date.now()
         };
       }
       return r;

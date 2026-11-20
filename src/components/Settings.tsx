@@ -1154,8 +1154,8 @@ export default function Settings() {
         <button
           onClick={() => setActiveTab('PROFILE')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'PROFILE'
-              ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/25'
-              : 'bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
+            ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/25'
+            : 'bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
             }`}
         >
           <User className="w-3.5 h-3.5" />
@@ -1165,8 +1165,8 @@ export default function Settings() {
         <button
           onClick={() => setActiveTab('SECURITY')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'SECURITY'
-              ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/25'
-              : 'bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
+            ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/25'
+            : 'bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
             }`}
         >
           <Lock className="w-3.5 h-3.5" />
@@ -1176,8 +1176,8 @@ export default function Settings() {
         <button
           onClick={() => setActiveTab('SESSIONS')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === 'SESSIONS'
-              ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/25'
-              : 'bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
+            ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/25'
+            : 'bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
             }`}
         >
           <Monitor className="w-3.5 h-3.5" />
@@ -1385,8 +1385,8 @@ export default function Settings() {
                     disabled={!isEditingProfile}
                     placeholder="Enter full clinician legal name"
                     className={`w-full pl-10 pr-4 py-2.5 rounded-xl text-sm font-semibold transition-all outline-hidden ${isEditingProfile
-                        ? 'bg-white border-2 border-[#D72638] ring-2 ring-[#D72638]/20 text-[#1A1D20] shadow-xs'
-                        : 'bg-[#F5F1EF]/80 border border-[#D9C7C2] text-[#1A1D20] cursor-not-allowed select-text opacity-95'
+                      ? 'bg-white border-2 border-[#D72638] ring-2 ring-[#D72638]/20 text-[#1A1D20] shadow-xs'
+                      : 'bg-[#F5F1EF]/80 border border-[#D9C7C2] text-[#1A1D20] cursor-not-allowed select-text opacity-95'
                       }`}
                   />
                 </div>
@@ -1547,12 +1547,12 @@ export default function Settings() {
                   const isOptimal = percent === 100;
                   return (
                     <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-bold font-mono shrink-0 transition-all ${isOptimal
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                        : percent >= 75
-                          ? 'bg-blue-50 border-blue-200 text-blue-800'
-                          : percent >= 50
-                            ? 'bg-amber-50 border-amber-200 text-amber-800'
-                            : 'bg-red-50 border-red-200 text-[#D72638]'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      : percent >= 75
+                        ? 'bg-blue-50 border-blue-200 text-blue-800'
+                        : percent >= 50
+                          ? 'bg-amber-50 border-amber-200 text-amber-800'
+                          : 'bg-red-50 border-red-200 text-[#D72638]'
                       }`}>
                       <span className={`w-2 h-2 rounded-full ${isOptimal ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
                       <span>{percent}% Policy Verified</span>
@@ -1575,8 +1575,8 @@ export default function Settings() {
                   setEmailPwErrors({});
                 }}
                 className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${resetChannel === 'EMAIL_OTP'
-                    ? 'border-[#D72638] bg-red-50/50 shadow-xs ring-1 ring-[#D72638]/20'
-                    : 'border-[#D9C7C2] bg-white hover:border-[#D72638]/40'
+                  ? 'border-[#D72638] bg-red-50/50 shadow-xs ring-1 ring-[#D72638]/20'
+                  : 'border-[#D9C7C2] bg-white hover:border-[#D72638]/40'
                   }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -1606,8 +1606,8 @@ export default function Settings() {
                   setPrevPwErrors({});
                 }}
                 className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${resetChannel === 'PREVIOUS_PW'
-                    ? 'border-[#D72638] bg-red-50/50 shadow-xs ring-1 ring-[#D72638]/20'
-                    : 'border-[#D9C7C2] bg-white hover:border-[#D72638]/40'
+                  ? 'border-[#D72638] bg-red-50/50 shadow-xs ring-1 ring-[#D72638]/20'
+                  : 'border-[#D9C7C2] bg-white hover:border-[#D72638]/40'
                   }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -1819,8 +1819,8 @@ export default function Settings() {
                           onChange={(e) => setEmailNewPassword(e.target.value)}
                           placeholder="Min. 8 chars, 1 uppercase, 2 numbers, 1 symbol"
                           className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${emailPwErrors.emailNewPassword
-                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
-                              : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
+                            ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
+                            : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
                             }`}
                         />
                         <button
@@ -1837,10 +1837,10 @@ export default function Settings() {
                         <div
                           style={{ width: `${emailPwCriteria.strengthPercent}%` }}
                           className={`h-full rounded-full transition-all duration-200 ease-out ${emailPwCriteria.strengthPercent === 100
-                              ? 'bg-gradient-to-r from-[#D72638] to-emerald-500 shadow-[0_0_8px_rgba(215,38,56,0.5)]'
-                              : emailPwCriteria.strengthPercent >= 50
-                                ? 'bg-gradient-to-r from-amber-500 to-[#D72638]'
-                                : 'bg-[#D72638]'
+                            ? 'bg-gradient-to-r from-[#D72638] to-emerald-500 shadow-[0_0_8px_rgba(215,38,56,0.5)]'
+                            : emailPwCriteria.strengthPercent >= 50
+                              ? 'bg-gradient-to-r from-amber-500 to-[#D72638]'
+                              : 'bg-[#D72638]'
                             }`}
                         />
                       </div>
@@ -1912,8 +1912,8 @@ export default function Settings() {
                           onChange={(e) => setEmailConfirmPassword(e.target.value)}
                           placeholder="Re-enter new password"
                           className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${emailPwErrors.emailConfirmPassword
-                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
-                              : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
+                            ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
+                            : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
                             }`}
                         />
                         <button
@@ -2020,8 +2020,8 @@ export default function Settings() {
                           onChange={(e) => setPreviousPassword(e.target.value)}
                           placeholder="Enter your current terminal password"
                           className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${prevPwErrors.previousPassword
-                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
-                              : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
+                            ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
+                            : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
                             }`}
                         />
                         <button
@@ -2096,8 +2096,8 @@ export default function Settings() {
                           onChange={(e) => setPrevNewPassword(e.target.value)}
                           placeholder="Min. 8 chars, 1 uppercase, 2 numbers, 1 symbol"
                           className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${prevPwErrors.prevNewPassword
-                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
-                              : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
+                            ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
+                            : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
                             }`}
                         />
                         <button
@@ -2114,10 +2114,10 @@ export default function Settings() {
                         <div
                           style={{ width: `${prevPwCriteria.strengthPercent}%` }}
                           className={`h-full rounded-full transition-all duration-200 ease-out ${prevPwCriteria.strengthPercent === 100
-                              ? 'bg-gradient-to-r from-[#D72638] to-emerald-500 shadow-[0_0_8px_rgba(215,38,56,0.5)]'
-                              : prevPwCriteria.strengthPercent >= 50
-                                ? 'bg-gradient-to-r from-amber-500 to-[#D72638]'
-                                : 'bg-[#D72638]'
+                            ? 'bg-gradient-to-r from-[#D72638] to-emerald-500 shadow-[0_0_8px_rgba(215,38,56,0.5)]'
+                            : prevPwCriteria.strengthPercent >= 50
+                              ? 'bg-gradient-to-r from-amber-500 to-[#D72638]'
+                              : 'bg-[#D72638]'
                             }`}
                         />
                       </div>
@@ -2189,8 +2189,8 @@ export default function Settings() {
                           onChange={(e) => setPrevConfirmPassword(e.target.value)}
                           placeholder="Re-enter new password"
                           className={`w-full pl-10 pr-11 py-2.5 rounded-xl bg-white border text-sm text-[#1A1D20] placeholder-slate-400 outline-hidden transition-all duration-200 ${prevPwErrors.prevConfirmPassword
-                              ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
-                              : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
+                            ? 'border-red-400 bg-red-50/40 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
+                            : 'border-[#D9C7C2] hover:border-[#D72638]/50 focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20'
                             }`}
                         />
                         <button
@@ -2319,8 +2319,8 @@ export default function Settings() {
 
             {twoFactorFeedback && (
               <div className={`mb-4 p-3 rounded-xl border text-xs flex items-center gap-2 font-semibold ${is2FAEnabled
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                  : 'bg-amber-50 border-amber-200 text-amber-800'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : 'bg-amber-50 border-amber-200 text-amber-800'
                 }`}>
                 {is2FAEnabled ? <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />}
                 <span>{twoFactorFeedback}</span>
@@ -2333,8 +2333,8 @@ export default function Settings() {
               <div className="flex flex-col gap-4 justify-between">
                 {/* Channel 1: Email OTP */}
                 <div className={`p-4 rounded-2xl transition-all duration-200 flex items-start justify-between gap-3 ${is2FAEnabled
-                    ? 'border-2 border-[#D72638] bg-red-50/40 shadow-xs'
-                    : 'border border-[#D9C7C2] bg-slate-50/70 opacity-60'
+                  ? 'border-2 border-[#D72638] bg-red-50/40 shadow-xs'
+                  : 'border border-[#D9C7C2] bg-slate-50/70 opacity-60'
                   }`}>
                   <div className="flex items-start gap-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs transition-colors ${is2FAEnabled ? 'bg-[#D72638] text-white' : 'bg-slate-200 text-slate-400'
@@ -2558,14 +2558,14 @@ export default function Settings() {
                   <div
                     key={sess.id}
                     className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 overflow-hidden ${sess.isCurrent
-                        ? 'border-[#D72638] bg-red-50/30'
-                        : 'border-[#D9C7C2] bg-white hover:border-[#D72638]/40'
+                      ? 'border-[#D72638] bg-red-50/30'
+                      : 'border-[#D9C7C2] bg-white hover:border-[#D72638]/40'
                       }`}
                   >
                     <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${sess.isCurrent
-                          ? 'bg-[#D72638] text-white shadow-xs'
-                          : 'bg-[#F5F1EF] text-[#5A626A]'
+                        ? 'bg-[#D72638] text-white shadow-xs'
+                        : 'bg-[#F5F1EF] text-[#5A626A]'
                         }`}>
                         {isPhone ? <Smartphone className="w-5 h-5" /> : isTablet ? <Laptop className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
                       </div>
@@ -2636,8 +2636,8 @@ export default function Settings() {
                               : "Primary Workstation is OFF: Click to turn ON (mutes login alert emails and sets as sole primary device)"
                           }
                           className={`group relative inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border transition-all cursor-pointer select-none active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shrink-0 ${sess.isPrimary
-                              ? 'bg-emerald-50/90 hover:bg-emerald-100/90 border-emerald-300 text-emerald-900 shadow-2xs'
-                              : 'bg-[#F5F1EF]/80 hover:bg-[#EAE4E0] border-[#D9C7C2] text-[#5A626A]'
+                            ? 'bg-emerald-50/90 hover:bg-emerald-100/90 border-emerald-300 text-emerald-900 shadow-2xs'
+                            : 'bg-[#F5F1EF]/80 hover:bg-[#EAE4E0] border-[#D9C7C2] text-[#5A626A]'
                             }`}
                           aria-pressed={Boolean(sess.isPrimary)}
                           aria-label={`Toggle Primary Status. Currently ${sess.isPrimary ? 'ON' : 'OFF'}`}
@@ -2664,8 +2664,8 @@ export default function Settings() {
                               <span>Primary</span>
                               <span
                                 className={`px-1.5 py-0.2 rounded font-mono text-[9px] uppercase tracking-wider font-black ${sess.isPrimary
-                                    ? 'bg-emerald-600 text-white'
-                                    : 'bg-slate-200 text-slate-600'
+                                  ? 'bg-emerald-600 text-white'
+                                  : 'bg-slate-200 text-slate-600'
                                   }`}
                               >
                                 {sess.isPrimary ? 'ON' : 'OFF'}
@@ -2746,8 +2746,8 @@ export default function Settings() {
                     {/* Left: Device & Hardware info */}
                     <div className="flex items-center gap-3 w-full lg:w-auto min-w-0">
                       <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${sess.status === 'active'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-slate-100 text-slate-500 border border-slate-200'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-slate-100 text-slate-500 border border-slate-200'
                         }`}>
                         {isPhone ? <Smartphone className="w-4 h-4" /> : isTablet ? <Laptop className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
                       </div>

@@ -28,19 +28,19 @@ import {
   Trash2,
   Clock
 } from 'lucide-react';
-import { 
-  getDonors, 
-  saveDonors, 
-  deleteDonor as deleteDonorStorage, 
-  saveInventory, 
+import {
+  getDonors,
+  saveDonors,
+  deleteDonor as deleteDonorStorage,
+  saveInventory,
   getInventory,
   getGpsPermission,
   setGpsPermission
 } from '../services/storage';
-import { 
-  fetchDonorsApi, 
-  sendDonorOtpApi, 
-  registerDonorApi, 
+import {
+  fetchDonorsApi,
+  sendDonorOtpApi,
+  registerDonorApi,
   deleteDonorApi,
   fetchSavedPhonesApi,
   saveUserPhoneApi,
@@ -50,9 +50,9 @@ import {
   updateGpsPermissionApi,
   getWebSocketUrl
 } from '../services/api';
-import { 
-  COUNTRY_CODES, 
-  validatePhoneNumber, 
+import {
+  COUNTRY_CODES,
+  validatePhoneNumber,
   validateEmail,
   parsePhoneNumberWithCountry,
   formatFullPhone,
@@ -189,7 +189,7 @@ export default function DonorRegistry() {
           currentUrl.searchParams.delete('t');
           window.history.replaceState(null, '', currentUrl.pathname + (currentUrl.search ? currentUrl.search : ''));
         }
-      } catch {}
+      } catch { }
     }
     // Ensure card is never hidden by active blood type or text filters
     setSelectedFilter('ALL');
@@ -327,7 +327,7 @@ export default function DonorRegistry() {
             setGpsPermission(true, currentUserEmail, false);
           }
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [currentUserEmail]);
 
@@ -336,7 +336,7 @@ export default function DonorRegistry() {
     setIsGpsPermissionEnabled(nextVal);
     setGpsPermission(nextVal, currentUserEmail, true);
     if (currentUserEmail) {
-      updateGpsPermissionApi(nextVal, currentUserEmail).catch(() => {});
+      updateGpsPermissionApi(nextVal, currentUserEmail).catch(() => { });
     }
     if (!nextVal) {
       setLocationDetectionSuccess(false);
@@ -400,7 +400,7 @@ export default function DonorRegistry() {
             return combined;
           });
         }
-      }).catch(() => {});
+      }).catch(() => { });
 
       fetchVerifiedEmailsApi(currentUserEmail).then(res => {
         if (res.ok && res.data && Array.isArray(res.data.verified_emails)) {
@@ -414,7 +414,7 @@ export default function DonorRegistry() {
             return combined;
           });
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [currentUserEmail]);
 
@@ -439,7 +439,7 @@ export default function DonorRegistry() {
       } catch { }
       return updated;
     });
-    saveUserPhoneApi(clean, currentUserEmail).catch(() => {});
+    saveUserPhoneApi(clean, currentUserEmail).catch(() => { });
   };
 
   // Click-to-fill verified email with smooth pulse animation
@@ -462,7 +462,7 @@ export default function DonorRegistry() {
       } catch { }
       return updated;
     });
-    saveUserVerifiedEmailApi(clean, currentUserEmail).catch(() => {});
+    saveUserVerifiedEmailApi(clean, currentUserEmail).catch(() => { });
   };
 
   const isEmailVerified = Boolean(
@@ -632,13 +632,13 @@ export default function DonorRegistry() {
             } else if (data.type === 'DONOR_CREATED' || data.type === 'DONOR_UPDATED') {
               loadDonors();
             }
-          } catch {}
+          } catch { }
         };
 
         ws.onclose = () => {
           reconnectTimer = setTimeout(connectWs, 5000);
         };
-      } catch {}
+      } catch { }
     };
 
     connectWs();
@@ -1259,8 +1259,8 @@ export default function DonorRegistry() {
               key={bt}
               onClick={() => setSelectedFilter(bt)}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${selectedFilter === bt
-                  ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/30 scale-105'
-                  : 'bg-[#F5F1EF] hover:bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
+                ? 'bg-[#D72638] text-white shadow-md shadow-[#D72638]/30 scale-105'
+                : 'bg-[#F5F1EF] hover:bg-white text-[#4A5568] hover:text-[#1A1D20] border border-[#D9C7C2]'
                 }`}
             >
               {bt}
@@ -1530,8 +1530,7 @@ export default function DonorRegistry() {
                             }}
                             placeholder={countryDialCode === '+91' ? '98765 43210' : 'Mobile number'}
                             className={`w-full px-3 py-2 rounded-xl bg-white border ${formErrors.phone ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                              } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-all duration-300 ${
-                                phoneAnimate ? 'ring-2 ring-emerald-500 bg-emerald-50/60 scale-[1.01]' : ''
+                              } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-all duration-300 ${phoneAnimate ? 'ring-2 ring-emerald-500 bg-emerald-50/60 scale-[1.01]' : ''
                               }`}
                           />
                         </div>
@@ -1582,8 +1581,7 @@ export default function DonorRegistry() {
                           }}
                           placeholder="donor@example.com"
                           className={`w-full px-3 py-2 rounded-xl bg-white border ${formErrors.email ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
-                            } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-all duration-300 ${
-                              emailAnimate ? 'ring-2 ring-emerald-500 bg-emerald-50/60 scale-[1.01]' : ''
+                            } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-all duration-300 ${emailAnimate ? 'ring-2 ring-emerald-500 bg-emerald-50/60 scale-[1.01]' : ''
                             }`}
                         />
                         {currentUserEmail && (
@@ -1628,11 +1626,10 @@ export default function DonorRegistry() {
                                 type="button"
                                 onClick={handleToggleGpsPermission}
                                 title={isGpsPermissionEnabled ? 'GPS Permission is ON. Click to turn OFF.' : 'GPS Permission is OFF. Click to turn ON.'}
-                                className={`px-2 py-1 rounded-lg border text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${
-                                  isGpsPermissionEnabled
-                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
-                                    : 'bg-slate-100 border-[#D9C7C2] text-slate-500 hover:bg-slate-200'
-                                }`}
+                                className={`px-2 py-1 rounded-lg border text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs ${isGpsPermissionEnabled
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                                  : 'bg-slate-100 border-[#D9C7C2] text-slate-500 hover:bg-slate-200'
+                                  }`}
                               >
                                 <span className={`w-2 h-2 rounded-full ${isGpsPermissionEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
                                 <span className="hidden sm:inline">GPS Permission:</span>
@@ -1644,11 +1641,10 @@ export default function DonorRegistry() {
                                 onClick={handleDetectLocation}
                                 disabled={isDetectingLocation || !isGpsPermissionEnabled}
                                 title={!isGpsPermissionEnabled ? 'Turn ON GPS Permission first to locate' : 'Detect My Location'}
-                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-bold shadow-2xs transition-all cursor-pointer ${
-                                  isGpsPermissionEnabled
-                                    ? 'bg-[#F5F1EF] border-[#D9C7C2] hover:border-[#D72638] text-[#D72638]'
-                                    : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
-                                }`}
+                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-bold shadow-2xs transition-all cursor-pointer ${isGpsPermissionEnabled
+                                  ? 'bg-[#F5F1EF] border-[#D9C7C2] hover:border-[#D72638] text-[#D72638]'
+                                  : 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
+                                  }`}
                               >
                                 {isDetectingLocation ? (
                                   <RefreshCw className="w-3 h-3 animate-spin" />
@@ -1697,8 +1693,8 @@ export default function DonorRegistry() {
                                       if (formErrors.location) setFormErrors(prev => ({ ...prev, location: '' }));
                                     }}
                                     className={`px-2 py-0.5 rounded-md text-[10px] font-medium transition-colors cursor-pointer ${location.toLowerCase().includes(loc.toLowerCase())
-                                        ? 'bg-[#D72638] text-white shadow-2xs'
-                                        : 'bg-[#F5F1EF] hover:bg-red-50 text-[#5A626A] border border-[#D9C7C2]'
+                                      ? 'bg-[#D72638] text-white shadow-2xs'
+                                      : 'bg-[#F5F1EF] hover:bg-red-50 text-[#5A626A] border border-[#D9C7C2]'
                                       }`}
                                   >
                                     {loc}
@@ -1744,9 +1740,8 @@ export default function DonorRegistry() {
                         </div>
 
                         {/* Donor Health & Eligibility Declaration Checkbox */}
-                        <div className={`p-3 rounded-xl border transition-colors ${
-                          formErrors.consent ? 'bg-red-50/80 border-red-300' : 'bg-amber-50/70 border-amber-200/80'
-                        }`}>
+                        <div className={`p-3 rounded-xl border transition-colors ${formErrors.consent ? 'bg-red-50/80 border-red-300' : 'bg-amber-50/70 border-amber-200/80'
+                          }`}>
                           <label className="flex items-start gap-2.5 cursor-pointer select-none">
                             <input
                               type="checkbox"
@@ -1772,9 +1767,8 @@ export default function DonorRegistry() {
                         </div>
 
                         {/* Public Phone Number & Contact Sharing Consent Checkbox */}
-                        <div className={`p-3 rounded-xl border transition-colors ${
-                          formErrors.contactShare ? 'bg-red-50/80 border-red-300' : 'bg-emerald-50/70 border-emerald-200/80'
-                        }`}>
+                        <div className={`p-3 rounded-xl border transition-colors ${formErrors.contactShare ? 'bg-red-50/80 border-red-300' : 'bg-emerald-50/70 border-emerald-200/80'
+                          }`}>
                           <label className="flex items-start gap-2.5 cursor-pointer select-none">
                             <input
                               type="checkbox"
@@ -1946,10 +1940,10 @@ export default function DonorRegistry() {
                             onChange={(e) => handleOtpChange(idx, e.target.value)}
                             onKeyDown={(e) => handleOtpKeyDown(idx, e)}
                             className={`w-11 h-13 sm:w-12 sm:h-14 rounded-xl text-center text-xl font-mono font-black border transition-all duration-200 outline-hidden ${otpError
-                                ? 'border-red-400 bg-red-50/40 text-[#D72638]'
-                                : digit
-                                  ? 'border-[#D72638] bg-white text-[#1A1D20] shadow-sm'
-                                  : 'border-[#D9C7C2] bg-[#F5F1EF] text-[#1A1D20]'
+                              ? 'border-red-400 bg-red-50/40 text-[#D72638]'
+                              : digit
+                                ? 'border-[#D72638] bg-white text-[#1A1D20] shadow-sm'
+                                : 'border-[#D9C7C2] bg-[#F5F1EF] text-[#1A1D20]'
                               } focus:border-[#D72638] focus:bg-white`}
                           />
                         ))}
@@ -2058,11 +2052,11 @@ export default function DonorRegistry() {
 
       {/* Custom Branded Delete Pledge Confirmation Modal */}
       {donorToDelete && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs"
           onClick={() => { if (!isDeletingId) setDonorToDelete(null); }}
         >
-          <div 
+          <div
             className="relative w-full max-w-md bg-[#FAF7F5] rounded-3xl border border-[#D9C7C2] shadow-2xl p-6 text-left space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
@@ -2164,13 +2158,12 @@ export default function DonorRegistry() {
         viewport={{ once: false, amount: 0.08 }}
         id={`donor-card-${donor.id}`}
         key={donor.id}
-        className={`rounded-2xl transition-all duration-300 overflow-hidden w-full relative ${
-          isTargeted
-            ? 'animate-target-record-blink ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/40 scale-[1.01] bg-[#FFF2F4] z-20'
-            : isSelfDonor
-              ? 'bg-white border-2 border-[#D72638] shadow-md shadow-[#D72638]/10'
-              : 'bg-white border border-[#D9C7C2] shadow-xs hover:border-[#D72638]/50 hover:shadow-sm'
-        }`}
+        className={`rounded-2xl transition-all duration-300 overflow-hidden w-full relative ${isTargeted
+          ? 'animate-target-record-blink ring-4 ring-[#D72638] border-2 border-[#D72638] shadow-2xl shadow-[#D72638]/40 scale-[1.01] bg-[#FFF2F4] z-20'
+          : isSelfDonor
+            ? 'bg-white border-2 border-[#D72638] shadow-md shadow-[#D72638]/10'
+            : 'bg-white border border-[#D9C7C2] shadow-xs hover:border-[#D72638]/50 hover:shadow-sm'
+          }`}
       >
         {/* Card Header (Full-Width Horizontal Bar on One Line) */}
         <div
@@ -2184,9 +2177,8 @@ export default function DonorRegistry() {
           <div className="flex items-center gap-3.5 min-w-0 flex-1">
             <div
               title={`Blood Group ${donor.bloodType}`}
-              className={`group/badge relative w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] flex flex-col items-center justify-center font-black text-white shadow-md shadow-[#D72638]/25 border border-white/20 shrink-0 transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#D72638]/40 hover:from-[#FF4D5E] hover:to-[#8E0E1B] active:scale-95 cursor-pointer overflow-hidden select-none ${
-                isTargeted ? 'ring-4 ring-[#D72638] ring-offset-2 scale-110 shadow-2xl shadow-[#D72638]/60' : ''
-              }`}
+              className={`group/badge relative w-12 h-12 sm:w-13 sm:h-13 rounded-2xl bg-gradient-to-br from-[#E63946] via-[#D72638] to-[#7A0C17] flex flex-col items-center justify-center font-black text-white shadow-md shadow-[#D72638]/25 border border-white/20 shrink-0 transition-all duration-300 ease-out hover:scale-110 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#D72638]/40 hover:from-[#FF4D5E] hover:to-[#8E0E1B] active:scale-95 cursor-pointer overflow-hidden select-none ${isTargeted ? 'ring-4 ring-[#D72638] ring-offset-2 scale-110 shadow-2xl shadow-[#D72638]/60' : ''
+                }`}
             >
               <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent pointer-events-none rounded-t-2xl" />
               <div className="relative z-10 flex flex-col items-center justify-center leading-none">
@@ -2201,9 +2193,8 @@ export default function DonorRegistry() {
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className={`font-black text-base leading-tight truncate transition-colors ${
-                  isTargeted ? 'text-[#D72638] font-black drop-shadow-xs' : 'text-[#1A1D20]'
-                }`}>
+                <h3 className={`font-black text-base leading-tight truncate transition-colors ${isTargeted ? 'text-[#D72638] font-black drop-shadow-xs' : 'text-[#1A1D20]'
+                  }`}>
                   {donor.fullName}
                 </h3>
                 {isOwnPledge && (
@@ -2222,8 +2213,8 @@ export default function DonorRegistry() {
                   {donor.id}
                 </span>
                 <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border shrink-0 ${donor.isAvailable
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                    : 'bg-[#F5F1EF] text-slate-500 border-[#D9C7C2]'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                  : 'bg-[#F5F1EF] text-slate-500 border-[#D9C7C2]'
                   }`}>
                   {donor.isAvailable ? '● Standby Ready' : 'Resting'}
                 </span>

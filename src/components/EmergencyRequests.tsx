@@ -347,7 +347,6 @@ export default function EmergencyRequests() {
   const [selectedFulfillingDonorIds, setSelectedFulfillingDonorIds] = useState<string[]>([]);
   const [fulfilledViaReserve, setFulfilledViaReserve] = useState<boolean>(false);
   const [isFulfilling, setIsFulfilling] = useState<boolean>(false);
-  const [togglingLiveTrackId, setTogglingLiveTrackId] = useState<string | null>(null);
   const [boardNotification, setBoardNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Modal Workflow Phase: 'INPUT' | 'SCANNING' | 'RESULTS'
@@ -659,14 +658,28 @@ export default function EmergencyRequests() {
         const localDeletedSet = getDeletedRequestIds(currentUserEmail);
         const allDeletedIds = new Set([...localDeletedSet, ...remoteDeletedSet]);
 
-        // Filter out any tombstoned requests
-        const activeRemoteReqs = remoteReqs.filter(r => !allDeletedIds.has(r.id));
+        const now = Date.now();
+        // Filter out any tombstoned requests & protect recent local live-tracking toggles from being overwritten by stale remote polling
+        const activeRemoteReqs = remoteReqs.map(r => {
+          const local = currentLocal.find(l => l.id === r.id);
+          if (local && local.liveTracking !== undefined) {
+            const isRecent = local.liveTrackingUpdatedAt && (now - local.liveTrackingUpdatedAt < 30000);
+            if (isRecent) {
+              return {
+                ...r,
+                liveTracking: local.liveTracking,
+                live_tracking: local.liveTracking,
+                liveTrackingUpdatedAt: local.liveTrackingUpdatedAt
+              };
+            }
+          }
+          return r;
+        }).filter(r => !allDeletedIds.has(r.id));
         const remoteMap = new Map<string, EmergencyRequest>();
         activeRemoteReqs.forEach(r => remoteMap.set(r.id, r));
 
         // 2. Prune ghost local records deleted on another device:
         // Any request in currentLocal that is missing from remote database (and older than 15s) was deleted on another client.
-        const now = Date.now();
         currentLocal.forEach(r => {
           if (!remoteMap.has(r.id)) {
             const ageMs = now - new Date(r.createdAt).getTime();
@@ -770,7 +783,7 @@ export default function EmergencyRequests() {
               const targetId = data.request_id || data.id;
               const nextStatus = Boolean(data.live_tracking);
               setRequests(prev => {
-                const updated = prev.map(r => r.id === targetId ? { ...r, liveTracking: nextStatus, live_tracking: nextStatus } : r);
+                const updated = prev.map(r => r.id === targetId ? { ...r, liveTracking: nextStatus, live_tracking: nextStatus, liveTrackingUpdatedAt: Date.now() } : r);
                 saveEmergencyRequests(updated, currentUserEmail, false);
                 return updated;
               });
@@ -834,41 +847,33 @@ export default function EmergencyRequests() {
     };
   }, [currentUserEmail]);
 
-  // Toggle Live Tracking status for an active emergency request
-  const handleToggleLiveTracking = async (req: EmergencyRequest) => {
-    const nextVal = req.liveTracking === false ? true : false;
-    setTogglingLiveTrackId(req.id);
-    try {
-      // 1. Optimistic update and cross-tab event broadcast
-      setRequests(prev => {
-        const updated = prev.map(r => r.id === req.id ? { ...r, liveTracking: nextVal, live_tracking: nextVal } : r);
-        saveEmergencyRequests(updated, currentUserEmail);
-        return updated;
-      });
+  // Toggle Live Tracking status for an active emergency request (Fast & Real-time, 0ms latency)
+  const handleToggleLiveTracking = (req: EmergencyRequest) => {
+    const isCurrentlyOn = req.liveTracking !== false && req.live_tracking !== false;
+    const nextVal = !isCurrentlyOn;
+    const now = Date.now();
 
-      // 2. Persist to Backend API & R2
-      await updateEmergencyLiveTrackingApi(req.id, nextVal, currentUserEmail);
+    // 1. Instant 0ms Optimistic UI Update & Broadcast across tabs
+    setRequests(prev => {
+      const updated = prev.map(r =>
+        r.id === req.id
+          ? { ...r, liveTracking: nextVal, live_tracking: nextVal, liveTrackingUpdatedAt: now }
+          : r
+      );
+      saveEmergencyRequests(updated, currentUserEmail);
+      return updated;
+    });
 
-      setBoardNotification({
-        message: `Live Tracking for patient ${stripHonorific(req.patientName)} is now ${nextVal ? 'ACTIVE (Radar ON)' : 'PAUSED (Radar OFF)'}.`,
-        type: 'success'
-      });
-      setTimeout(() => setBoardNotification(null), 5000);
-    } catch (err: any) {
-      // Revert on error
-      setRequests(prev => {
-        const reverted = prev.map(r => r.id === req.id ? { ...r, liveTracking: req.liveTracking, live_tracking: req.liveTracking } : r);
-        saveEmergencyRequests(reverted, currentUserEmail);
-        return reverted;
-      });
-      setBoardNotification({
-        message: err.message || 'Failed to update live tracking status.',
-        type: 'error'
-      });
-      setTimeout(() => setBoardNotification(null), 5000);
-    } finally {
-      setTogglingLiveTrackId(null);
-    }
+    setBoardNotification({
+      message: `Live Tracking for patient ${stripHonorific(req.patientName)} is now ${nextVal ? 'ACTIVE (Radar ON)' : 'PAUSED (Radar OFF)'}.`,
+      type: 'success'
+    });
+    setTimeout(() => setBoardNotification(null), 4000);
+
+    // 2. Non-blocking asynchronous persistence to Backend API & R2
+    updateEmergencyLiveTrackingApi(req.id, nextVal, currentUserEmail).catch(err => {
+      console.warn('Background sync of live tracking failed:', err);
+    });
   };
 
   // Update coordinates whenever selected locality changes
@@ -2226,18 +2231,23 @@ export default function EmergencyRequests() {
                       {!isFulfilled && (
                         <>
                           {/* Live Proximity Radar 2FA-Style Toggle Switch */}
-                          <div
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all duration-200 shadow-2xs select-none ${req.liveTracking !== false
-                              ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950'
-                              : 'bg-[#F5F1EF] border-[#D9C7C2] text-slate-600'
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={req.liveTracking !== false}
+                            aria-label={`Toggle Live Tracking for patient ${stripHonorific(req.patientName)}`}
+                            onClick={() => handleToggleLiveTracking(req)}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all duration-200 shadow-2xs select-none cursor-pointer active:scale-95 ${req.liveTracking !== false
+                              ? 'bg-emerald-50/90 hover:bg-emerald-100/90 border-emerald-300 text-emerald-950'
+                              : 'bg-[#F5F1EF] hover:bg-[#EAE4E0] border-[#D9C7C2] text-slate-600'
                               }`}
                             title={
                               req.liveTracking !== false
-                                ? 'Live Radar is ON: Automatic notifications and email alerts will trigger across all synced devices when compatible lifesavers arrive. Click switch to turn OFF.'
-                                : 'Live Radar is OFF: Real-time alerts paused. Click switch to turn ON.'
+                                ? 'Live Radar is ON: Automatic notifications and email alerts will trigger across all synced devices when compatible lifesavers arrive. Click to turn OFF.'
+                                : 'Live Radar is OFF: Real-time alerts paused. Click to turn ON.'
                             }
                           >
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 pointer-events-none">
                               {req.liveTracking !== false ? (
                                 <span className="relative flex h-2 w-2">
                                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -2251,28 +2261,16 @@ export default function EmergencyRequests() {
                               </span>
                             </div>
 
-                            <button
-                              type="button"
-                              role="switch"
-                              aria-checked={req.liveTracking !== false}
-                              aria-label={`Toggle Live Tracking for patient ${stripHonorific(req.patientName)}`}
-                              onClick={() => handleToggleLiveTracking(req)}
-                              disabled={togglingLiveTrackId === req.id}
-                              className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden disabled:opacity-50 ${req.liveTracking !== false ? 'bg-emerald-600' : 'bg-slate-300'
+                            <span
+                              className={`relative inline-flex h-5 w-10 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out pointer-events-none ${req.liveTracking !== false ? 'bg-emerald-600' : 'bg-slate-300'
                                 }`}
                             >
-                              {togglingLiveTrackId === req.id ? (
-                                <span className="absolute inset-0 flex items-center justify-center">
-                                  <RefreshCw className="w-2.5 h-2.5 animate-spin text-white" />
-                                </span>
-                              ) : (
-                                <span
-                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${req.liveTracking !== false ? 'translate-x-5' : 'translate-x-0'
-                                    }`}
-                                />
-                              )}
-                            </button>
-                          </div>
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${req.liveTracking !== false ? 'translate-x-5' : 'translate-x-0'
+                                  }`}
+                              />
+                            </span>
+                          </button>
 
                           <button
                             onClick={() => handleOpenFulfillModal(req)}

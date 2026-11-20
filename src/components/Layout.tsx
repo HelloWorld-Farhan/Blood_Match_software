@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation, Outlet, Link, Navigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Droplet, 
-  LayoutDashboard, 
-  Grid, 
-  AlertTriangle, 
-  Users, 
-  Database, 
-  Bell, 
-  Search, 
-  LogOut, 
-  Menu, 
-  X, 
-  PlusCircle, 
-  CheckCircle2, 
+import {
+  Droplet,
+  LayoutDashboard,
+  Grid,
+  AlertTriangle,
+  Users,
+  Database,
+  Bell,
+  Search,
+  LogOut,
+  Menu,
+  X,
+  PlusCircle,
+  CheckCircle2,
   ChevronDown,
   PhoneCall,
   Activity,
@@ -31,10 +31,10 @@ import { AmbientBackgroundVideo } from './AmbientBackgroundVideo';
 import { AvatarUploadModal } from './AvatarUploadModal';
 import { ClinicianAvatar } from './ClinicianAvatar';
 import { getDonors, getEmergencyRequests, getInventory, markRequestDeleted } from '../services/storage';
-import { 
-  apiClient, 
-  fetchAlertsApi, 
-  fetchInventoryApi, 
+import {
+  apiClient,
+  fetchAlertsApi,
+  fetchInventoryApi,
   fetchDonorsApi,
   fetchReadAlertIdsApi,
   markAlertsReadApi,
@@ -79,7 +79,7 @@ export default function Layout() {
 
   // Synchronous Guard: Check authenticated state
   const isAuth = typeof window !== 'undefined' && (
-    sessionStorage.getItem('bloodmatch_auth') === 'true' || 
+    sessionStorage.getItem('bloodmatch_auth') === 'true' ||
     localStorage.getItem('bloodmatch_auth') === 'true'
   );
 
@@ -139,7 +139,7 @@ export default function Layout() {
           localStorage.removeItem('bloodmatch_auth_token');
           window.location.replace('/login?reason=terminated');
         }
-      } catch {}
+      } catch { }
     };
 
     const interval = setInterval(checkSessionStatus, 30000);
@@ -194,7 +194,7 @@ export default function Layout() {
           localStorage.setItem('bloodmatch_user_avatar', photoUrl);
           sessionStorage.setItem('bloodmatch_user_avatar', photoUrl);
         }
-      }).catch(() => {});
+      }).catch(() => { });
 
       // 2. Fallback check profile me if avatar not cached
       if (!avatar) {
@@ -206,7 +206,7 @@ export default function Layout() {
             localStorage.setItem('bloodmatch_user_avatar', photoUrl);
             sessionStorage.setItem('bloodmatch_user_avatar', photoUrl);
           }
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }
   }, [userEmail, avatar]);
@@ -309,7 +309,7 @@ export default function Layout() {
             return merged;
           });
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [userEmail]);
 
@@ -347,13 +347,13 @@ export default function Layout() {
               loadAlerts();
               updateStats();
             }
-          } catch {}
+          } catch { }
         };
 
         ws.onclose = () => {
           reconnectTimer = setTimeout(connectWs, 5000);
         };
-      } catch {}
+      } catch { }
     };
 
     connectWs();
@@ -371,7 +371,7 @@ export default function Layout() {
       const next = new Set(prev).add(id);
       if (userEmail) {
         localStorage.setItem(`bloodmatch_read_alerts_${userEmail}`, JSON.stringify(Array.from(next)));
-        markAlertsReadApi({ user_email: userEmail, alert_ids: [id] }).catch(() => {});
+        markAlertsReadApi({ user_email: userEmail, alert_ids: [id] }).catch(() => { });
       }
       return next;
     });
@@ -383,7 +383,7 @@ export default function Layout() {
     setReadAlertIds(allIds);
     if (userEmail) {
       localStorage.setItem(`bloodmatch_read_alerts_${userEmail}`, JSON.stringify(Array.from(allIds)));
-      markAlertsReadApi({ user_email: userEmail, mark_all: true }).catch(() => {});
+      markAlertsReadApi({ user_email: userEmail, mark_all: true }).catch(() => { });
     }
   };
 
@@ -436,7 +436,7 @@ export default function Layout() {
         if (donorsRes.status === 'fulfilled' && donorsRes.value.ok && Array.isArray(donorsRes.value.data)) {
           setDonorsCount(donorsRes.value.data.length);
         }
-      } catch {}
+      } catch { }
     };
 
     updateStats();
@@ -543,7 +543,7 @@ export default function Layout() {
   const handleLogout = async () => {
     try {
       await apiClient.post('/api/auth/logout', {});
-    } catch {}
+    } catch { }
     sessionStorage.clear();
     localStorage.removeItem('bloodmatch_auth');
     localStorage.removeItem('bloodmatch_auth_token');
@@ -560,22 +560,22 @@ export default function Layout() {
   const navItems = [
     { name: 'Main Operations Dashboard', path: '/dashboard', icon: LayoutDashboard, exact: true },
     { name: '8x8 Compatibility Matrix', path: '/dashboard/matrix', icon: Grid },
-    { 
-      name: 'Emergency Requests', 
-      path: '/dashboard/emergency', 
+    {
+      name: 'Emergency Requests',
+      path: '/dashboard/emergency',
       icon: AlertTriangle,
       badge: activeRequestsCount > 0 ? `${activeRequestsCount}` : undefined,
       isEmergency: true,
     },
-    { 
-      name: 'Donor Registry', 
-      path: '/dashboard/donors', 
+    {
+      name: 'Donor Registry',
+      path: '/dashboard/donors',
       icon: Users,
       badge: donorsCount > 0 ? `${donorsCount}` : undefined,
     },
-    { 
-      name: 'Blood Bank Reserve', 
-      path: '/dashboard/inventory', 
+    {
+      name: 'Blood Bank Reserve',
+      path: '/dashboard/inventory',
       icon: Database,
       badge: `${totalUnits} Pts`,
       isInventory: true,
@@ -680,36 +680,32 @@ export default function Layout() {
                   <div className="relative z-10 shrink-0 ml-auto">
                     {item.isInventory ? (
                       <span
-                        className={`inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap transition-all duration-200 shadow-2xs ${
-                          active
-                            ? 'bg-white/20 text-white border border-white/30 backdrop-blur-xs'
-                            : 'bg-[#D72638]/10 text-[#7A0C17] border border-[#D72638]/25 group-hover:bg-[#D72638]/15 group-hover:border-[#D72638]/40'
-                        }`}
+                        className={`inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-mono font-bold px-2.5 py-0.5 rounded-full whitespace-nowrap transition-all duration-200 shadow-2xs ${active
+                          ? 'bg-white/20 text-white border border-white/30 backdrop-blur-xs'
+                          : 'bg-[#D72638]/10 text-[#7A0C17] border border-[#D72638]/25 group-hover:bg-[#D72638]/15 group-hover:border-[#D72638]/40'
+                          }`}
                       >
                         <span
-                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                            active ? 'bg-emerald-300 animate-pulse' : 'bg-[#D72638] animate-pulse'
-                          }`}
+                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${active ? 'bg-emerald-300 animate-pulse' : 'bg-[#D72638] animate-pulse'
+                            }`}
                         />
                         <span>{item.badge}</span>
                       </span>
                     ) : item.isEmergency ? (
                       <span
-                        className={`inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap transition-all duration-200 shadow-xs ${
-                          active
-                            ? 'bg-white/25 text-white border border-white/30 animate-pulse'
-                            : 'bg-[#D72638] text-white animate-pulse'
-                        }`}
+                        className={`inline-flex items-center gap-1 text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap transition-all duration-200 shadow-xs ${active
+                          ? 'bg-white/25 text-white border border-white/30 animate-pulse'
+                          : 'bg-[#D72638] text-white animate-pulse'
+                          }`}
                       >
                         <span>{item.badge}</span>
                       </span>
                     ) : (
                       <span
-                        className={`inline-flex items-center text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap transition-all duration-200 ${
-                          active
-                            ? 'bg-white/20 text-white border border-white/25'
-                            : 'bg-[#1A1D20]/5 text-[#5A626A] border border-[#D9C7C2]'
-                        }`}
+                        className={`inline-flex items-center text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap transition-all duration-200 ${active
+                          ? 'bg-white/20 text-white border border-white/25'
+                          : 'bg-[#1A1D20]/5 text-[#5A626A] border border-[#D9C7C2]'
+                          }`}
                       >
                         <span>{item.badge}</span>
                       </span>
@@ -755,9 +751,8 @@ export default function Layout() {
               return (
                 <div
                   key={idx}
-                  className={`h-full rounded-2xs transition-all duration-300 ${
-                    active ? 'bg-gradient-to-r from-[#D72638] to-[#7A0C17]' : 'bg-transparent'
-                  }`}
+                  className={`h-full rounded-2xs transition-all duration-300 ${active ? 'bg-gradient-to-r from-[#D72638] to-[#7A0C17]' : 'bg-transparent'
+                    }`}
                 />
               );
             })}
@@ -876,8 +871,8 @@ export default function Layout() {
           </button>
 
           {/* Desktop/Laptop Brand Identity: Droplet Logo & Full BloodMatch Name */}
-          <Link 
-            to="/dashboard" 
+          <Link
+            to="/dashboard"
             className="hidden lg:flex items-center gap-2.5 group shrink-0"
             title="BloodMatch Clinical Operations Hub"
           >
@@ -1045,11 +1040,10 @@ export default function Layout() {
                       type="button"
                       disabled={unreadAlertsCount === 0}
                       onClick={markAllAlertsAsRead}
-                      className={`text-[11px] font-bold transition-all ${
-                        unreadAlertsCount === 0
-                          ? 'text-slate-400 opacity-40 cursor-not-allowed select-none'
-                          : 'text-[#D72638] hover:underline cursor-pointer active:scale-95'
-                      }`}
+                      className={`text-[11px] font-bold transition-all ${unreadAlertsCount === 0
+                        ? 'text-slate-400 opacity-40 cursor-not-allowed select-none'
+                        : 'text-[#D72638] hover:underline cursor-pointer active:scale-95'
+                        }`}
                       title={unreadAlertsCount === 0 ? "All alerts are already marked as read" : "Mark all notifications as read"}
                     >
                       Mark all read
@@ -1092,13 +1086,12 @@ export default function Layout() {
                       {alerts.map(a => {
                         const isUnread = !readAlertIds.has(a.id);
                         return (
-                          <div 
-                            key={a.id} 
-                            className={`p-3 rounded-xl border text-xs transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
-                              isUnread 
-                                ? 'bg-red-50/50 border-[#D72638]/40 shadow-xs' 
-                                : 'bg-[#F5F1EF] border-[#D9C7C2]/70'
-                            }`}
+                          <div
+                            key={a.id}
+                            className={`p-3 rounded-xl border text-xs transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${isUnread
+                              ? 'bg-red-50/50 border-[#D72638]/40 shadow-xs'
+                              : 'bg-[#F5F1EF] border-[#D9C7C2]/70'
+                              }`}
                           >
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
@@ -1138,7 +1131,7 @@ export default function Layout() {
                                 navigate(targetUrl);
                                 if (typeof window !== 'undefined') {
                                   window.dispatchEvent(new CustomEvent('bloodmatch:highlight-donor', {
-                                    detail: { 
+                                    detail: {
                                       donorId: a.donor_id,
                                       donorName: a.donor_name,
                                       bloodType: a.blood_type
