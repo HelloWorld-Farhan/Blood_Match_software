@@ -36,6 +36,8 @@ import {
 import {
   getEmergencyRequests,
   saveEmergencyRequests,
+  markRequestDeleted,
+  getDeletedRequestIds,
   getDonors,
   saveDonors,
   getGpsPermission,
@@ -627,13 +629,16 @@ export default function EmergencyRequests() {
           fulfilledByDonorEmail: r.fulfilled_by_donor_email || r.fulfilledByDonorEmail,
         }));
 
-        // Merge remote and local by ID to ensure local requests NEVER disappear!
-        const map = new Map<string, EmergencyRequest>();
-        remoteReqs.forEach(r => map.set(r.id, r));
+        const deletedSet = getDeletedRequestIds(currentUserEmail);
+        const activeRemoteReqs = remoteReqs.filter(r => !deletedSet.has(r.id));
 
-        // Preserve and sync any local requests not yet on remote
+        // Remote database is canonical truth. Filter out any tombstoned/deleted items.
+        const map = new Map<string, EmergencyRequest>();
+        activeRemoteReqs.forEach(r => map.set(r.id, r));
+
+        // Preserve any local requests not yet on remote (ONLY if NOT marked deleted)
         currentLocal.forEach(r => {
-          if (!map.has(r.id)) {
+          if (!map.has(r.id) && !deletedSet.has(r.id)) {
             const cleanedLocal: EmergencyRequest = {
               ...r,
               patientName: stripHonorific(r.patientName),
@@ -642,23 +647,6 @@ export default function EmergencyRequests() {
               live_tracking: r.live_tracking !== undefined ? r.live_tracking : (r.status !== 'fulfilled')
             };
             map.set(r.id, cleanedLocal);
-            // Push missing local request to remote in background
-            createEmergencyRequestApi({
-              id: cleanedLocal.id,
-              user_email: currentUserEmail,
-              patient_name: cleanedLocal.patientName,
-              patient_age: cleanedLocal.patientAge,
-              hospital: cleanedLocal.hospital,
-              hospital_city: cleanedLocal.hospitalCity,
-              ward: cleanedLocal.ward,
-              blood_type: cleanedLocal.bloodType,
-              units_needed: cleanedLocal.unitsNeeded,
-              urgency: cleanedLocal.urgency,
-              status: cleanedLocal.status,
-              contact_person: cleanedLocal.contactName,
-              contact_phone: cleanedLocal.contactNumber,
-              live_tracking: cleanedLocal.liveTracking
-            } as any).catch(() => { });
           }
         });
 
@@ -761,6 +749,16 @@ export default function EmergencyRequests() {
                 }
                 return d;
               }));
+            } else if (data.type === 'EMERGENCY_DELETED') {
+              const delId = data.deleted_id || data.id;
+              if (delId) {
+                markRequestDeleted(delId, currentUserEmail);
+                setRequests(prev => {
+                  const updated = prev.filter(r => r.id !== delId);
+                  saveEmergencyRequests(updated, currentUserEmail, false);
+                  return updated;
+                });
+              }
             } else if (data.type === 'EMERGENCY_CREATED' || data.type === 'EMERGENCY_UPDATED' || data.type === 'EMERGENCY_FULFILLED') {
               loadData();
             }
@@ -1376,18 +1374,31 @@ export default function EmergencyRequests() {
     if (!requestToDelete) return;
     const targetId = requestToDelete.id;
     setDeletingRequestId(targetId);
-    try {
-      await deleteEmergencyRequestApi(targetId, currentUserEmail);
-    } catch {}
+
+    // 1. Immediately mark deleted in persistent local tombstone set
+    markRequestDeleted(targetId, currentUserEmail);
+
+    // 2. Optimistically filter from state and storage
     setRequests(prev => {
       const updated = prev.filter(r => r.id !== targetId);
       saveEmergencyRequests(updated, currentUserEmail);
       return updated;
     });
+
+    // 3. Dispatch delete API call to backend
+    try {
+      await deleteEmergencyRequestApi(targetId, currentUserEmail);
+    } catch {}
+
+    // 4. Show confirmation banner and automatically dismiss after 4 seconds (Work 1)
     setBoardNotification({
       message: `Emergency request #${targetId} permanently removed from triage board.`,
       type: 'success'
     });
+    setTimeout(() => {
+      setBoardNotification(prev => (prev?.message?.includes(targetId) ? null : prev));
+    }, 4000);
+
     setDeletingRequestId(null);
     setRequestToDelete(null);
   };
@@ -1965,19 +1976,22 @@ export default function EmergencyRequests() {
         </div>
       ) : (
         <div className="flex flex-col gap-3.5 w-full">
-          {filteredRequests.map(req => {
-            const matches = getMatchesForRequest(req);
-            const isExpanded = expandedRequestIds.has(req.id);
-            const isFulfilled = req.status === 'fulfilled';
-            const isTargetHighlighted = (highlightedId === req.id || highlightParam === req.id) && isBlinking;
+          <AnimatePresence mode="popLayout">
+            {filteredRequests.map(req => {
+              const matches = getMatchesForRequest(req);
+              const isExpanded = expandedRequestIds.has(req.id);
+              const isFulfilled = req.status === 'fulfilled';
+              const isTargetHighlighted = (highlightedId === req.id || highlightParam === req.id) && isBlinking;
 
-            return (
-              <motion.div
-                key={req.id}
-                id={`request-row-${req.id}`}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`rounded-2xl border transition-all duration-300 overflow-hidden shadow-xs relative ${isTargetHighlighted
+              return (
+                <motion.div
+                  layout
+                  key={req.id}
+                  id={`request-row-${req.id}`}
+                  initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.93, filter: 'blur(8px)', transition: { duration: 0.25, ease: 'easeOut' } }}
+                  className={`rounded-2xl border transition-all duration-300 overflow-hidden shadow-xs relative ${isTargetHighlighted
                   ? 'animate-target-blink-2s ring-4 ring-[#D72638]/40 border-[#D72638] bg-[#FFF5F6] z-10'
                   : isFulfilled
                     ? 'bg-white border-emerald-200'
@@ -2418,6 +2432,7 @@ export default function EmergencyRequests() {
               </motion.div>
             );
           })}
+          </AnimatePresence>
         </div>
       )}
 

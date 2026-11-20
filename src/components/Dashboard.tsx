@@ -216,6 +216,9 @@ export const Dashboard: React.FC = () => {
 
   const totalUnits = inventory.reduce((acc, curr) => acc + curr.unitsAvailable, 0);
   const urgentCount = requests.filter(r => r.status === 'urgent' || r.status === 'critical').length;
+  const fulfilledCount = requests.filter(r => r.status === 'fulfilled').length;
+  const totalRequestsCount = requests.length;
+  const fulfillmentRate = totalRequestsCount > 0 ? Math.round((fulfilledCount / totalRequestsCount) * 100) : 100;
   const criticalUnitsCount = inventory.filter(i => i.status === 'critical').length;
   const targetReserve = 160; // 20 pints per 8 groups = 160 pints ideal vault capacity
   const capacityPercent = Math.min(100, Math.round((totalUnits / targetReserve) * 100));
@@ -518,7 +521,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* KPI 3: Emergency Requests with Power BI Triage Sparkline Radar */}
+        {/* KPI 3: Emergency Requests with Power BI Triage & Fulfillment Visual */}
         <motion.div 
           variants={kpiCardVariants}
           whileTap={{ scale: 0.99 }}
@@ -533,38 +536,73 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-black text-[#1A1D20]">{urgentCount}</span>
-              <span className="text-xs text-[#D72638] font-bold">Urgent Calls</span>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-red-50 text-[#D72638] border border-red-200 ml-auto">
-                {requests.length} Total
+            {/* Power BI Dual Metric Indicator: Active (Not Fulfilled) vs Fulfilled */}
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-3xl font-black text-[#D72638]">{urgentCount}</span>
+                <span className="text-xs font-bold text-[#7A0C17]">Active</span>
+              </div>
+              <div className="flex items-baseline gap-1.5 pl-2 border-l border-[#D9C7C2]">
+                <span className="text-2xl font-black text-emerald-700">{fulfilledCount}</span>
+                <span className="text-xs font-bold text-emerald-800">Fulfilled</span>
+              </div>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 text-[#1A1D20] border border-[#D9C7C2] ml-auto">
+                {totalRequestsCount} Total
               </span>
             </div>
 
-            {/* Power BI Real-Time Triage Pulse Sparkline Waveform */}
-            <div className="mt-2.5 pt-2 border-t border-[#D9C7C2]/40 bg-[#F5F1EF] p-2 rounded-xl border border-[#D9C7C2]/60">
-              <div className="flex items-center justify-between text-[10px] mb-1">
-                <span className="text-[#5A626A]">Request Pace</span>
-                <span className="font-bold text-[#D72638] flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#D72638] animate-ping" />
-                  <span>{urgentCount > 0 ? 'High Priority' : 'Normal'}</span>
+            {/* Power BI Graphical Telemetry Segmented Bar & Pulse Visual */}
+            <div className="mt-2.5 pt-2 border-t border-[#D9C7C2]/40 bg-[#F5F1EF] p-2.5 rounded-xl border border-[#D9C7C2]/60 space-y-1.5">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-[#5A626A] font-semibold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#D72638] animate-pulse" />
+                  <span>Not Fulfilled: <strong className="text-[#D72638]">{urgentCount}</strong></span>
+                </span>
+                <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  <span>Fulfilled: <strong>{fulfilledCount}</strong></span>
+                </span>
+                <span className="font-mono text-[10px] font-bold text-slate-600 bg-white px-1.5 py-0.2 rounded border border-[#D9C7C2]/60">
+                  {fulfillmentRate}% Done
                 </span>
               </div>
-              <svg className="w-full h-6 overflow-visible" viewBox="0 0 100 24" preserveAspectRatio="none">
-                <path
-                  d="M0,16 L20,16 L28,6 L36,22 L44,12 L52,18 L60,16 L80,16 L88,8 L100,16"
-                  fill="none"
-                  stroke={urgentCount > 0 ? "#D72638" : "#A0AEC0"}
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
+
+              {/* Power BI Segmented Status Meter */}
+              <div className="w-full h-2.5 bg-slate-200/90 rounded-full overflow-hidden flex p-0.5 gap-0.5 shadow-inner">
+                {urgentCount > 0 && (
+                  <div 
+                    className="h-full bg-gradient-to-r from-red-600 to-rose-500 rounded-full transition-all duration-500"
+                    style={{ width: `${totalRequestsCount > 0 ? (urgentCount / totalRequestsCount) * 100 : 0}%` }}
+                    title={`Active / Not Fulfilled: ${urgentCount} (${totalRequestsCount > 0 ? Math.round((urgentCount / totalRequestsCount) * 100) : 0}%)`}
+                  />
+                )}
+                {fulfilledCount > 0 && (
+                  <div 
+                    className="h-full bg-gradient-to-r from-emerald-500 to-teal-600 rounded-full transition-all duration-500"
+                    style={{ width: `${totalRequestsCount > 0 ? (fulfilledCount / totalRequestsCount) * 100 : 100}%` }}
+                    title={`Fulfilled: ${fulfilledCount} (${totalRequestsCount > 0 ? Math.round((fulfilledCount / totalRequestsCount) * 100) : 0}%)`}
+                  />
+                )}
+                {totalRequestsCount === 0 && (
+                  <div className="h-full w-full bg-emerald-400 rounded-full" />
+                )}
+              </div>
+
+              {/* Mini Power BI Real-Time Triage Pulse Sparkline Waveform */}
+              <div className="flex items-center justify-between text-[10px] pt-0.5">
+                <span className="text-[#5A626A]">Triage Pace</span>
+                <span className="font-bold text-[#D72638] flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#D72638] animate-ping" />
+                  <span>{urgentCount > 0 ? 'High Priority' : 'All Transfusions Completed'}</span>
+                </span>
+              </div>
             </div>
           </div>
 
           <div className="mt-3 flex items-center justify-between text-[11px] text-[#5A626A] border-t border-[#D9C7C2]/60 pt-2">
-            <span className="text-[#D72638] font-semibold">{urgentCount > 0 ? 'Calls Waiting' : 'All Clear'}</span>
+            <span className="text-[#D72638] font-semibold">
+              {urgentCount > 0 ? `${urgentCount} Waiting • ${fulfilledCount} Done` : 'All Clear • Zero Pending'}
+            </span>
             <span className="text-[#D72638] font-bold group-hover:underline flex items-center gap-0.5">
               <span>View Requests</span>
               <ArrowUpRight className="w-3 h-3 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
