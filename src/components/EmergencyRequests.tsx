@@ -303,9 +303,11 @@ export default function EmergencyRequests() {
 
   // Clinician context
   const currentUserEmail = useMemo(() => {
-    return sessionStorage.getItem('bloodmatch_user_email') ||
+    return (
+      sessionStorage.getItem('bloodmatch_user_email') ||
       localStorage.getItem('bloodmatch_user_email') ||
-      'clinician@bloodmatch.org';
+      'clinician@bloodmatch.org'
+    ).trim().toLowerCase();
   }, []);
 
   const currentUserName = useMemo(() => {
@@ -622,8 +624,13 @@ export default function EmergencyRequests() {
     }
   }, [searchParams]);
 
+  // In-flight guard to prevent duplicate concurrent network sync requests
+  const isFetchingRef = useRef<boolean>(false);
+
   // Load emergency requests and donors with resilient bidirectional merge & zero data loss
-  const loadData = async () => {
+  const loadData = async (force: boolean = false) => {
+    if (isFetchingRef.current && !force) return;
+    isFetchingRef.current = true;
     const currentLocal = getEmergencyRequests(currentUserEmail);
 
     try {
@@ -673,13 +680,32 @@ export default function EmergencyRequests() {
           if (delRes.ok && Array.isArray(delRes.data?.deleted_ids)) {
             delRes.data.deleted_ids.forEach(delId => {
               remoteDeletedSet.add(delId);
-              markRequestDeleted(delId, currentUserEmail);
+              markRequestDeleted(delId, currentUserEmail, false);
             });
           }
         } catch { }
 
+        // Authoritative reconciliation:
+        // Any record actively returned by the backend database is ALIVE!
+        // Automatically unmark any stale local tombstones that are not in remoteDeletedSet.
+        remoteReqs.forEach(r => {
+          if (!remoteDeletedSet.has(r.id)) {
+            unmarkRequestDeleted(r.id, currentUserEmail);
+          }
+        });
+
+        // The authoritative deleted set across devices:
+        // RemoteDeletedSet is the authoritative set of deletions.
+        // For unsynced local drafts, check localDeletedSet.
         const localDeletedSet = getDeletedRequestIds(currentUserEmail);
-        const allDeletedIds = new Set([...localDeletedSet, ...remoteDeletedSet]);
+        const allDeletedIds = new Set<string>();
+        remoteDeletedSet.forEach(id => allDeletedIds.add(id));
+        localDeletedSet.forEach(id => {
+          // If remoteReqs contains it and it's not in remoteDeletedSet, it is alive and should not be deleted!
+          if (!remoteReqs.some(r => r.id === id)) {
+            allDeletedIds.add(id);
+          }
+        });
 
         const now = Date.now();
         // Filter out any tombstoned requests & protect local live-tracking toggles using timestamp precedence (never reverts)
@@ -764,11 +790,21 @@ export default function EmergencyRequests() {
         contactName: stripHonorific(r.contactName)
       }));
       setRequests(cleaned);
+    } finally {
+      isFetchingRef.current = false;
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
+
+    // Active cross-device auto-sync polling: 3.5s cadence on active tab
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        loadData();
+      }
+    }, 3500);
+
     const handleStorage = () => loadData();
     const handleDonorAlertDispatched = (e: Event) => {
       const detail = (e as CustomEvent).detail;
@@ -796,6 +832,7 @@ export default function EmergencyRequests() {
     window.addEventListener('bloodmatch_donors_updated', handleStorage);
     window.addEventListener('bloodmatch_donor_alert_dispatched', handleDonorAlertDispatched);
     return () => {
+      clearInterval(interval);
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('bloodmatch_requests_updated', handleStorage);
       window.removeEventListener('bloodmatch_donors_updated', handleStorage);
