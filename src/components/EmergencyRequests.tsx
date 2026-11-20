@@ -2167,17 +2167,20 @@ export default function EmergencyRequests() {
                         </div>
 
                         <div className="text-[11px] text-[#5A626A] mt-1 flex items-center gap-2 flex-wrap">
-                          <span>
-                            Contact: <strong>{stripHonorific(req.contactName)}</strong>
-                            {stripHonorific(req.contactName).toLowerCase() === stripHonorific(currentUserName).toLowerCase() && (
-                              <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                                You
-                              </span>
-                            )}
-                          </span>
-                          <span className="font-mono text-[#D72638] font-bold">
+                          <span>Contact: <strong>{stripHonorific(req.contactName)}</strong></span>
+                          <button
+                            type="button"
+                            onClick={() => setCallModalTarget({
+                              contactName: stripHonorific(req.contactName),
+                              phoneNumber: req.contactNumber,
+                              bloodType: req.bloodType,
+                              location: req.hospitalCity || 'Delhi NCR',
+                              roleOrContext: `Emergency Transfusion Hotline • Patient: ${stripHonorific(req.patientName)}`
+                            })}
+                            className="font-mono text-[#D72638] font-bold hover:underline cursor-pointer"
+                          >
                             {req.contactNumber}
-                          </span>
+                          </button>
                           {isFulfilled && req.fulfilledByDonorName && (
                             <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
                               Fulfilled by: {stripHonorific(req.fulfilledByDonorName)}
@@ -2193,11 +2196,10 @@ export default function EmergencyRequests() {
                         <>
                           {/* Live Proximity Radar 2FA-Style Toggle Switch */}
                           <div
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all duration-200 shadow-2xs select-none ${
-                              req.liveTracking !== false
-                                ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950'
-                                : 'bg-[#F5F1EF] border-[#D9C7C2] text-slate-600'
-                            }`}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all duration-200 shadow-2xs select-none ${req.liveTracking !== false
+                              ? 'bg-emerald-50/90 border-emerald-300 text-emerald-950'
+                              : 'bg-[#F5F1EF] border-[#D9C7C2] text-slate-600'
+                              }`}
                             title={
                               req.liveTracking !== false
                                 ? 'Live Radar is ON: Automatic notifications and email alerts will trigger across all synced devices when compatible lifesavers arrive. Click switch to turn OFF.'
@@ -2225,9 +2227,8 @@ export default function EmergencyRequests() {
                               aria-label={`Toggle Live Tracking for patient ${stripHonorific(req.patientName)}`}
                               onClick={() => handleToggleLiveTracking(req)}
                               disabled={togglingLiveTrackId === req.id}
-                              className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden disabled:opacity-50 ${
-                                req.liveTracking !== false ? 'bg-emerald-600' : 'bg-slate-300'
-                              }`}
+                              className={`relative inline-flex h-5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden disabled:opacity-50 ${req.liveTracking !== false ? 'bg-emerald-600' : 'bg-slate-300'
+                                }`}
                             >
                               {togglingLiveTrackId === req.id ? (
                                 <span className="absolute inset-0 flex items-center justify-center">
@@ -2235,9 +2236,8 @@ export default function EmergencyRequests() {
                                 </span>
                               ) : (
                                 <span
-                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
-                                    req.liveTracking !== false ? 'translate-x-5' : 'translate-x-0'
-                                  }`}
+                                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${req.liveTracking !== false ? 'translate-x-5' : 'translate-x-0'
+                                    }`}
                                 />
                               )}
                             </button>
@@ -2316,6 +2316,29 @@ export default function EmergencyRequests() {
                           </div>
 
                           <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isFulfilled) return;
+                                setCallModalTarget({
+                                  contactName: stripHonorific(req.contactName),
+                                  phoneNumber: req.contactNumber,
+                                  bloodType: req.bloodType,
+                                  location: req.hospitalCity || 'Delhi NCR',
+                                  roleOrContext: `Emergency Transfusion Hotline • Patient: ${stripHonorific(req.patientName)}`
+                                });
+                              }}
+                              disabled={isFulfilled}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${isFulfilled
+                                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-50 shadow-none'
+                                : 'bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] border border-[#D9C7C2] cursor-pointer shadow-2xs'
+                                }`}
+                              title={isFulfilled ? 'Transfusion fulfilled & closed: Hotline call blocked' : `Call Emergency Hotline: ${stripHonorific(req.contactName)} (${req.contactNumber})`}
+                            >
+                              <Phone className={`w-3.5 h-3.5 ${isFulfilled ? 'text-slate-400' : 'text-emerald-600'}`} />
+                              <span>Call Hotline ({req.contactNumber})</span>
+                            </button>
+
                             <button
                               type="button"
                               onClick={() => !isFulfilled && handleEmailRosterForRequest(req, displayedDonors)}

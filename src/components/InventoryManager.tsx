@@ -178,7 +178,7 @@ export default function InventoryManager() {
         variants={scrollBlurVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, amount: 0.15 }}
+        viewport={{ once: false, amount: 0.12 }}
         className="p-6 sm:p-8 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-6"
       >
         <div>
@@ -205,7 +205,7 @@ export default function InventoryManager() {
         variants={scrollBlurVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, amount: 0.15 }}
+        viewport={{ once: false, amount: 0.12 }}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
       >
         {/* Tile 1: Total Bank Reserves */}
@@ -354,7 +354,7 @@ export default function InventoryManager() {
         variants={scrollBlurVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, amount: 0.15 }}
+        viewport={{ once: false, amount: 0.12 }}
         className="p-5 sm:p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-hidden"
       >
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
@@ -453,7 +453,7 @@ export default function InventoryManager() {
         variants={scrollBlurVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, amount: 0.15 }}
+        viewport={{ once: false, amount: 0.12 }}
         className="p-6 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-xs space-y-4"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D9C7C2]/60">
@@ -536,7 +536,7 @@ export default function InventoryManager() {
         variants={scrollBlurVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, amount: 0.15 }}
+        viewport={{ once: false, amount: 0.12 }}
         className="p-4 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
       >
         {/* Slicer Pills */}
@@ -583,7 +583,7 @@ export default function InventoryManager() {
         variants={scrollBlurVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, amount: 0.1 }}
+        viewport={{ once: false, amount: 0.1 }}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
       >
         {filteredInventory.map((item) => {
@@ -592,7 +592,11 @@ export default function InventoryManager() {
           const pct = Math.min(100, Math.round((item.unitsAvailable / 20) * 100));
 
           return (
-            <div
+            <motion.div
+              variants={scrollBlurVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: false, amount: 0.08 }}
               key={item.id}
               className="p-5 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-sm flex flex-col justify-between hover:border-[#D72638]/50 hover:shadow-md transition-all duration-200"
             >
@@ -669,7 +673,7 @@ export default function InventoryManager() {
                   4.0°C Safe
                 </span>
               </div>
-            </div>
+            </motion.div>
           );
         })}
       </motion.div>

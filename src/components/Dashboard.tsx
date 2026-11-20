@@ -225,14 +225,14 @@ export const Dashboard: React.FC = () => {
             } else if (data.type === 'EMERGENCY_CREATED' || data.type === 'EMERGENCY_UPDATED' || data.type === 'EMERGENCY_FULFILLED' || data.type === 'DONOR_CREATED' || data.type === 'INVENTORY_UPDATED') {
               loadData();
             }
-          } catch {}
+          } catch { }
         };
 
         ws.onclose = () => {
           clearInterval(pingInterval);
           reconnectTimer = setTimeout(connectWs, 5000);
         };
-      } catch {}
+      } catch { }
     };
 
     connectWs();
