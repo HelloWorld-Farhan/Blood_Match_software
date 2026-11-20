@@ -14,7 +14,7 @@ interface ClinicianAvatarProps {
  * ClinicianAvatar: Bulletproof profile picture component.
  * - Displays user photo with zero latency when available.
  * - If the image fails to load, is broken, or is absent, seamlessly
- *   falls back to the user's initials (e.g. "FK" for Farhan Khalid).
+ *   falls back to the user's initials (e.g. "CC" for Clinical Coordinator).
  * - Completely prevents the browser from showing a broken image logo or icon.
  */
 export function ClinicianAvatar({

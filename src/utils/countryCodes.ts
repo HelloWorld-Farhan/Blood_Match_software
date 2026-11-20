@@ -98,14 +98,13 @@ export const stripHonorific = (name?: string | null): string => {
 
 /**
  * Calculates clinician initials according to exact institutional standard:
- * - Multi-word name (e.g. "Farhan Khalid") -> first char of first name + first char of last name ("FK")
- * - Single-word name (e.g. "Farhan") -> first 2 characters of the name ("FA")
+ * - Multi-word name (e.g. "Clinical Coordinator") -> first char of first name + first char of last name ("CC")
  * - Handles optional medical honorific prefixes (Dr., Prof., Mr., Ms., etc.)
  */
 export const getInitials = (name?: string | null): string => {
-  if (!name) return 'FK';
+  if (!name) return 'CC';
   const clean = stripHonorific(name);
-  if (!clean) return 'FK';
+  if (!clean) return 'CC';
   const parts = clean.split(/\s+/).filter(Boolean);
   if (parts.length >= 2) {
     const firstInitial = parts[0].charAt(0).toUpperCase();

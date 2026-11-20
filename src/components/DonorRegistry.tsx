@@ -1359,7 +1359,7 @@ export default function DonorRegistry() {
                             setFullName(e.target.value);
                             if (formErrors.fullName) setFormErrors(prev => ({ ...prev, fullName: '' }));
                           }}
-                          placeholder="e.g. Farhan Khalid"
+                          placeholder="e.g. Aarav Sharma"
                           className={`w-full px-3 py-2 rounded-xl bg-white border ${formErrors.fullName ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
                             } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
                         />

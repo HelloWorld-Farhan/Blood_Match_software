@@ -105,7 +105,7 @@ export default function SendAlertModal({
     ? (sessionStorage.getItem('bloodmatch_user_name') || localStorage.getItem('bloodmatch_user_name') || 'Attending Clinical Coordinator')
     : 'Attending Clinical Coordinator';
 
-  // Strip "Dr." prefix so contact name is clean user name (e.g. Farhan Khalid)
+  // Strip "Dr." prefix so contact name is clean user name (e.g. Aarav Sharma)
   const defaultUserName = stripHonorific(defaultRawUserName);
 
   const defaultUserPhone = typeof window !== 'undefined'
@@ -478,7 +478,7 @@ export default function SendAlertModal({
                   required
                   value={requesterName}
                   onChange={(e) => setRequesterName(e.target.value)}
-                  placeholder="e.g. Farhan Khalid"
+                  placeholder="e.g. Attending Clinical Coordinator"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 text-xs font-medium text-[#1A1D20] transition-all"
                 />
               </div>
@@ -493,7 +493,7 @@ export default function SendAlertModal({
                   required
                   value={requesterPhone}
                   onChange={(e) => setRequesterPhone(e.target.value)}
-                  placeholder="+91 8851860838"
+                  placeholder="+91 98765 43210"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 text-xs font-mono font-bold text-[#1A1D20] transition-all"
                 />
               </div>

@@ -2705,7 +2705,7 @@ export default function EmergencyRequests() {
                                 setPatientName(e.target.value);
                                 if (formErrors.patientName) setFormErrors(prev => ({ ...prev, patientName: '' }));
                               }}
-                              placeholder="e.g. Farhan Khalid"
+                              placeholder="e.g. Rajesh Kumar"
                               className={`w-full px-3.5 py-2.5 rounded-xl bg-white border ${formErrors.patientName ? 'border-red-500 bg-red-50/20' : 'border-[#D9C7C2]'
                                 } text-xs text-[#1A1D20] outline-hidden focus:border-[#D72638] transition-colors`}
                             />
