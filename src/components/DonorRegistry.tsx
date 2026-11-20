@@ -490,7 +490,9 @@ export default function DonorRegistry() {
         da.user_email !== db.user_email ||
         da.isAvailable !== db.isAvailable ||
         da.unitsDonatedTotal !== db.unitsDonatedTotal ||
-        da.location !== db.location
+        da.location !== db.location ||
+        da.last_alert_sent_at !== db.last_alert_sent_at ||
+        da.lastAlertSentAt !== db.lastAlertSentAt
       ) {
         return false;
       }
@@ -534,6 +536,8 @@ export default function DonorRegistry() {
           isAvailable: d.is_available ?? d.available ?? true,
           registeredAt: d.created_at || d.registeredAt || new Date().toISOString(),
           unitsDonatedTotal: d.units_donated_total ?? d.unitsDonatedTotal ?? 0,
+          last_alert_sent_at: d.last_alert_sent_at || d.lastAlertSentAt || null,
+          lastAlertSentAt: d.lastAlertSentAt || d.last_alert_sent_at || null,
         }));
 
         if (force || !areDonorsIdentical(donorsRef.current, mapped)) {
@@ -588,21 +592,35 @@ export default function DonorRegistry() {
     };
   }, [selectedFilter, currentUserEmail]);
 
+  // Periodic 10-second ticker to dynamically re-evaluate cooldown status and auto-unlock buttons
+  const [, setCooldownTick] = useState<number>(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCooldownTick(prev => (prev + 1) % 1000000);
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Real-time synchronization of donor alert dispatch events across tabs & devices
   useEffect(() => {
     const handleAlertDispatched = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (detail && detail.donor_id) {
-        setDonors(prev => prev.map(d => {
-          if (d.id === detail.donor_id || d.email.toLowerCase() === (detail.donor_email || '').toLowerCase()) {
-            return {
-              ...d,
-              lastAlertSentAt: detail.last_alert_sent_at,
-              last_alert_sent_at: detail.last_alert_sent_at
-            };
-          }
-          return d;
-        }));
+        setDonors(prev => {
+          const updated = prev.map(d => {
+            if (d.id === detail.donor_id || d.email.toLowerCase() === (detail.donor_email || '').toLowerCase()) {
+              return {
+                ...d,
+                lastAlertSentAt: detail.last_alert_sent_at,
+                last_alert_sent_at: detail.last_alert_sent_at
+              };
+            }
+            return d;
+          });
+          donorsRef.current = updated;
+          saveDonors(updated, false);
+          return updated;
+        });
       }
     };
     window.addEventListener('bloodmatch_donor_alert_dispatched', handleAlertDispatched);
@@ -619,16 +637,21 @@ export default function DonorRegistry() {
           try {
             const data = JSON.parse(event.data);
             if (data.type === 'DONOR_ALERT_DISPATCHED') {
-              setDonors(prev => prev.map(d => {
-                if (d.id === data.donor_id || d.email.toLowerCase() === (data.donor_email || '').toLowerCase()) {
-                  return {
-                    ...d,
-                    lastAlertSentAt: data.last_alert_sent_at,
-                    last_alert_sent_at: data.last_alert_sent_at
-                  };
-                }
-                return d;
-              }));
+              setDonors(prev => {
+                const updated = prev.map(d => {
+                  if (d.id === data.donor_id || d.email.toLowerCase() === (data.donor_email || '').toLowerCase()) {
+                    return {
+                      ...d,
+                      lastAlertSentAt: data.last_alert_sent_at,
+                      last_alert_sent_at: data.last_alert_sent_at
+                    };
+                  }
+                  return d;
+                });
+                donorsRef.current = updated;
+                saveDonors(updated, false);
+                return updated;
+              });
             } else if (data.type === 'DONOR_CREATED' || data.type === 'DONOR_UPDATED') {
               loadDonors();
             }
@@ -2388,11 +2411,11 @@ export default function DonorRegistry() {
                           <button
                             type="button"
                             disabled
-                            title={`24-Hour Alert Cooldown active for ${donor.fullName}. Repeat dispatches unlock in ${cooldown.remainingText}.`}
-                            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 text-amber-800 border border-amber-300 font-bold text-xs opacity-85 cursor-not-allowed shadow-2xs"
+                            title={`24-Hour Alert Cooldown active for ${donor.fullName}. Repeat dispatches unlock on ${cooldown.availableAtText} (${cooldown.remainingText} remaining).`}
+                            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 font-bold text-xs opacity-90 cursor-not-allowed shadow-2xs whitespace-nowrap"
                           >
-                            <Clock className="w-3 h-3 text-amber-600" />
-                            <span>Cooldown: {cooldown.remainingText}</span>
+                            <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span>Available: {cooldown.availableAtText}</span>
                           </button>
                         );
                       }

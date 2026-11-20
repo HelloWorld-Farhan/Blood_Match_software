@@ -747,15 +747,47 @@ export default function EmergencyRequests() {
   useEffect(() => {
     loadData();
     const handleStorage = () => loadData();
+    const handleDonorAlertDispatched = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.donor_id) {
+        setDispatchedDonorIds((prev) => ({ ...prev, [detail.donor_id]: true }));
+        setDonors(prev => {
+          const updated = prev.map(d => {
+            if (d.id === detail.donor_id || d.email.toLowerCase() === (detail.donor_email || '').toLowerCase()) {
+              return {
+                ...d,
+                lastAlertSentAt: detail.last_alert_sent_at,
+                last_alert_sent_at: detail.last_alert_sent_at
+              };
+            }
+            return d;
+          });
+          saveDonors(updated, false);
+          return updated;
+        });
+      }
+    };
+
     window.addEventListener('storage', handleStorage);
     window.addEventListener('bloodmatch_requests_updated', handleStorage);
     window.addEventListener('bloodmatch_donors_updated', handleStorage);
+    window.addEventListener('bloodmatch_donor_alert_dispatched', handleDonorAlertDispatched);
     return () => {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('bloodmatch_requests_updated', handleStorage);
       window.removeEventListener('bloodmatch_donors_updated', handleStorage);
+      window.removeEventListener('bloodmatch_donor_alert_dispatched', handleDonorAlertDispatched);
     };
   }, [currentUserEmail]);
+
+  // Periodic 10-second ticker to dynamically re-evaluate cooldown and unlock buttons in real time
+  const [, setEmergencyCooldownTick] = useState<number>(0);
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setEmergencyCooldownTick(prev => (prev + 1) % 1000000);
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Real-time WebSocket Multi-Device Synchronization & Live Tracking Alerts
   useEffect(() => {
@@ -805,16 +837,20 @@ export default function EmergencyRequests() {
               if (data.donor_id) {
                 setDispatchedDonorIds((prev) => ({ ...prev, [data.donor_id]: true }));
               }
-              setDonors(prev => prev.map(d => {
-                if (d.id === data.donor_id || d.email.toLowerCase() === (data.donor_email || '').toLowerCase()) {
-                  return {
-                    ...d,
-                    lastAlertSentAt: data.last_alert_sent_at,
-                    last_alert_sent_at: data.last_alert_sent_at
-                  };
-                }
-                return d;
-              }));
+              setDonors(prev => {
+                const updated = prev.map(d => {
+                  if (d.id === data.donor_id || d.email.toLowerCase() === (data.donor_email || '').toLowerCase()) {
+                    return {
+                      ...d,
+                      lastAlertSentAt: data.last_alert_sent_at,
+                      last_alert_sent_at: data.last_alert_sent_at
+                    };
+                  }
+                  return d;
+                });
+                saveDonors(updated, false);
+                return updated;
+              });
             } else if (data.type === 'EMERGENCY_DELETED') {
               const delId = data.deleted_id || data.id;
               if (delId) {
@@ -2710,7 +2746,7 @@ export default function EmergencyRequests() {
                                               isDispatched
                                                 ? `Emergency mobilization alert already dispatched to ${donor.fullName}`
                                                 : donorCooldown.inCooldown
-                                                  ? `Donor in 24-hr cooldown (${donorCooldown.remainingText})`
+                                                  ? `24-Hour Alert Cooldown active for ${donor.fullName}. Repeat dispatches unlock on ${donorCooldown.availableAtText} (${donorCooldown.remainingText} remaining).`
                                                   : `Dispatch real-time emergency mobilization alert directly to donor ${donor.fullName}`
                                             }
                                           >
@@ -2722,7 +2758,7 @@ export default function EmergencyRequests() {
                                               <Send className="w-3.5 h-3.5 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform duration-200" />
                                             )}
                                             <span>
-                                              {isDispatched ? 'Alert Sent ✓' : donorCooldown.inCooldown ? `Cooldown: ${donorCooldown.remainingText}` : 'Send Alert'}
+                                              {isDispatched ? 'Alert Sent ✓' : donorCooldown.inCooldown ? `Available: ${donorCooldown.availableAtText}` : 'Send Alert'}
                                             </span>
                                           </button>
                                         );
@@ -3866,7 +3902,7 @@ export default function EmergencyRequests() {
                                                   <Send className="w-3 h-3" />
                                                 )}
                                                 <span>
-                                                  {isDispatched ? 'Dispatched' : donorCooldown.inCooldown ? `Cooldown: ${donorCooldown.remainingText}` : 'Send Alert'}
+                                                  {isDispatched ? 'Dispatched' : donorCooldown.inCooldown ? `Available: ${donorCooldown.availableAtText}` : 'Send Alert'}
                                                 </span>
                                               </button>
                                             );
@@ -4004,7 +4040,7 @@ export default function EmergencyRequests() {
                                                   <Send className="w-3 h-3" />
                                                 )}
                                                 <span>
-                                                  {isDispatched ? 'Dispatched' : donorCooldown.inCooldown ? `Cooldown: ${donorCooldown.remainingText}` : 'Send Alert'}
+                                                  {isDispatched ? 'Dispatched' : donorCooldown.inCooldown ? `Available: ${donorCooldown.availableAtText}` : 'Send Alert'}
                                                 </span>
                                               </button>
                                             );

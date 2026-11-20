@@ -50,7 +50,9 @@ export function normalizeDonor(raw: any): Donor {
       isAvailable: true,
       available: true,
       registeredAt: new Date().toISOString(),
-      unitsDonatedTotal: 0
+      unitsDonatedTotal: 0,
+      last_alert_sent_at: null,
+      lastAlertSentAt: null
     };
   }
   const bloodType = ((raw.bloodType || raw.blood_type || 'O+') as string).trim().toUpperCase() as BloodType;
@@ -76,6 +78,8 @@ export function normalizeDonor(raw: any): Donor {
     isAvailable,
     registeredAt: raw.registeredAt || raw.created_at || new Date().toISOString(),
     unitsDonatedTotal: Number(raw.unitsDonatedTotal ?? raw.units_donated_total ?? 0),
+    last_alert_sent_at: raw.last_alert_sent_at || raw.lastAlertSentAt || null,
+    lastAlertSentAt: raw.lastAlertSentAt || raw.last_alert_sent_at || null,
   };
 }
 

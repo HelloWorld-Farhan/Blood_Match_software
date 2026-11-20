@@ -18,7 +18,8 @@ import {
   Navigation,
   ChevronDown,
   Clock,
-  CheckCircle
+  CheckCircle,
+  Search
 } from 'lucide-react';
 import { dispatchEmergencyDonorApi, fetchGpsPermissionApi, updateGpsPermissionApi } from '../services/api';
 import { stripHonorific } from '../utils/countryCodes';
@@ -47,16 +48,25 @@ export interface SendAlertModalProps {
   onSuccess?: (donorEmail: string) => void;
 }
 
-const POPULAR_FACILITY_LOCATIONS = [
-  'Regional Clinical Emergency Center',
+const EMERGENCY_TRAUMA_CENTERS = [
   'AIIMS Trauma Center, New Delhi',
-  'Safdarjung Emergency Trauma Bay',
-  'Connaught Place, Central Delhi',
-  'South Extension, South Delhi',
+  'Safdarjung Emergency Trauma Bay, New Delhi',
+  'Dr. Ram Manohar Lohia (RML) Hospital, Delhi',
+  'Lok Nayak Hospital (LNJP), Delhi',
+  'Max Super Speciality Hospital, Saket',
+  'Fortis Escorts Heart Institute, Okhla',
+  'Indraprastha Apollo Hospital, Sarita Vihar',
+  'Sir Ganga Ram Hospital, Rajinder Nagar',
+];
+
+const PROMINENT_LOCALITIES = [
+  'Rohini, North West Delhi',
   'Rohini Sector 7, North West Delhi',
   'Dwarka Sector 10, South West Delhi',
-  'Karol Bagh, Central Delhi',
+  'Connaught Place, Central Delhi',
+  'South Extension, South Delhi',
   'Saket, South Delhi',
+  'Karol Bagh, Central Delhi',
   'Lajpat Nagar, South Delhi',
   'Hauz Khas, South Delhi',
   'Janakpuri, West Delhi',
@@ -64,26 +74,49 @@ const POPULAR_FACILITY_LOCATIONS = [
   'Vasant Kunj, South West Delhi',
   'Mayur Vihar, East Delhi',
   'Chandni Chowk, North Delhi',
-  'Okhla, South East Delhi'
+  'Okhla, South East Delhi',
+  'Regional Clinical Emergency Center',
 ];
 
-export const calculateCooldown = (lastAlertIso?: string | null): { inCooldown: boolean; remainingText: string; remainingMs: number } => {
-  if (!lastAlertIso) return { inCooldown: false, remainingText: '', remainingMs: 0 };
-  const alertTime = new Date(lastAlertIso).getTime();
-  if (isNaN(alertTime)) return { inCooldown: false, remainingText: '', remainingMs: 0 };
+export interface CooldownStatus {
+  inCooldown: boolean;
+  remainingText: string;
+  remainingMs: number;
+  availableAtText: string;
+  availableAtIso?: string;
+}
+
+export const calculateCooldown = (lastAlertIso?: string | null): CooldownStatus => {
+  if (!lastAlertIso) return { inCooldown: false, remainingText: '', remainingMs: 0, availableAtText: '' };
+  let safeIso = String(lastAlertIso).trim();
+  if (!safeIso.endsWith('Z') && !safeIso.includes('+') && !safeIso.includes('-0') && !safeIso.includes('+0')) {
+    safeIso += 'Z';
+  }
+  const alertTime = new Date(safeIso).getTime();
+  if (isNaN(alertTime)) return { inCooldown: false, remainingText: '', remainingMs: 0, availableAtText: '' };
   const now = Date.now();
   const cooldownDuration = 24 * 60 * 60 * 1000; // 24 hours in ms
   const elapsed = now - alertTime;
   if (elapsed >= cooldownDuration || elapsed < 0) {
-    return { inCooldown: false, remainingText: '', remainingMs: 0 };
+    return { inCooldown: false, remainingText: '', remainingMs: 0, availableAtText: '' };
   }
   const remainingMs = cooldownDuration - elapsed;
   const hours = Math.floor(remainingMs / (1000 * 60 * 60));
   const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+  const availableDate = new Date(alertTime + cooldownDuration);
+  const availableAtText = availableDate.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  });
   return {
     inCooldown: true,
     remainingText: hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`,
-    remainingMs
+    remainingMs,
+    availableAtText,
+    availableAtIso: availableDate.toISOString()
   };
 };
 
@@ -115,9 +148,13 @@ export default function SendAlertModal({
   // Form states
   const [requesterName, setRequesterName] = useState(defaultUserName);
   const [requesterPhone, setRequesterPhone] = useState(defaultUserPhone);
-  // Neutral patient name: NEVER default to the clinician's own name!
-  const [patientName, setPatientName] = useState(stripHonorific(initialPatientName) || '');
-  const [hospital, setHospital] = useState(initialHospital || 'Regional Clinical Emergency Center');
+  // Neutral patient name fallback (no dedicated user input required)
+  const patientName = stripHonorific(initialPatientName) || 'Emergency Transfusion Recipient';
+  const defaultInitialLocation = (initialHospital && initialHospital !== 'Regional Clinical Emergency Center')
+    ? initialHospital
+    : (targetDonor.location?.trim() || 'AIIMS Trauma Center, New Delhi');
+  const [hospital, setHospital] = useState(defaultInitialLocation);
+  const [locationSearchFilter, setLocationSearchFilter] = useState('');
   const [customMessage, setCustomMessage] = useState(
     initialMessage || `Urgent transfusion required for Group ${targetDonor.bloodType}. Your compatible voluntary donation can save a life. Please call our emergency hotline immediately if you can donate.`
   );
@@ -407,7 +444,7 @@ export default function SendAlertModal({
                   </span>
                 </div>
                 <p className="text-[11px] text-amber-800 leading-relaxed">
-                  An emergency mobilization alert was already transmitted to {targetDonor.fullName} within the last 24 hours. To protect voluntary donors from notification overload, repeat dispatches unlock in <strong>{cooldown.remainingText}</strong>.
+                  An emergency mobilization alert was already transmitted to {targetDonor.fullName} within the last 24 hours. To protect voluntary donors from notification overload, repeat dispatches unlock on <strong>{cooldown.availableAtText}</strong> ({cooldown.remainingText} remaining).
                 </p>
               </div>
             </motion.div>
@@ -501,24 +538,6 @@ export default function SendAlertModal({
                     />
                   </div>
                 </div>
-
-                {/* Patient Name (Neutral / Patient specific) */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-[#1A1D20] flex items-center justify-between">
-                    <span className="flex items-center gap-1">
-                      <User className="w-3.5 h-3.5 text-slate-500" />
-                      <span>Patient / Case Name</span>
-                    </span>
-                    <span className="text-[10px] text-[#5A626A] font-normal">Optional identifier</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={patientName}
-                    onChange={(e) => setPatientName(e.target.value)}
-                    placeholder="e.g. Emergency Patient / Case #892"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-[#D9C7C2] focus:border-[#D72638] focus:ring-2 focus:ring-[#D72638]/20 text-xs font-medium text-[#1A1D20] transition-all"
-                  />
-                </div>
               </div>
 
               {/* Right Column: Facility / Location & Urgent Message */}
@@ -563,9 +582,12 @@ export default function SendAlertModal({
                     </div>
                   </div>
 
-                  {/* Location Input with Dropdown Button */}
+                  {/* Location Selector Input with Dropdown Button */}
                   <div className="relative">
-                    <div className="flex items-center rounded-xl bg-white border border-[#D9C7C2] focus-within:border-[#D72638] focus-within:ring-2 focus-within:ring-[#D72638]/20 transition-all overflow-hidden">
+                    <div
+                      onClick={() => setIsLocationDropdownOpen(true)}
+                      className="flex items-center rounded-xl bg-white border border-[#D9C7C2] focus-within:border-[#D72638] focus-within:ring-2 focus-within:ring-[#D72638]/20 transition-all overflow-hidden cursor-pointer"
+                    >
                       <div className="pl-3 pr-1 text-[#D72638]">
                         <MapPin className="w-3.5 h-3.5" />
                       </div>
@@ -575,22 +597,26 @@ export default function SendAlertModal({
                         value={hospital}
                         onChange={(e) => {
                           setHospital(e.target.value);
+                          setLocationSearchFilter(e.target.value);
                           setIsLocationDropdownOpen(true);
                         }}
                         onFocus={() => setIsLocationDropdownOpen(true)}
-                        placeholder="Search or enter hospital / facility location"
-                        className="w-full py-2.5 px-2 text-xs font-medium text-[#1A1D20] bg-transparent outline-none"
+                        placeholder="Search or select attending facility / location"
+                        className="w-full py-2.5 px-2 text-xs font-semibold text-[#1A1D20] bg-transparent outline-none cursor-pointer"
                       />
                       <button
                         type="button"
-                        onClick={() => setIsLocationDropdownOpen(prev => !prev)}
-                        className="px-2.5 py-2.5 hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsLocationDropdownOpen(prev => !prev);
+                        }}
+                        className="px-2.5 py-2.5 hover:bg-slate-100 text-slate-500 hover:text-slate-700 transition-colors cursor-pointer"
                       >
                         <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isLocationDropdownOpen ? 'rotate-180 text-[#D72638]' : ''}`} />
                       </button>
                     </div>
 
-                    {/* Animated Dropdown Menu */}
+                    {/* Animated Dropdown Menu with Search & Categorized Options */}
                     <AnimatePresence>
                       {isLocationDropdownOpen && (
                         <motion.div
@@ -598,67 +624,165 @@ export default function SendAlertModal({
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: -4, scale: 0.98 }}
                           transition={{ duration: 0.15 }}
-                          className="absolute z-50 mt-1.5 w-full rounded-2xl border border-[#D9C7C2] bg-white/95 backdrop-blur-md shadow-2xl overflow-hidden py-1 max-h-52 overflow-y-auto no-scrollbar"
+                          className="absolute z-50 mt-1.5 w-full rounded-2xl border border-[#D9C7C2] bg-white shadow-2xl overflow-hidden py-1 max-h-64 overflow-y-auto no-scrollbar"
                         >
-                          <div className="px-3 py-1.5 text-[10px] font-black text-[#5A626A] uppercase tracking-wider border-b border-[#D9C7C2]/40 flex items-center justify-between">
-                            <span>Standard Medical Facilities &amp; Localities</span>
-                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-red-100 text-[#D72638] font-bold">
-                              Delhi Region
-                            </span>
+                          {/* Search inside Dropdown */}
+                          <div className="p-2 border-b border-[#D9C7C2]/40 bg-slate-50/80 sticky top-0 z-10 backdrop-blur-sm">
+                            <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white rounded-xl border border-[#D9C7C2] text-xs">
+                              <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <input
+                                type="text"
+                                value={locationSearchFilter}
+                                onChange={(e) => setLocationSearchFilter(e.target.value)}
+                                placeholder="Search hospitals or localities..."
+                                className="w-full bg-transparent outline-none text-xs text-[#1A1D20]"
+                                autoFocus
+                              />
+                              {locationSearchFilter && (
+                                <button
+                                  type="button"
+                                  onClick={() => setLocationSearchFilter('')}
+                                  className="text-slate-400 hover:text-slate-600"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
                           </div>
 
+                          {/* Dynamic Content */}
                           {(() => {
-                            const searchLower = hospital.trim().toLowerCase();
-                            const filtered = POPULAR_FACILITY_LOCATIONS.filter(item =>
-                              item.toLowerCase().includes(searchLower)
-                            );
+                            const query = locationSearchFilter.trim().toLowerCase();
+                            const matches = (text: string) => !query || text.toLowerCase().includes(query);
 
-                            if (filtered.length === 0) {
-                              return (
-                                <div className="p-3 text-center">
-                                  <p className="text-xs text-[#5A626A]">Use custom entry: "{hospital}"</p>
-                                  <button
-                                    type="button"
-                                    onClick={() => setIsLocationDropdownOpen(false)}
-                                    className="mt-1 text-xs font-bold text-[#D72638] hover:underline"
-                                  >
-                                    Confirm Selection
-                                  </button>
-                                </div>
-                              );
-                            }
+                            const donorLoc = targetDonor.location?.trim();
+                            const hasDonorLocMatch = donorLoc && matches(donorLoc);
+                            const matchingCenters = EMERGENCY_TRAUMA_CENTERS.filter(matches);
+                            const matchingLocalities = PROMINENT_LOCALITIES.filter(loc => loc !== donorLoc && matches(loc));
 
-                            return filtered.map((loc) => {
-                              const isSelected = hospital === loc;
-                              return (
-                                <div
-                                  key={loc}
-                                  onClick={() => {
-                                    setHospital(loc);
-                                    setIsLocationDropdownOpen(false);
-                                  }}
-                                  className={`px-3 py-2 text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors ${isSelected
-                                    ? 'bg-red-50 text-[#D72638] font-bold'
-                                    : 'hover:bg-[#F5F1EF] text-[#1A1D20]'
-                                    }`}
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${isSelected ? 'bg-red-100 text-[#D72638]' : 'bg-slate-100 text-slate-500'}`}>
-                                      <MapPin className="w-3 h-3" />
+                            const hasAnyMatches = Boolean(hasDonorLocMatch) || matchingCenters.length > 0 || matchingLocalities.length > 0;
+
+                            return (
+                              <div className="space-y-1">
+                                {/* Donor's Locality Section (if available) */}
+                                {donorLoc && hasDonorLocMatch && (
+                                  <div>
+                                    <div className="px-3 py-1 text-[9.5px] font-black text-[#5A626A] uppercase tracking-wider bg-slate-50 border-b border-[#D9C7C2]/30 flex items-center justify-between">
+                                      <span>Target Donor Registered Locality</span>
+                                      <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-700 text-[9px] font-bold">Recommended</span>
                                     </div>
-                                    <span className="truncate">{loc}</span>
+                                    <div
+                                      onClick={() => {
+                                        setHospital(donorLoc);
+                                        setIsLocationDropdownOpen(false);
+                                        setLocationSearchFilter('');
+                                      }}
+                                      className={`px-3 py-2 text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors ${hospital === donorLoc
+                                        ? 'bg-red-50 text-[#D72638] font-bold'
+                                        : 'hover:bg-[#F5F1EF] text-[#1A1D20]'
+                                        }`}
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0">
+                                        <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${hospital === donorLoc ? 'bg-red-100 text-[#D72638]' : 'bg-emerald-100 text-emerald-600'}`}>
+                                          <MapPin className="w-3 h-3" />
+                                        </div>
+                                        <span className="truncate">{donorLoc}</span>
+                                      </div>
+                                      {hospital === donorLoc && <CheckCircle className="w-3.5 h-3.5 text-[#D72638] shrink-0" />}
+                                    </div>
                                   </div>
-                                  {isSelected && <CheckCircle className="w-3.5 h-3.5 text-[#D72638] shrink-0" />}
-                                </div>
-                              );
-                            });
+                                )}
+
+                                {/* Major Emergency Trauma Centers */}
+                                {matchingCenters.length > 0 && (
+                                  <div>
+                                    <div className="px-3 py-1 text-[9.5px] font-black text-[#5A626A] uppercase tracking-wider bg-slate-50 border-b border-[#D9C7C2]/30">
+                                      Major Trauma Centers &amp; Hospitals
+                                    </div>
+                                    {matchingCenters.map((loc) => {
+                                      const isSelected = hospital === loc;
+                                      return (
+                                        <div
+                                          key={loc}
+                                          onClick={() => {
+                                            setHospital(loc);
+                                            setIsLocationDropdownOpen(false);
+                                            setLocationSearchFilter('');
+                                          }}
+                                          className={`px-3 py-2 text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors ${isSelected
+                                            ? 'bg-red-50 text-[#D72638] font-bold'
+                                            : 'hover:bg-[#F5F1EF] text-[#1A1D20]'
+                                            }`}
+                                        >
+                                          <div className="flex items-center gap-2 min-w-0">
+                                            <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${isSelected ? 'bg-red-100 text-[#D72638]' : 'bg-red-50 text-red-600'}`}>
+                                              <Building2 className="w-3 h-3" />
+                                            </div>
+                                            <span className="truncate">{loc}</span>
+                                          </div>
+                                          {isSelected && <CheckCircle className="w-3.5 h-3.5 text-[#D72638] shrink-0" />}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {/* Regional Localities */}
+                                {matchingLocalities.length > 0 && (
+                                  <div>
+                                    <div className="px-3 py-1 text-[9.5px] font-black text-[#5A626A] uppercase tracking-wider bg-slate-50 border-b border-[#D9C7C2]/30">
+                                      Prominent Localities &amp; Areas
+                                    </div>
+                                    {matchingLocalities.map((loc) => {
+                                      const isSelected = hospital === loc;
+                                      return (
+                                        <div
+                                          key={loc}
+                                          onClick={() => {
+                                            setHospital(loc);
+                                            setIsLocationDropdownOpen(false);
+                                            setLocationSearchFilter('');
+                                          }}
+                                          className={`px-3 py-2 text-xs flex items-center justify-between gap-2 cursor-pointer transition-colors ${isSelected
+                                            ? 'bg-red-50 text-[#D72638] font-bold'
+                                            : 'hover:bg-[#F5F1EF] text-[#1A1D20]'
+                                            }`}
+                                        >
+                                          <div className="flex items-center gap-2 min-w-0">
+                                            <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${isSelected ? 'bg-red-100 text-[#D72638]' : 'bg-slate-100 text-slate-500'}`}>
+                                              <MapPin className="w-3 h-3" />
+                                            </div>
+                                            <span className="truncate">{loc}</span>
+                                          </div>
+                                          {isSelected && <CheckCircle className="w-3.5 h-3.5 text-[#D72638] shrink-0" />}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+
+                                {/* Custom Entry Option if no matches or custom search */}
+                                {query && !hasAnyMatches && (
+                                  <div
+                                    onClick={() => {
+                                      setHospital(locationSearchFilter.trim());
+                                      setIsLocationDropdownOpen(false);
+                                      setLocationSearchFilter('');
+                                    }}
+                                    className="p-3 text-center cursor-pointer hover:bg-red-50 text-xs font-bold text-[#D72638]"
+                                  >
+                                    Use custom location: "{locationSearchFilter.trim()}"
+                                  </div>
+                                )}
+                              </div>
+                            );
                           })()}
                         </motion.div>
                       )}
                     </AnimatePresence>
                   </div>
 
-                  {/* GPS Status Message & Suggestion Pills */}
+                  {/* GPS Status Message & Suggestion Quick-Pills */}
                   {gpsMessage && (
                     <p className="text-[10px] text-emerald-700 font-semibold flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
@@ -666,23 +790,56 @@ export default function SendAlertModal({
                     </p>
                   )}
 
-                  {detectedPills.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 pt-0.5">
-                      {detectedPills.map((pill) => (
-                        <button
-                          key={pill}
-                          type="button"
-                          onClick={() => {
-                            setHospital(pill);
-                            setIsLocationDropdownOpen(false);
-                          }}
-                          className="text-[10px] font-semibold px-2 py-0.5 rounded-lg border bg-white text-[#4A5568] border-[#D9C7C2] hover:bg-slate-100 cursor-pointer"
-                        >
-                          {pill}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  {/* Quick-Pick Location Pills (Donor Locality, GPS Pills, Top Trauma Center) */}
+                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                    {targetDonor.location && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHospital(targetDonor.location!);
+                          setIsLocationDropdownOpen(false);
+                        }}
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-lg border transition-all flex items-center gap-1 cursor-pointer ${hospital === targetDonor.location
+                          ? 'bg-emerald-50 border-emerald-400 text-emerald-800 font-bold'
+                          : 'bg-white text-[#4A5568] border-[#D9C7C2] hover:bg-slate-100'
+                          }`}
+                        title="Select Donor Registered Locality"
+                      >
+                        <MapPin className="w-2.5 h-2.5 text-emerald-600" />
+                        <span>Donor: {targetDonor.location}</span>
+                      </button>
+                    )}
+                    {detectedPills.map((pill) => (
+                      <button
+                        key={pill}
+                        type="button"
+                        onClick={() => {
+                          setHospital(pill);
+                          setIsLocationDropdownOpen(false);
+                        }}
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-lg border transition-all flex items-center gap-1 cursor-pointer ${hospital === pill
+                          ? 'bg-red-50 border-red-300 text-[#D72638] font-bold'
+                          : 'bg-white text-[#4A5568] border-[#D9C7C2] hover:bg-slate-100'
+                          }`}
+                      >
+                        <Navigation className="w-2.5 h-2.5 text-[#D72638]" />
+                        <span>{pill}</span>
+                      </button>
+                    ))}
+                    {hospital !== 'AIIMS Trauma Center, New Delhi' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHospital('AIIMS Trauma Center, New Delhi');
+                          setIsLocationDropdownOpen(false);
+                        }}
+                        className="text-[10px] font-semibold px-2 py-0.5 rounded-lg border bg-white text-[#4A5568] border-[#D9C7C2] hover:bg-slate-100 cursor-pointer flex items-center gap-1"
+                      >
+                        <Building2 className="w-2.5 h-2.5 text-[#D72638]" />
+                        <span>AIIMS Trauma Center</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Clinical Urgency Message Textarea */}
@@ -750,7 +907,7 @@ export default function SendAlertModal({
                 ) : cooldown.inCooldown ? (
                   <>
                     <Clock className="w-3.5 h-3.5 text-amber-700" />
-                    <span>Alert Sent (Cooldown: {cooldown.remainingText})</span>
+                    <span>Cooldown Active · Available {cooldown.availableAtText}</span>
                   </>
                 ) : (
                   <>
