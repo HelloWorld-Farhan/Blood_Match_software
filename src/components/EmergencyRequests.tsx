@@ -2347,29 +2347,6 @@ export default function EmergencyRequests() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <button
                               type="button"
-                              onClick={() => {
-                                if (isFulfilled) return;
-                                setCallModalTarget({
-                                  contactName: stripHonorific(req.contactName),
-                                  phoneNumber: req.contactNumber,
-                                  bloodType: req.bloodType,
-                                  location: req.hospitalCity || 'Delhi NCR',
-                                  roleOrContext: `Emergency Transfusion Hotline • Patient: ${stripHonorific(req.patientName)}`
-                                });
-                              }}
-                              disabled={isFulfilled}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${isFulfilled
-                                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed opacity-50 shadow-none'
-                                : 'bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] border border-[#D9C7C2] cursor-pointer shadow-2xs'
-                                }`}
-                              title={isFulfilled ? 'Transfusion fulfilled & closed: Hotline call blocked' : `Call Emergency Hotline: ${stripHonorific(req.contactName)} (${req.contactNumber})`}
-                            >
-                              <Phone className={`w-3.5 h-3.5 ${isFulfilled ? 'text-slate-400' : 'text-emerald-600'}`} />
-                              <span>Call Hotline ({req.contactNumber})</span>
-                            </button>
-
-                            <button
-                              type="button"
                               onClick={() => !isFulfilled && handleEmailRosterForRequest(req, displayedDonors)}
                               disabled={isFulfilled || isEmailingRoster || displayedDonors.length === 0}
                               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${isFulfilled || displayedDonors.length === 0
