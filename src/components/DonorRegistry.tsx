@@ -2470,7 +2470,7 @@ export default function DonorRegistry() {
                     </button>
                   </div>
                 ) : (
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setCallModalTarget({
@@ -2480,9 +2480,9 @@ export default function DonorRegistry() {
                         location: donor.location || `${donor.city}, ${donor.state}`,
                         roleOrContext: `Voluntary Blood Donor (Group ${donor.bloodType})`
                       })}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                      className="flex-1 min-w-0 sm:min-w-fit flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white font-bold text-xs shadow-xs transition-colors cursor-pointer whitespace-nowrap"
                     >
-                      <Phone className="w-3 h-3" />
+                      <Phone className="w-3.5 h-3.5 shrink-0" />
                       <span>Direct Mobilize Call</span>
                     </button>
                     {(() => {
@@ -2492,7 +2492,7 @@ export default function DonorRegistry() {
                           <button
                             type="button"
                             disabled
-                            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 font-bold text-xs opacity-90 cursor-not-allowed shadow-2xs whitespace-nowrap"
+                            className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 font-bold text-xs opacity-90 cursor-not-allowed shadow-2xs whitespace-nowrap shrink-0"
                           >
                             <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
                             <span>Available: {cooldown.availableAtText}</span>
@@ -2512,9 +2512,9 @@ export default function DonorRegistry() {
                             lastAlertSentAt: donor.lastAlertSentAt || donor.last_alert_sent_at,
                             last_alert_sent_at: donor.lastAlertSentAt || donor.last_alert_sent_at,
                           })}
-                          className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] font-semibold text-xs transition-colors cursor-pointer"
+                          className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white hover:bg-[#F5F1EF] text-[#1A1D20] border border-[#D9C7C2] font-semibold text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0"
                         >
-                          <Mail className="w-3 h-3 text-[#D72638]" />
+                          <Mail className="w-3.5 h-3.5 text-[#D72638] shrink-0" />
                           <span>Send Alert</span>
                         </button>
                       );
