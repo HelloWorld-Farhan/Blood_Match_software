@@ -2794,13 +2794,6 @@ export default function EmergencyRequests() {
                                                 ? 'bg-amber-100 text-amber-800 border border-amber-300 cursor-not-allowed opacity-85'
                                                 : 'bg-[#D72638] hover:bg-[#b51d2c] hover:scale-105 active:scale-95 text-white cursor-pointer hover:shadow-md'
                                               }`}
-                                            title={
-                                              isDispatched
-                                                ? `Emergency mobilization alert already dispatched to ${donor.fullName}`
-                                                : donorCooldown.inCooldown
-                                                  ? `24-Hour Alert Cooldown active for ${donor.fullName}. Repeat dispatches unlock on ${donorCooldown.availableAtText} (${donorCooldown.remainingText} remaining).`
-                                                  : `Dispatch real-time emergency mobilization alert directly to donor ${donor.fullName}`
-                                            }
                                           >
                                             {isDispatched ? (
                                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700" />

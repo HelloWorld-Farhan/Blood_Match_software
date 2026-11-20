@@ -26,7 +26,8 @@ import {
   Droplet,
   ArrowRight,
   Trash2,
-  Clock
+  Clock,
+  Copy
 } from 'lucide-react';
 import {
   getDonors,
@@ -463,6 +464,31 @@ export default function DonorRegistry() {
       return updated;
     });
     saveUserVerifiedEmailApi(clean, currentUserEmail).catch(() => { });
+  };
+
+  // Click-to-copy state for verified phone and email in donor cards
+  const [copiedField, setCopiedField] = useState<{ id: string; field: 'phone' | 'email' } | null>(null);
+
+  const handleCopyField = (text: string, donorId: string, field: 'phone' | 'email', e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(text);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedField({ id: donorId, field });
+      setTimeout(() => {
+        setCopiedField(prev => (prev?.id === donorId && prev?.field === field ? null : prev));
+      }, 2000);
+    } catch {
+      // Fallback
+    }
   };
 
   const isEmailVerified = Boolean(
@@ -2296,31 +2322,88 @@ export default function DonorRegistry() {
             >
               {/* Detailed Clinical Metrics Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                <div className="p-2.5 rounded-xl bg-white border border-[#D9C7C2]">
-                  <span className="text-[10px] text-[#7A0C17] font-bold uppercase tracking-wider block">Verified Phone</span>
-                  <button
-                    type="button"
-                    onClick={() => setCallModalTarget({
-                      contactName: donor.fullName,
-                      phoneNumber: donor.phone,
-                      bloodType: donor.bloodType,
-                      location: donor.location || `${donor.city}, ${donor.state}`,
-                      roleOrContext: `Voluntary Blood Donor (Group ${donor.bloodType})`
-                    })}
-                    className="font-mono font-bold text-emerald-700 hover:underline mt-0.5 block truncate text-left cursor-pointer"
-                  >
-                    {donor.phone}
-                  </button>
+                {/* Verified Phone Card with Click-to-Copy and Animation */}
+                <div 
+                  onClick={(e) => handleCopyField(donor.phone, donor.id, 'phone', e)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      handleCopyField(donor.phone, donor.id, 'phone', e as any);
+                    }
+                  }}
+                  className="p-2.5 rounded-xl bg-white hover:bg-emerald-50/40 border border-[#D9C7C2] hover:border-emerald-300 transition-all cursor-pointer group select-none shadow-2xs hover:shadow-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-[#7A0C17] font-bold uppercase tracking-wider block">Verified Phone</span>
+                    <AnimatePresence mode="wait">
+                      {copiedField?.id === donor.id && copiedField?.field === 'phone' ? (
+                        <motion.span
+                          key="copied-phone"
+                          initial={{ opacity: 0, scale: 0.8, y: -2 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.8, y: 2 }}
+                          transition={{ duration: 0.18 }}
+                          className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-300 shadow-2xs"
+                        >
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span>Copied!</span>
+                        </motion.span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-slate-400 group-hover:text-emerald-700 transition-colors">
+                          <Copy className="w-3 h-3" />
+                          <span className="text-[9px] opacity-0 group-hover:opacity-100 transition-opacity font-medium">Click to Copy</span>
+                        </span>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="font-mono font-bold text-emerald-700 text-xs tracking-tight">
+                      {donor.phone}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-white border border-[#D9C7C2]">
-                  <span className="text-[10px] text-[#7A0C17] font-bold uppercase tracking-wider block">Verified Email</span>
-                  <a
-                    href={`mailto:${donor.email}`}
-                    className="font-medium text-[#1A1D20] hover:text-[#D72638] hover:underline mt-0.5 block truncate"
-                  >
-                    {donor.email}
-                  </a>
+                {/* Verified Email Card with Click-to-Copy and Animation */}
+                <div 
+                  onClick={(e) => handleCopyField(donor.email, donor.id, 'email', e)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      handleCopyField(donor.email, donor.id, 'email', e as any);
+                    }
+                  }}
+                  className="p-2.5 rounded-xl bg-white hover:bg-emerald-50/40 border border-[#D9C7C2] hover:border-emerald-300 transition-all cursor-pointer group select-none shadow-2xs hover:shadow-xs"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-[#7A0C17] font-bold uppercase tracking-wider block">Verified Email</span>
+                    <AnimatePresence mode="wait">
+                      {copiedField?.id === donor.id && copiedField?.field === 'email' ? (
+                        <motion.span
+                          key="copied-email"
+                          initial={{ opacity: 0, scale: 0.8, y: -2 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.8, y: 2 }}
+                          transition={{ duration: 0.18 }}
+                          className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-300 shadow-2xs"
+                        >
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span>Copied!</span>
+                        </motion.span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] text-slate-400 group-hover:text-emerald-700 transition-colors">
+                          <Copy className="w-3 h-3" />
+                          <span className="text-[9px] opacity-0 group-hover:opacity-100 transition-opacity font-medium">Click to Copy</span>
+                        </span>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="font-medium text-[#1A1D20] text-xs truncate">
+                      {donor.email}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -2409,7 +2492,6 @@ export default function DonorRegistry() {
                           <button
                             type="button"
                             disabled
-                            title={`24-Hour Alert Cooldown active for ${donor.fullName}. Repeat dispatches unlock on ${cooldown.availableAtText} (${cooldown.remainingText} remaining).`}
                             className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 text-amber-900 border border-amber-300 font-bold text-xs opacity-90 cursor-not-allowed shadow-2xs whitespace-nowrap"
                           >
                             <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
