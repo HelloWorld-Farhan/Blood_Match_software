@@ -145,28 +145,28 @@ export function generateEmergencyDonorDocketPdf(
   doc.setTextColor(215, 38, 56);
   doc.text(urgencyVal, marginX + 4, currentY + 27.5);
 
-  // Col 2: Locality & Emergency Authorization Contact (marginX + 62) - Volume Field Omitted
+  // Col 2: Locality & Emergency Authorization Contact (marginX + 56)
   const localityVal = metadata.hospitalLocality || 'Delhi NCR Triage Corridor';
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(117, 128, 138);
-  doc.text('SEARCH LOCALITY / HOSPITAL', marginX + 62, currentY + 13);
+  doc.text('SEARCH LOCALITY / HOSPITAL', marginX + 56, currentY + 13);
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(26, 29, 32);
-  const safeLoc = localityVal.length > 32 ? localityVal.slice(0, 32) + '...' : localityVal;
-  doc.text(safeLoc, marginX + 62, currentY + 17.5);
+  const locHeaderLines = doc.splitTextToSize(localityVal, 88);
+  doc.text(locHeaderLines[0] || localityVal, marginX + 56, currentY + 17.5);
 
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(117, 128, 138);
-  doc.text('EMERGENCY CONTACT & AUTHORIZATION', marginX + 62, currentY + 23);
+  doc.text('EMERGENCY CONTACT & AUTHORIZATION', marginX + 56, currentY + 23);
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(90, 98, 106);
   const contactText = `${metadata.contactName || 'Attending Clinician'} • Phone: ${metadata.emergencyPhone || 'N/A'}`;
-  const safeContact = contactText.length > 40 ? contactText.slice(0, 40) + '...' : contactText;
-  doc.text(safeContact, marginX + 62, currentY + 27.5);
+  const contactHeaderLines = doc.splitTextToSize(contactText, 88);
+  doc.text(contactHeaderLines[0] || contactText, marginX + 56, currentY + 27.5);
 
   // Col 3: Prominent Blood Group Badge
   const badgeWidth = 32;
@@ -234,13 +234,13 @@ export function generateEmergencyDonorDocketPdf(
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(122, 12, 23); // #7A0C17
 
-  // Column X Positions
-  const colRank = marginX + 3;        // 17mm
-  const colName = marginX + 14;       // 28mm
-  const colGroup = marginX + 54;      // 68mm
-  const colProximity = marginX + 68;  // 82mm
-  const colLocality = marginX + 106;  // 120mm
-  const colContact = marginX + 140;   // 154mm
+  // Column X Positions (Total contentWidth = 182mm, marginX = 14mm to 196mm)
+  const colRank = marginX + 2;        // 16mm (width 9mm)
+  const colName = marginX + 11;       // 25mm (width 33mm)
+  const colGroup = marginX + 44;      // 58mm (width 12mm)
+  const colProximity = marginX + 56;  // 70mm (width 22mm)
+  const colLocality = marginX + 78;   // 92mm (width 44mm)
+  const colContact = marginX + 122;   // 136mm (width 60mm to 196mm)
 
   doc.text('RANK', colRank, currentY + 5);
   doc.text('DONOR NAME', colName, currentY + 5);
@@ -252,7 +252,7 @@ export function generateEmergencyDonorDocketPdf(
   currentY += tblHeaderHeight;
 
   // --- 6. Table Data Rows (Generous Row Height with Dedicated Phone & Email Rows) ---
-  const rowHeight = 9.2;
+  const rowHeight = 9.8;
   const donorsToRender = donors.slice(0, 16);
 
   donorsToRender.forEach((d, idx) => {
@@ -272,20 +272,25 @@ export function generateEmergencyDonorDocketPdf(
     doc.setTextColor(215, 38, 56);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
-    doc.text(`#${d.rank}`, colRank, rowY + 5.2);
+    doc.text(`#${d.rank}`, colRank, rowY + 5.6);
 
-    // 2. Donor Name
+    // 2. Donor Name (Clean multi-line wrapping if name is long)
     doc.setTextColor(26, 29, 32);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(7.5);
-    const safeName = d.fullName.length > 20 ? d.fullName.slice(0, 20) + '...' : d.fullName;
-    doc.text(safeName, colName, rowY + 5.2);
+    const donorNameLines = doc.splitTextToSize(d.fullName || 'Anonymous Donor', 31);
+    if (donorNameLines.length > 1) {
+      doc.text(donorNameLines[0], colName, rowY + 4.0);
+      doc.text(donorNameLines[1], colName, rowY + 7.8);
+    } else {
+      doc.text(donorNameLines[0] || d.fullName, colName, rowY + 5.6);
+    }
 
     // 3. Blood Group
     doc.setTextColor(122, 12, 23);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(8);
-    doc.text(d.bloodType, colGroup, rowY + 5.2);
+    doc.text(d.bloodType, colGroup, rowY + 5.6);
 
     // 4. Proximity Tag (Close vs Far unified tag)
     const isClose = d.distanceKm <= 50.0;
@@ -293,33 +298,40 @@ export function generateEmergencyDonorDocketPdf(
       doc.setTextColor(5, 150, 105); // Emerald #059669
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.2);
-      doc.text(`[Close] ${d.distanceKm.toFixed(1)} km`, colProximity, rowY + 5.2);
+      doc.text(`[Close] ${d.distanceKm.toFixed(1)} km`, colProximity, rowY + 5.6);
     } else {
       doc.setTextColor(180, 83, 9); // Amber #B45309
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(7.2);
-      doc.text(`[Far] ${d.distanceKm.toFixed(1)} km`, colProximity, rowY + 5.2);
+      doc.text(`[Far] ${d.distanceKm.toFixed(1)} km`, colProximity, rowY + 5.6);
     }
 
-    // 5. Verified Locality (Strict boundary to prevent any bleed into contact column)
+    // 5. Verified Locality (Full complete locality without truncation)
     doc.setTextColor(90, 98, 106);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
-    const safeLocItem = d.location.length > 20 ? d.location.slice(0, 20) + '...' : d.location;
-    doc.text(safeLocItem, colLocality, rowY + 5.2);
+    doc.setFontSize(6.8);
+    const rawLoc = d.location && d.location.trim() ? d.location.trim() : 'Delhi NCR';
+    const locLines = doc.splitTextToSize(rawLoc, 42);
+    if (locLines.length > 1) {
+      doc.text(locLines[0], colLocality, rowY + 4.0);
+      doc.text(locLines[1], colLocality, rowY + 7.8);
+    } else {
+      doc.text(locLines[0] || rawLoc, colLocality, rowY + 5.6);
+    }
 
-    // 6. Contact Channels: Line 1 Phone, Line 2 Email ID (Zero Overlap)
+    // 6. Contact Channels: Full Phone Number & Full Email ID (Zero Overlap & Never Truncated)
     doc.setTextColor(26, 29, 32);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.2);
-    doc.text(d.phone || 'Phone: N/A', colContact, rowY + 3.8);
+    doc.setFontSize(7.5);
+    const phoneVal = d.phone && d.phone.trim() ? d.phone.trim() : 'Phone: N/A';
+    doc.text(phoneVal, colContact, rowY + 4.0);
 
     doc.setTextColor(100, 116, 139); // Slate-500
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.2);
-    const donorEmail = d.email ? d.email.trim() : 'Email on verified pledge';
-    const safeEmail = donorEmail.length > 24 ? donorEmail.slice(0, 24) + '...' : donorEmail;
-    doc.text(safeEmail, colContact, rowY + 7.5);
+    const donorEmail = d.email && d.email.trim() ? d.email.trim() : 'Email on verified pledge';
+    const emailFontSize = donorEmail.length > 34 ? 5.8 : 6.4;
+    doc.setFontSize(emailFontSize);
+    doc.text(donorEmail, colContact, rowY + 7.8);
   });
 
   // --- 7. Security Watermark & Compliance Footer ---

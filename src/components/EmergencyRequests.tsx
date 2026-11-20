@@ -1186,6 +1186,8 @@ export default function EmergencyRequests() {
           urgency: req.urgency,
           hospitalLocality: req.hospitalCity || 'Delhi NCR',
           searchCoordinates: reqCoords,
+          emergencyPhone: req.contactNumber || 'N/A',
+          contactName: req.contactName || currentUserName,
           timestamp: new Date().toISOString(),
           autoDownload: true
         },
@@ -1254,6 +1256,8 @@ export default function EmergencyRequests() {
           urgency: req.urgency,
           hospitalLocality: req.hospitalCity || 'Delhi NCR',
           searchCoordinates: reqCoords,
+          emergencyPhone: req.contactNumber || 'N/A',
+          contactName: req.contactName || currentUserName,
           timestamp: new Date().toISOString(),
           autoDownload: false
         },
