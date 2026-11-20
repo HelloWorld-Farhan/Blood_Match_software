@@ -89,6 +89,14 @@ export const checkPasswordCriteria = (password: string): PasswordCriteria => {
 };
 
 /**
+ * Strips medical honorifics (Dr., Doctor, Prof., Mr., Ms., Mrs.) from a name.
+ */
+export const stripHonorific = (name?: string | null): string => {
+  if (!name) return '';
+  return name.trim().replace(/^(?:Dr\.?|Doctor|Prof\.?|Mr\.?|Mrs\.?|Ms\.?)\s+/i, '').trim();
+};
+
+/**
  * Calculates clinician initials according to exact institutional standard:
  * - Multi-word name (e.g. "Farhan Khalid") -> first char of first name + first char of last name ("FK")
  * - Single-word name (e.g. "Farhan") -> first 2 characters of the name ("FA")
@@ -96,7 +104,7 @@ export const checkPasswordCriteria = (password: string): PasswordCriteria => {
  */
 export const getInitials = (name?: string | null): string => {
   if (!name) return 'FK';
-  const clean = name.trim().replace(/^(Dr\.|Dr|Mr\.|Mr|Ms\.|Ms|Mrs\.|Mrs|Prof\.)\s+/i, '').trim();
+  const clean = stripHonorific(name);
   if (!clean) return 'FK';
   const parts = clean.split(/\s+/).filter(Boolean);
   if (parts.length >= 2) {

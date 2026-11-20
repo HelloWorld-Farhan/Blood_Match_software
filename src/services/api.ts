@@ -329,6 +329,11 @@ export async function fulfillEmergencyRequestApi(requestId: string, payload: {
   return apiClient.post<{ ok: boolean; message: string; request: any }>(`/api/emergency/${encodeURIComponent(requestId)}/fulfill`, payload);
 }
 
+export async function deleteEmergencyRequestApi(requestId: string, userEmail?: string) {
+  const params = userEmail ? `?user_email=${encodeURIComponent(userEmail)}` : '';
+  return apiClient.delete<{ message: string; deleted_id: string }>(`/api/emergency/${encodeURIComponent(requestId)}${params}`);
+}
+
 export async function dispatchEmergencyDonorApi(payload: {
   donor_id?: string;
   donor_name: string;

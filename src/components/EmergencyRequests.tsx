@@ -29,7 +29,8 @@ import {
   ChevronDown,
   Users,
   Search,
-  RotateCcw
+  RotateCcw,
+  Trash2
 } from 'lucide-react';
 import { 
   getEmergencyRequests, 
@@ -46,6 +47,7 @@ import {
   dispatchEmergencyDonorApi, 
   emailEmergencyRosterApi,
   fulfillEmergencyRequestApi,
+  deleteEmergencyRequestApi,
   saveEmergencyDocketApi,
   fetchSavedPhonesApi,
   saveUserPhoneApi,
@@ -57,7 +59,8 @@ import {
   validatePhoneNumber,
   parsePhoneNumberWithCountry,
   formatFullPhone,
-  deduplicatePhones
+  deduplicatePhones,
+  stripHonorific
 } from '../utils/countryCodes';
 import { 
   Coordinates, 
@@ -284,9 +287,10 @@ export default function EmergencyRequests() {
   }, []);
 
   const currentUserName = useMemo(() => {
-    return sessionStorage.getItem('bloodmatch_user_name') || 
+    const raw = sessionStorage.getItem('bloodmatch_user_name') || 
            localStorage.getItem('bloodmatch_user_name') || 
            'Attending Trauma Clinician';
+    return stripHonorific(raw) || 'Attending Trauma Clinician';
   }, []);
 
   // Initialize with immediate local storage data to prevent any blank flicker or disappearing items
@@ -294,6 +298,11 @@ export default function EmergencyRequests() {
   const [donors, setDonors] = useState<Donor[]>(() => getDonors());
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [isOpenModal, setIsOpenModal] = useState<boolean>(false);
+
+  // Active Emergency Check Draft Tracking (ensures unique ID across Modify & Re-Test cycles)
+  const [activeEmergencyRequestId, setActiveEmergencyRequestId] = useState<string | null>(null);
+  const [activeEmergencyDraft, setActiveEmergencyDraft] = useState<EmergencyRequest | null>(null);
+  const [deletingRequestId, setDeletingRequestId] = useState<string | null>(null);
 
   // In-App Clinical Mobilize Call modal state (eliminates browser OS pick-an-app dialog)
   const [callModalTarget, setCallModalTarget] = useState<{
@@ -588,7 +597,7 @@ export default function EmergencyRequests() {
       if (reqRes.status === 'fulfilled' && reqRes.value.ok && Array.isArray(reqRes.value.data)) {
         const remoteReqs: EmergencyRequest[] = reqRes.value.data.map((r: any) => ({
           id: r.id || `REQ-${Date.now().toString().slice(-6)}`,
-          patientName: r.patient_name || r.patientName || 'Emergency Patient',
+          patientName: stripHonorific(r.patient_name || r.patientName || 'Emergency Patient'),
           patientAge: r.patient_age || r.patientAge || 35,
           bloodType: (r.blood_type || r.bloodType || 'O+') as BloodType,
           unitsNeeded: r.units_needed ?? r.unitsNeeded ?? 1,
@@ -596,7 +605,7 @@ export default function EmergencyRequests() {
           hospitalCity: r.hospital_city || r.hospitalCity || 'Delhi NCR',
           ward: r.ward || 'Emergency Triage',
           urgency: (r.urgency || 'CRITICAL') as UrgencyLevel,
-          contactName: r.contact_person || r.contactName || 'Trauma Desk',
+          contactName: stripHonorific(r.contact_person || r.contactName || 'Trauma Desk'),
           contactNumber: r.contact_phone || r.contactNumber || '+91 98765 43210',
           status: (r.status || 'urgent') as EmergencyRequest['status'],
           createdAt: r.created_at || r.createdAt || new Date().toISOString(),
@@ -613,36 +622,68 @@ export default function EmergencyRequests() {
         // Preserve and sync any local requests not yet on remote
         currentLocal.forEach(r => {
           if (!map.has(r.id)) {
-            map.set(r.id, r);
+            const cleanedLocal: EmergencyRequest = {
+              ...r,
+              patientName: stripHonorific(r.patientName),
+              contactName: stripHonorific(r.contactName)
+            };
+            map.set(r.id, cleanedLocal);
             // Push missing local request to remote in background
             createEmergencyRequestApi({
-              id: r.id,
+              id: cleanedLocal.id,
               user_email: currentUserEmail,
-              patient_name: r.patientName,
-              patient_age: r.patientAge,
-              hospital: r.hospital,
-              hospital_city: r.hospitalCity,
-              ward: r.ward,
-              blood_type: r.bloodType,
-              units_needed: r.unitsNeeded,
-              urgency: r.urgency,
-              status: r.status,
-              contact_person: r.contactName,
-              contact_phone: r.contactNumber
+              patient_name: cleanedLocal.patientName,
+              patient_age: cleanedLocal.patientAge,
+              hospital: cleanedLocal.hospital,
+              hospital_city: cleanedLocal.hospitalCity,
+              ward: cleanedLocal.ward,
+              blood_type: cleanedLocal.bloodType,
+              units_needed: cleanedLocal.unitsNeeded,
+              urgency: cleanedLocal.urgency,
+              status: cleanedLocal.status,
+              contact_person: cleanedLocal.contactName,
+              contact_phone: cleanedLocal.contactNumber
             }).catch(() => {});
           }
         });
 
-        const merged = Array.from(map.values()).sort(
+        const rawMerged = Array.from(map.values()).sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
+
+        // Deduplicate duplicate urgent test cases created during previous multi-test cycles
+        const seenTestSignatures = new Set<string>();
+        const merged: EmergencyRequest[] = [];
+        for (const req of rawMerged) {
+          if (req.status === 'urgent') {
+            const phoneCore = (req.contactNumber || '').replace(/\D/g, '').slice(-10);
+            const sig = `${req.patientName.toLowerCase()}_${req.bloodType}_${phoneCore}_${(req.hospitalCity || '').toLowerCase()}`;
+            if (!seenTestSignatures.has(sig)) {
+              seenTestSignatures.add(sig);
+              merged.push(req);
+            }
+          } else {
+            merged.push(req);
+          }
+        }
+
         setRequests(merged);
         saveEmergencyRequests(merged, currentUserEmail);
       } else {
-        setRequests(currentLocal);
+        const cleaned = currentLocal.map(r => ({
+          ...r,
+          patientName: stripHonorific(r.patientName),
+          contactName: stripHonorific(r.contactName)
+        }));
+        setRequests(cleaned);
       }
     } catch {
-      setRequests(currentLocal);
+      const cleaned = currentLocal.map(r => ({
+        ...r,
+        patientName: stripHonorific(r.patientName),
+        contactName: stripHonorific(r.contactName)
+      }));
+      setRequests(cleaned);
     }
   };
 
@@ -1126,6 +1167,41 @@ export default function EmergencyRequests() {
     setIsLocalityDropdownOpen(false);
     setDetectedPills([]);
     setGpsMessage(null);
+    setActiveEmergencyRequestId(null);
+    setActiveEmergencyDraft(null);
+  };
+
+  const handleCancelModal = () => {
+    if (activeEmergencyRequestId) {
+      setRequests(prev => {
+        const filtered = prev.filter(r => r.id !== activeEmergencyRequestId);
+        saveEmergencyRequests(filtered, currentUserEmail);
+        return filtered;
+      });
+      deleteEmergencyRequestApi(activeEmergencyRequestId, currentUserEmail).catch(() => {});
+    }
+    handleCloseModal();
+  };
+
+  const handleDeleteRequest = async (requestId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm(`Permanently remove emergency request #${requestId} from the triage queue?`)) {
+      return;
+    }
+    setDeletingRequestId(requestId);
+    try {
+      await deleteEmergencyRequestApi(requestId, currentUserEmail);
+    } catch {}
+    setRequests(prev => {
+      const updated = prev.filter(r => r.id !== requestId);
+      saveEmergencyRequests(updated, currentUserEmail);
+      return updated;
+    });
+    setBoardNotification({
+      message: `Emergency request #${requestId} deleted from triage board.`,
+      type: 'success'
+    });
+    setDeletingRequestId(null);
   };
 
   const validateForm = (): boolean => {
@@ -1168,9 +1244,13 @@ export default function EmergencyRequests() {
     const fullPhone = `${countryDialCode} ${contactPhone.trim()}`;
     const locationString = customLocalityInput.trim() || selectedLocality;
 
-    const newRequest: EmergencyRequest = {
-      id: `REQ-${Date.now().toString().slice(-6)}`,
-      patientName: patientName.trim(),
+    // Use active draft ID if already modifying and re-testing; otherwise assign a fresh unique ID
+    const reqId = activeEmergencyRequestId || `REQ-${Math.floor(100000 + Math.random() * 900000)}`;
+    setActiveEmergencyRequestId(reqId);
+
+    const currentRequest: EmergencyRequest = {
+      id: reqId,
+      patientName: stripHonorific(patientName.trim()),
       patientAge: Number(patientAge) || 35,
       bloodType: bloodType as BloodType,
       unitsNeeded: Number(unitsNeeded) || 1,
@@ -1178,36 +1258,27 @@ export default function EmergencyRequests() {
       hospitalCity: locationString,
       ward: 'Emergency Triage',
       urgency,
-      contactName: contactName.trim() || currentUserName,
+      contactName: stripHonorific(contactName.trim() || currentUserName),
       contactNumber: fullPhone,
       status: 'urgent',
-      createdAt: new Date().toISOString(),
+      createdAt: activeEmergencyDraft?.createdAt || new Date().toISOString(),
     };
 
-    // 1. Save locally to immediate UI board
+    setActiveEmergencyDraft(currentRequest);
     saveCustomPhone(fullPhone);
-    const updated = [newRequest, ...requests];
-    saveEmergencyRequests(updated, currentUserEmail);
-    setRequests(updated);
 
-    // 2. Synchronize to backend API and Cloudflare R2
-    createEmergencyRequestApi({
-      id: newRequest.id,
-      user_email: currentUserEmail,
-      patient_name: newRequest.patientName,
-      patient_age: newRequest.patientAge,
-      hospital: newRequest.hospital,
-      hospital_city: newRequest.hospitalCity,
-      ward: newRequest.ward,
-      blood_type: newRequest.bloodType,
-      units_needed: newRequest.unitsNeeded,
-      urgency: newRequest.urgency,
-      status: 'urgent',
-      contact_person: newRequest.contactName,
-      contact_phone: newRequest.contactNumber
-    }).catch(() => {});
+    // Modify the unique one in board state in place (replaces if exists, avoids duplicates on re-test)
+    setRequests(prev => {
+      const idx = prev.findIndex(r => r.id === reqId);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = currentRequest;
+        return copy;
+      }
+      return [currentRequest, ...prev];
+    });
 
-    // 3. Seamlessly transition to Radar Scanning state inside the same popup
+    // Seamlessly transition to Radar Scanning state inside the same popup
     setModalPhase('SCANNING');
     setScanStepIndex(0);
 
@@ -1223,6 +1294,67 @@ export default function EmergencyRequests() {
       clearInterval(stepInterval);
       setModalPhase('RESULTS');
     }, 1300);
+  };
+
+  const handleDoneAndViewOnBoard = async () => {
+    if (activeEmergencyDraft) {
+      const finalReq = activeEmergencyDraft;
+      const targetId = finalReq.id;
+
+      // 1. Commit to state & localStorage
+      let updatedList: EmergencyRequest[] = [];
+      setRequests(prev => {
+        const idx = prev.findIndex(r => r.id === targetId);
+        if (idx >= 0) {
+          updatedList = [...prev];
+          updatedList[idx] = finalReq;
+        } else {
+          updatedList = [finalReq, ...prev];
+        }
+        saveEmergencyRequests(updatedList, currentUserEmail);
+        return updatedList;
+      });
+
+      // 2. Persist to backend database & Cloudflare R2
+      try {
+        await createEmergencyRequestApi({
+          id: finalReq.id,
+          user_email: currentUserEmail,
+          patient_name: finalReq.patientName,
+          patient_age: finalReq.patientAge,
+          hospital: finalReq.hospital,
+          hospital_city: finalReq.hospitalCity,
+          ward: finalReq.ward,
+          blood_type: finalReq.bloodType,
+          units_needed: finalReq.unitsNeeded,
+          urgency: finalReq.urgency,
+          status: finalReq.status,
+          contact_person: finalReq.contactName,
+          contact_phone: finalReq.contactNumber
+        });
+      } catch {}
+
+      setBoardNotification({
+        message: `Emergency request #${targetId} for ${finalReq.patientName} saved and live on triage board.`,
+        type: 'success'
+      });
+
+      handleCloseModal();
+
+      // 3. Smooth scroll and highlight that unique card on the board
+      setTimeout(() => {
+        const card = document.getElementById(`request-row-${targetId}`);
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.classList.add('ring-4', 'ring-[#D72638]', 'ring-offset-2', 'bg-red-50/40');
+          setTimeout(() => {
+            card.classList.remove('ring-4', 'ring-[#D72638]', 'ring-offset-2', 'bg-red-50/40');
+          }, 3000);
+        }
+      }, 350);
+    } else {
+      handleCloseModal();
+    }
   };
 
   // Dispatch Emergency Alert to an individual donor
@@ -1721,15 +1853,15 @@ export default function EmergencyRequests() {
                       </div>
 
                       <div className="text-[11px] text-[#5A626A] mt-1 flex items-center gap-2 flex-wrap">
-                        <span>Contact: <strong>{req.contactName}</strong></span>
+                        <span>Contact: <strong>{stripHonorific(req.contactName)}</strong></span>
                         <button 
                           type="button"
                           onClick={() => setCallModalTarget({
-                            contactName: req.contactName,
+                            contactName: stripHonorific(req.contactName),
                             phoneNumber: req.contactNumber,
                             bloodType: req.bloodType,
                             location: req.hospitalCity || 'Delhi NCR',
-                            roleOrContext: `Emergency Transfusion Hotline • Patient: ${req.patientName}`
+                            roleOrContext: `Emergency Transfusion Hotline • Patient: ${stripHonorific(req.patientName)}`
                           })}
                           className="font-mono text-[#D72638] font-bold hover:underline cursor-pointer"
                         >
@@ -1737,7 +1869,7 @@ export default function EmergencyRequests() {
                         </button>
                         {isFulfilled && req.fulfilledByDonorName && (
                           <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-                            Fulfilled by: {req.fulfilledByDonorName}
+                            Fulfilled by: {stripHonorific(req.fulfilledByDonorName)}
                           </span>
                         )}
                       </div>
@@ -1751,11 +1883,11 @@ export default function EmergencyRequests() {
                         <button
                           type="button"
                           onClick={() => setCallModalTarget({
-                            contactName: req.contactName,
+                            contactName: stripHonorific(req.contactName),
                             phoneNumber: req.contactNumber,
                             bloodType: req.bloodType,
                             location: req.hospitalCity || 'Delhi NCR',
-                            roleOrContext: `Emergency Transfusion Hotline • Patient: ${req.patientName}`
+                            roleOrContext: `Emergency Transfusion Hotline • Patient: ${stripHonorific(req.patientName)}`
                           })}
                           className="py-2 px-3.5 rounded-xl bg-[#F5F1EF] hover:bg-slate-200 text-[#1A1D20] text-xs font-bold transition-all flex items-center gap-1.5 border border-[#D9C7C2] cursor-pointer"
                         >
@@ -1784,6 +1916,21 @@ export default function EmergencyRequests() {
                       <Users className="w-3.5 h-3.5 text-[#D72638]" />
                       <span>Matched Lifesavers ({matches.length})</span>
                       <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-180 text-white' : 'text-slate-400'}`} />
+                    </button>
+
+                    {/* Delete Emergency Request */}
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteRequest(req.id, e)}
+                      disabled={deletingRequestId === req.id}
+                      className="p-2 rounded-xl bg-white hover:bg-red-50 text-slate-400 hover:text-[#D72638] border border-[#D9C7C2] hover:border-red-300 transition-all cursor-pointer shadow-2xs"
+                      title="Permanently remove request"
+                    >
+                      {deletingRequestId === req.id ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#D72638]" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -2102,7 +2249,7 @@ export default function EmergencyRequests() {
       {isOpenModal && typeof document !== 'undefined' && createPortal(
         <div 
           className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-5 md:p-6 bg-black/75 backdrop-blur-md animate-fade-in"
-          onClick={handleCloseModal}
+          onClick={handleCancelModal}
         >
           <div 
             className="relative w-full max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto no-scrollbar rounded-3xl bg-white border border-[#D9C7C2] p-5 sm:p-7 md:p-8 shadow-2xl text-[#1A1D20]"
@@ -2110,7 +2257,7 @@ export default function EmergencyRequests() {
           >
             {/* Close Button */}
             <button
-              onClick={handleCloseModal}
+              onClick={handleCancelModal}
               className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-[#1A1D20] hover:bg-[#F5F1EF] transition-colors cursor-pointer"
               aria-label="Close dialog"
             >
@@ -2591,7 +2738,7 @@ export default function EmergencyRequests() {
                   <div className="pt-3 border-t border-[#D9C7C2]/60 flex items-center justify-end gap-3">
                     <button
                       type="button"
-                      onClick={handleCloseModal}
+                      onClick={handleCancelModal}
                       className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[#5A626A] hover:text-[#1A1D20] hover:bg-[#F5F1EF] transition-colors cursor-pointer"
                     >
                       Cancel
@@ -2930,8 +3077,8 @@ export default function EmergencyRequests() {
                     Request posted to active triage queue and synchronized across devices.
                   </span>
                   <button
-                    onClick={handleCloseModal}
-                    className="px-5 py-2 rounded-xl bg-[#1A1D20] hover:bg-slate-800 text-white text-xs font-bold transition-all cursor-pointer"
+                    onClick={handleDoneAndViewOnBoard}
+                    className="px-5 py-2 rounded-xl bg-[#1A1D20] hover:bg-slate-800 text-white text-xs font-bold transition-all cursor-pointer shadow-md hover:scale-[1.02] active:scale-98"
                   >
                     Done &amp; View on Board
                   </button>
