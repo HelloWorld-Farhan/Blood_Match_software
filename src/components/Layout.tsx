@@ -484,10 +484,22 @@ export default function Layout() {
     }
   };
 
-  // Close mobile sidebar on route change
+  // Close mobile sidebar on route change & firmly lock root window to (0, 0)
   useEffect(() => {
     setSidebarOpen(false);
+    window.scrollTo(0, 0);
   }, [location.pathname]);
+
+  // Viewport Scroll Lock: prevents native mobile browser URL address bar shift and bottom whitespace gaps
+  useEffect(() => {
+    const lockRootWindow = () => {
+      if (window.scrollY !== 0 || window.scrollX !== 0) {
+        window.scrollTo(0, 0);
+      }
+    };
+    window.addEventListener('scroll', lockRootWindow, { passive: true });
+    return () => window.removeEventListener('scroll', lockRootWindow);
+  }, []);
 
   // Lock background screen scroll when mobile sidebar drawer is open
   useEffect(() => {

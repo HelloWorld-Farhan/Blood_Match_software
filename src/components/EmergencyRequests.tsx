@@ -264,28 +264,33 @@ export default function EmergencyRequests() {
       setIsBlinking(true);
       setExpandedRequestIds(prev => new Set(prev).add(highlightParam));
 
+      // Silently clear the highlight query param in browser history IMMEDIATELY so reloading the page
+      // does not re-trigger focus/blinking again and again. The record stays selected in state.
+      try {
+        const currentUrl = new URL(window.location.href);
+        if (currentUrl.searchParams.has('highlight')) {
+          currentUrl.searchParams.delete('highlight');
+          window.history.replaceState(null, '', currentUrl.pathname + (currentUrl.search ? currentUrl.search : ''));
+        }
+      } catch {}
+
       const scrollTimer = setTimeout(() => {
         const el = document.getElementById(`request-row-${highlightParam}`);
         if (el) {
-          const mainContainer = document.querySelector('main') || document.documentElement;
-          const rect = el.getBoundingClientRect();
-          const containerRect = mainContainer.getBoundingClientRect();
-          const targetScrollTop = mainContainer.scrollTop + (rect.top - containerRect.top) - (containerRect.height / 2) + (rect.height / 2);
-          mainContainer.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
+          // Lock window firmly to (0, 0) to avoid mobile viewport displacement
+          window.scrollTo(0, 0);
+          const mainContainer = document.querySelector('main');
+          if (mainContainer) {
+            const rect = el.getBoundingClientRect();
+            const containerRect = mainContainer.getBoundingClientRect();
+            const targetScrollTop = mainContainer.scrollTop + (rect.top - containerRect.top) - (containerRect.height / 2) + (rect.height / 2);
+            mainContainer.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
+          }
         }
       }, 150);
 
       const blinkTimer = setTimeout(() => {
         setIsBlinking(false);
-        // Silently clear the highlight query param in browser history without triggering
-        // React Router route navigation or resetting the scroll position back to the top of <main>
-        try {
-          const currentUrl = new URL(window.location.href);
-          if (currentUrl.searchParams.has('highlight')) {
-            currentUrl.searchParams.delete('highlight');
-            window.history.replaceState(null, '', currentUrl.pathname + (currentUrl.search ? currentUrl.search : ''));
-          }
-        } catch { }
       }, 4000);
 
       return () => {
@@ -1599,11 +1604,18 @@ export default function EmergencyRequests() {
 
       handleCloseModal();
 
-      // 3. Smooth scroll and highlight that unique card on the board
+      // 3. Smooth scroll and highlight that unique card strictly inside container
       setTimeout(() => {
         const card = document.getElementById(`request-row-${targetId}`);
         if (card) {
-          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          window.scrollTo(0, 0);
+          const mainContainer = document.querySelector('main');
+          if (mainContainer) {
+            const rect = card.getBoundingClientRect();
+            const containerRect = mainContainer.getBoundingClientRect();
+            const targetScrollTop = mainContainer.scrollTop + (rect.top - containerRect.top) - (containerRect.height / 2) + (rect.height / 2);
+            mainContainer.scrollTo({ top: Math.max(0, targetScrollTop), behavior: 'smooth' });
+          }
           card.classList.add('ring-4', 'ring-[#D72638]', 'ring-offset-2', 'bg-red-50/40');
           setTimeout(() => {
             card.classList.remove('ring-4', 'ring-[#D72638]', 'ring-offset-2', 'bg-red-50/40');

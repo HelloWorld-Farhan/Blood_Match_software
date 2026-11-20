@@ -172,6 +172,24 @@ export default function DonorRegistry() {
       setHighlightedId(resolvedId);
       setIsBlinking(true);
       setExpandedDonorIds(prev => new Set(prev).add(resolvedId));
+
+      // Silently clean up query parameters in browser history IMMEDIATELY so reloading the page
+      // does not re-trigger focus/blinking again and again. The record stays selected in state.
+      try {
+        const currentUrl = new URL(window.location.href);
+        if (
+          currentUrl.searchParams.has('highlight') ||
+          currentUrl.searchParams.has('donorName') ||
+          currentUrl.searchParams.has('bloodType') ||
+          currentUrl.searchParams.has('t')
+        ) {
+          currentUrl.searchParams.delete('highlight');
+          currentUrl.searchParams.delete('donorName');
+          currentUrl.searchParams.delete('bloodType');
+          currentUrl.searchParams.delete('t');
+          window.history.replaceState(null, '', currentUrl.pathname + (currentUrl.search ? currentUrl.search : ''));
+        }
+      } catch {}
     }
     // Ensure card is never hidden by active blood type or text filters
     setSelectedFilter('ALL');
@@ -191,8 +209,9 @@ export default function DonorRegistry() {
       const el = resolvedId ? document.getElementById(`donor-card-${resolvedId}`) : null;
       if (el) {
         clearInterval(pollInterval);
-        // Smoothly scroll target card into center of view
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Ensure root window is firmly locked to (0,0) to prevent mobile navbar cut-off and bottom blank space
+        window.scrollTo(0, 0);
+        // Smoothly scroll target card strictly inside <main> container without scrolling the native window
         const mainContainer = document.querySelector('main');
         if (mainContainer) {
           const rect = el.getBoundingClientRect();
