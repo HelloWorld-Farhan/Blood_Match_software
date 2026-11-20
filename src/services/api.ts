@@ -55,6 +55,18 @@ export async function fetchWithRetry(
     }
   }
 
+  // Attach persistent client device ID for hardware session integrity
+  if (typeof window !== 'undefined' && !headers.has('X-Device-Id')) {
+    try {
+      const devId = getPersistentDeviceId();
+      if (devId) {
+        headers.set('X-Device-Id', devId);
+      }
+    } catch {
+      // Safe fallback
+    }
+  }
+
   if (!headers.has('Content-Type') && !(fetchOptions.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json');
   }

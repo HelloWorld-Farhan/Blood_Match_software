@@ -486,32 +486,97 @@ export default function Settings() {
     };
   }, [activeTab]);
 
-  // Section 1: Unique Active Workstations (Deduplicated per device ID, prioritizing Current Terminal)
+  // Section 1: Unique Active Workstations (Deduplicated per hardware device, prioritizing Current Terminal and recognized hardware)
   const uniqueActiveSessions = useMemo(() => {
     const activeSessions = sessions.filter(s => s.status === 'active');
-    const seenDevices = new Set<string>();
+    if (activeSessions.length === 0) return [];
+
+    // Helper: is this a recognized device?
+    const isRecognized = (s: SessionItem) => {
+      const dev = (s.device || '').toLowerCase();
+      const os = (s.os || '').toLowerCase();
+      const br = (s.browser || '').toLowerCase();
+      return !dev.includes('unknown') && !os.includes('unknown') && !br.includes('unknown');
+    };
+
+    // Collect all IP addresses of recognized devices
+    const recognizedIps = new Set<string>();
+    for (const s of activeSessions) {
+      if (isRecognized(s) && s.ip) {
+        recognizedIps.add(s.ip.trim());
+      }
+    }
+
+    // Filter out ghost sessions: if a session is "Unknown Workstation" with "Unknown OS"
+    // and its IP matches an active recognized device (or there are recognized devices for this user),
+    // it's an API shadow / reconnect token from that workstation, not a unique physical station.
+    const eligibleSessions = activeSessions.filter(s => {
+      if (s.isCurrent) return true;
+      if (!isRecognized(s)) {
+        if (s.ip && recognizedIps.has(s.ip.trim())) {
+          return false; // shadow of the recognized device on this IP
+        }
+        // If there are other recognized devices, filter out generic unrecognized ghosts
+        if (recognizedIps.size > 0 && (s.device || '').toLowerCase().includes('unknown')) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    // Deduplicate by canonical hardware identity
+    const seenHardwareKeys = new Set<string>();
     const uniqueList: SessionItem[] = [];
 
-    // Current terminal first
-    const current = activeSessions.find(s => s.isCurrent);
+    // 1. Current terminal always takes priority
+    const current = eligibleSessions.find(s => s.isCurrent);
     if (current) {
-      seenDevices.add(current.deviceId || current.id);
+      const currentKey = current.deviceId && !current.deviceId.startsWith('reconnected') && !current.deviceId.includes('uuid')
+        ? current.deviceId
+        : `${(current.device || '').toLowerCase()}|${(current.os || '').toLowerCase()}|${(current.ip || '').toLowerCase()}`;
+      const devOsKey = `${(current.device || '').toLowerCase()}|${(current.os || '').toLowerCase()}`;
+      seenHardwareKeys.add(currentKey);
+      seenHardwareKeys.add(devOsKey);
       uniqueList.push(current);
     }
 
-    // Remaining active sessions deduplicated
-    for (const s of activeSessions) {
-      const key = s.deviceId || s.id;
-      if (!seenDevices.has(key)) {
-        seenDevices.add(key);
+    // 2. Add remaining sessions sorted by recognized first, then most recently active
+    const remaining = eligibleSessions
+      .filter(s => s !== current)
+      .sort((a, b) => {
+        // Recognized devices first
+        const aRec = isRecognized(a) ? 1 : 0;
+        const bRec = isRecognized(b) ? 1 : 0;
+        if (aRec !== bRec) return bRec - aRec;
+        // Primary devices next
+        const aPrim = a.isPrimary ? 1 : 0;
+        const bPrim = b.isPrimary ? 1 : 0;
+        if (aPrim !== bPrim) return bPrim - aPrim;
+        return 0;
+      });
+
+    for (const s of remaining) {
+      const key = s.deviceId && !s.deviceId.startsWith('reconnected') && !s.deviceId.includes('uuid')
+        ? s.deviceId
+        : `${(s.device || '').toLowerCase()}|${(s.os || '').toLowerCase()}|${(s.ip || '').toLowerCase()}`;
+      const devOsKey = `${(s.device || '').toLowerCase()}|${(s.os || '').toLowerCase()}`;
+
+      if (!seenHardwareKeys.has(key) && !seenHardwareKeys.has(devOsKey)) {
+        seenHardwareKeys.add(key);
+        seenHardwareKeys.add(devOsKey);
         uniqueList.push(s);
       }
     }
+
     return uniqueList;
   }, [sessions]);
 
   // Non-primary remote active devices queued for bulk termination (Primary Workstation is strictly preserved)
   const nonPrimaryRemoteActive = useMemo(() => {
+    const currentIsPrimary = uniqueActiveSessions.some(s => s.isCurrent && s.isPrimary);
+    if (currentIsPrimary) {
+      return uniqueActiveSessions.filter(s => !s.isCurrent);
+    }
     return uniqueActiveSessions.filter(s => !s.isCurrent && !s.isPrimary);
   }, [uniqueActiveSessions]);
 
@@ -1041,9 +1106,11 @@ export default function Settings() {
               <div className="p-3 rounded-xl bg-[#F5F1EF] border border-[#D9C7C2]">
                 <span className="text-[10px] text-[#7A0C17] uppercase tracking-wider font-bold block">Active Sessions</span>
                 <span className="text-sm font-black text-[#1A1D20] mt-0.5 block truncate font-mono">
-                  {sessions.filter(s => s.status === 'active').length} Terminals
+                  {uniqueActiveSessions.length} Unique {uniqueActiveSessions.length === 1 ? 'Station' : 'Stations'}
                 </span>
-                <span className="text-[10px] text-[#5A626A] mt-0.5 block">1 Local • {Math.max(0, sessions.filter(s => s.status === 'active' && !s.isCurrent).length)} Remote</span>
+                <span className="text-[10px] text-[#5A626A] mt-0.5 block">
+                  {uniqueActiveSessions.filter(s => s.isCurrent).length} Local • {Math.max(0, uniqueActiveSessions.filter(s => !s.isCurrent).length)} Remote
+                </span>
               </div>
             </div>
 
@@ -2423,7 +2490,7 @@ export default function Settings() {
           {/* =========================================================================
               SECTION 1: ACTIVE UNIQUE DEVICE WORKSTATIONS
               ========================================================================= */}
-          <div className="p-6 sm:p-8 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm space-y-5">
+          <div className="p-3.5 sm:p-6 lg:p-8 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm space-y-5 overflow-hidden">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D9C7C2]/60">
               <div>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold mb-1.5">
@@ -2475,126 +2542,142 @@ export default function Settings() {
                 return (
                   <div
                     key={sess.id}
-                    className={`p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${sess.isCurrent
+                    className={`p-3.5 sm:p-4 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 overflow-hidden ${sess.isCurrent
                         ? 'border-[#D72638] bg-red-50/30'
                         : 'border-[#D9C7C2] bg-white hover:border-[#D72638]/40'
                       }`}
                   >
-                    <div className="flex items-start sm:items-center gap-3.5">
+                    <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${sess.isCurrent
                           ? 'bg-[#D72638] text-white shadow-xs'
                           : 'bg-[#F5F1EF] text-[#5A626A]'
                         }`}>
                         {isPhone ? <Smartphone className="w-5 h-5" /> : isTablet ? <Laptop className="w-5 h-5" /> : <Monitor className="w-5 h-5" />}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-bold text-[#1A1D20]">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-sm font-bold text-[#1A1D20] truncate">
                             {sess.device}
                           </span>
                           {sess.isPrimary && (
-                            <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300 text-[10px] font-bold flex items-center gap-1 shadow-2xs">
+                            <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-300 text-[10px] font-bold flex items-center gap-1 shadow-2xs shrink-0">
                               <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
                               <span>Primary Device</span>
                             </span>
                           )}
                           {sess.isCurrent ? (
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold flex items-center gap-1">
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-bold flex items-center gap-1 shrink-0">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                               <span>Active Now (Current Terminal)</span>
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold flex items-center gap-1">
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold flex items-center gap-1 shrink-0">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                               <span>Active (Remote Device)</span>
                             </span>
                           )}
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 text-xs text-[#5A626A] mt-0.5">
-                          <span>{sess.browser}</span>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-[#5A626A] mt-1">
+                          <span className="font-semibold text-slate-700">{sess.browser}</span>
                           {sess.os && (
                             <>
-                              <span>•</span>
+                              <span className="text-slate-300">•</span>
                               <span>{sess.os}</span>
                             </>
                           )}
-                          <span>•</span>
-                          <span>{sess.location}</span>
-                          <span>•</span>
-                          <span className="font-mono text-[11px] text-[#7A0C17]">{sess.ip}</span>
+                          {sess.location && (
+                            <>
+                              <span className="text-slate-300">•</span>
+                              <span className="truncate max-w-[200px]">{sess.location}</span>
+                            </>
+                          )}
+                          {sess.ip && !sess.location.includes(sess.ip) && (
+                            <>
+                              <span className="text-slate-300">•</span>
+                              <span className="font-mono text-[11px] text-[#7A0C17]">{sess.ip}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#D9C7C2]/50">
-                      <div className="text-right">
-                        <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Last Open / Activity</span>
-                        <span className={`text-xs font-semibold ${sess.isCurrent ? 'text-emerald-700 font-bold' : 'text-slate-700'}`}>
-                          {sess.lastActive}
-                        </span>
-                      </div>
-
-                      {/* Interactive Single-Primary Toggle Switch */}
-                      <button
-                        type="button"
-                        onClick={() => handleTogglePrimarySession(sess)}
-                        disabled={togglingSessionId === sess.id}
-                        title={
-                          sess.isPrimary
-                            ? "Primary Workstation is ON: Click to turn OFF (enables login alert emails)"
-                            : "Primary Workstation is OFF: Click to turn ON (mutes login alert emails and sets as sole primary device)"
-                        }
-                        className={`group relative inline-flex items-center gap-2.5 px-3 py-1.5 rounded-xl border transition-all cursor-pointer select-none active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed ${sess.isPrimary
-                            ? 'bg-emerald-50/90 hover:bg-emerald-100/90 border-emerald-300 text-emerald-900 shadow-2xs'
-                            : 'bg-[#F5F1EF]/80 hover:bg-[#EAE4E0] border-[#D9C7C2] text-[#5A626A]'
-                          }`}
-                        aria-pressed={Boolean(sess.isPrimary)}
-                        aria-label={`Toggle Primary Status. Currently ${sess.isPrimary ? 'ON' : 'OFF'}`}
-                      >
-                        <div
-                          className={`relative w-8 h-4.5 rounded-full p-0.5 transition-colors duration-200 ease-in-out shrink-0 flex items-center ${sess.isPrimary ? 'bg-emerald-600 justify-end' : 'bg-slate-300 justify-start'
-                            }`}
-                        >
-                          <motion.div
-                            layout
-                            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                            className="w-3.5 h-3.5 rounded-full bg-white shadow-xs flex items-center justify-center"
-                          >
-                            {togglingSessionId === sess.id ? (
-                              <RefreshCw className="w-2 h-2 text-slate-500 animate-spin" />
-                            ) : sess.isPrimary ? (
-                              <Check className="w-2 h-2 text-emerald-600 stroke-[3]" />
-                            ) : null}
-                          </motion.div>
-                        </div>
-
-                        <div className="flex flex-col text-left">
-                          <div className="flex items-center gap-1.5 text-[11px] font-extrabold leading-tight">
-                            <span>Primary</span>
-                            <span
-                              className={`px-1.5 py-0.2 rounded font-mono text-[9px] uppercase tracking-wider font-black ${sess.isPrimary
-                                  ? 'bg-emerald-600 text-white'
-                                  : 'bg-slate-200 text-slate-600'
-                                }`}
-                            >
-                              {sess.isPrimary ? 'ON' : 'OFF'}
-                            </span>
-                          </div>
-                          <span className="text-[9px] text-[#5A626A] font-medium leading-tight">
-                            {sess.isPrimary ? 'Alerts Muted' : 'Alerts Active'}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between sm:justify-end gap-3 shrink-0 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-[#D9C7C2]/50 w-full sm:w-auto">
+                      <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+                        <div className="text-left sm:text-right">
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Last Activity</span>
+                          <span className={`text-xs font-semibold ${sess.isCurrent ? 'text-emerald-700 font-bold' : 'text-slate-700'}`}>
+                            {sess.isCurrent ? 'Active Now' : sess.lastActive}
                           </span>
                         </div>
-                      </button>
+
+                        {/* Interactive Single-Primary Toggle Switch */}
+                        <button
+                          type="button"
+                          onClick={() => handleTogglePrimarySession(sess)}
+                          disabled={togglingSessionId === sess.id}
+                          title={
+                            sess.isPrimary
+                              ? "Primary Workstation is ON: Click to turn OFF (enables login alert emails)"
+                              : "Primary Workstation is OFF: Click to turn ON (mutes login alert emails and sets as sole primary device)"
+                          }
+                          className={`group relative inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl border transition-all cursor-pointer select-none active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed shrink-0 ${sess.isPrimary
+                              ? 'bg-emerald-50/90 hover:bg-emerald-100/90 border-emerald-300 text-emerald-900 shadow-2xs'
+                              : 'bg-[#F5F1EF]/80 hover:bg-[#EAE4E0] border-[#D9C7C2] text-[#5A626A]'
+                            }`}
+                          aria-pressed={Boolean(sess.isPrimary)}
+                          aria-label={`Toggle Primary Status. Currently ${sess.isPrimary ? 'ON' : 'OFF'}`}
+                        >
+                          <div
+                            className={`relative w-8 h-4.5 rounded-full p-0.5 transition-colors duration-200 ease-in-out shrink-0 flex items-center ${sess.isPrimary ? 'bg-emerald-600 justify-end' : 'bg-slate-300 justify-start'
+                              }`}
+                          >
+                            <motion.div
+                              layout
+                              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                              className="w-3.5 h-3.5 rounded-full bg-white shadow-xs flex items-center justify-center"
+                            >
+                              {togglingSessionId === sess.id ? (
+                                <RefreshCw className="w-2 h-2 text-slate-500 animate-spin" />
+                              ) : sess.isPrimary ? (
+                                <Check className="w-2 h-2 text-emerald-600 stroke-[3]" />
+                              ) : null}
+                            </motion.div>
+                          </div>
+
+                          <div className="flex flex-col text-left">
+                            <div className="flex items-center gap-1.5 text-[11px] font-extrabold leading-tight">
+                              <span>Primary</span>
+                              <span
+                                className={`px-1.5 py-0.2 rounded font-mono text-[9px] uppercase tracking-wider font-black ${sess.isPrimary
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'bg-slate-200 text-slate-600'
+                                  }`}
+                              >
+                                {sess.isPrimary ? 'ON' : 'OFF'}
+                              </span>
+                            </div>
+                            <span className="text-[9px] text-[#5A626A] font-medium leading-tight">
+                              {sess.isPrimary ? 'Alerts Muted' : 'Alerts Active'}
+                            </span>
+                          </div>
+                        </button>
+
+                        {sess.isCurrent && (
+                          <span className="sm:hidden px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold shrink-0">
+                            Current
+                          </span>
+                        )}
+                      </div>
 
                       {sess.isCurrent ? (
-                        <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+                        <span className="hidden sm:inline-flex px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shrink-0 items-center justify-center">
                           Current Terminal
                         </span>
                       ) : (
                         <button
                           type="button"
                           onClick={() => handleOpenTerminateModal(sess)}
-                          className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-[#D72638] hover:bg-[#B31D2C] shadow-xs hover:shadow-sm transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+                          className="w-full sm:w-auto px-3.5 py-2 sm:py-1.5 rounded-xl text-xs font-bold text-white bg-[#D72638] hover:bg-[#B31D2C] shadow-xs hover:shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 shrink-0"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                           <span>Terminate Session</span>
@@ -2610,7 +2693,7 @@ export default function Settings() {
           {/* =========================================================================
               SECTION 2: SESSION TELEMETRY & AUDIT HISTORY (HORIZONTAL, 1-5 MAX PER PAGE)
               ========================================================================= */}
-          <div className="p-6 sm:p-8 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm space-y-5">
+          <div className="p-3.5 sm:p-6 lg:p-8 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm space-y-5 overflow-hidden">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#D9C7C2]/60">
               <div>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-300 text-[10px] font-bold mb-1.5">
@@ -2643,50 +2726,50 @@ export default function Settings() {
                 return (
                   <div
                     key={sess.id || `hist-${idx}`}
-                    className="p-4 rounded-xl border border-[#D9C7C2]/80 bg-white hover:bg-slate-50/80 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-2xs"
+                    className="p-3.5 sm:p-4 rounded-xl border border-[#D9C7C2]/80 bg-white hover:bg-slate-50/80 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-3.5 sm:gap-4 shadow-2xs overflow-hidden"
                   >
                     {/* Left: Device & Hardware info */}
-                    <div className="flex items-center gap-3 min-w-[240px]">
+                    <div className="flex items-center gap-3 w-full lg:w-auto min-w-0">
                       <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${sess.status === 'active'
                           ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                           : 'bg-slate-100 text-slate-500 border border-slate-200'
                         }`}>
                         {isPhone ? <Smartphone className="w-4 h-4" /> : isTablet ? <Laptop className="w-4 h-4" /> : <Monitor className="w-4 h-4" />}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-[#1A1D20]">{sess.device}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-bold text-[#1A1D20] truncate">{sess.device}</span>
                           {sess.isPrimary && (
-                            <span className="px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-300 text-[9px] font-bold flex items-center gap-0.5">
+                            <span className="px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-300 text-[9px] font-bold flex items-center gap-0.5 shrink-0">
                               <Star className="w-2.5 h-2.5 fill-amber-500 text-amber-500" />
                               <span>Primary</span>
                             </span>
                           )}
                         </div>
-                        <span className="text-[11px] text-[#5A626A] block">
+                        <span className="text-[11px] text-[#5A626A] block truncate">
                           {sess.browser} {sess.os ? `• ${sess.os}` : ''}
                         </span>
                       </div>
                     </div>
 
                     {/* Middle 1: Network & Geo Location */}
-                    <div className="flex items-center gap-2 text-xs text-[#5A626A] min-w-[200px]">
+                    <div className="flex items-center gap-2 text-xs text-[#5A626A] w-full lg:w-auto min-w-0">
                       <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <div>
-                        <span className="font-mono text-[11px] font-bold text-[#7A0C17] block">{sess.ip}</span>
+                      <div className="min-w-0 flex-1">
+                        <span className="font-mono text-[11px] font-bold text-[#7A0C17] block truncate">{sess.ip}</span>
                         <span className="text-[11px] text-slate-600 truncate block max-w-[200px]">{sess.location}</span>
                       </div>
                     </div>
 
                     {/* Middle 2: Timestamps */}
-                    <div className="grid grid-cols-2 gap-4 text-xs min-w-[220px]">
+                    <div className="grid grid-cols-2 gap-4 text-xs w-full lg:w-auto min-w-0">
                       <div>
                         <span className="text-[10px] text-slate-400 uppercase font-bold block">Login Time</span>
-                        <span className="text-[11px] font-semibold text-slate-800">{sess.loginTime || sess.lastActive}</span>
+                        <span className="text-[11px] font-semibold text-slate-800 truncate block">{sess.loginTime || sess.lastActive}</span>
                       </div>
                       <div>
                         <span className="text-[10px] text-slate-400 uppercase font-bold block">Ended / Logout</span>
-                        <span className={`text-[11px] font-semibold ${sess.status === 'active' ? 'text-emerald-700' : 'text-slate-600'
+                        <span className={`text-[11px] font-semibold truncate block ${sess.status === 'active' ? 'text-emerald-700' : 'text-slate-600'
                           }`}>
                           {sess.endedTime || (sess.status === 'active' ? 'Session Active' : 'Logged Out')}
                         </span>
@@ -2694,7 +2777,7 @@ export default function Settings() {
                     </div>
 
                     {/* Right: Status Badge */}
-                    <div className="flex items-center justify-end gap-2 shrink-0">
+                    <div className="flex items-center justify-start lg:justify-end gap-2 shrink-0 pt-2 lg:pt-0 border-t lg:border-t-0 border-[#D9C7C2]/40">
                       {sess.status === 'active' ? (
                         <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 text-[10px] font-bold flex items-center gap-1.5">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />

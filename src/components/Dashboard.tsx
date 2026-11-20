@@ -390,7 +390,7 @@ export const Dashboard: React.FC = () => {
         variants={blurSectionVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, amount: 0.2 }}
+        viewport={{ once: false, amount: 0.12 }}
         className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 p-4 sm:p-5 rounded-2xl bg-white/95 border border-[#D9C7C2] shadow-sm relative overflow-hidden"
       >
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 z-10 min-w-0">
@@ -435,7 +435,7 @@ export const Dashboard: React.FC = () => {
         variants={blurSectionVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, amount: 0.15 }}
+        viewport={{ once: false, amount: 0.12 }}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5"
       >
         {/* KPI 1: Cryo Volume with Power BI ABO Allele Micro Bar Chart */}
@@ -734,7 +734,7 @@ export const Dashboard: React.FC = () => {
         variants={blurSectionVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, amount: 0.15 }}
+        viewport={{ once: false, amount: 0.12 }}
         className="p-5 sm:p-6 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm overflow-hidden"
       >
         <div className="flex flex-col lg:flex-row items-stretch gap-6">
@@ -831,7 +831,7 @@ export const Dashboard: React.FC = () => {
         variants={blurSectionVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, amount: 0.15 }}
+        viewport={{ once: false, amount: 0.12 }}
         className="grid grid-cols-1 lg:grid-cols-2 gap-4"
       >
         {/* Power BI Visual 1: Stock Level Bar Matrix */}
@@ -911,70 +911,17 @@ export const Dashboard: React.FC = () => {
         {/* Power BI Visual 2: 7-Day Influx vs Response Multi-Series Curve */}
         <div className="p-5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D9C7C2] shadow-sm flex flex-col justify-between">
           <div>
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-2.5">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-[#D72638]" />
-                <h2 className="text-sm font-bold text-[#1A1D20] uppercase tracking-wider">
-                  7-Day Requests &amp; Donor Activity
-                </h2>
-              </div>
-
-              {/* Weekly Navigation: Previous Week, Current Mon-Sun Week Range, Next Week */}
-              <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-                <div className="w-full sm:w-auto inline-flex items-center justify-between sm:justify-start gap-1 bg-[#F5F1EF] p-1 rounded-xl border border-[#D9C7C2]">
-                  <button
-                    type="button"
-                    onClick={() => setWeekOffset(prev => prev - 1)}
-                    className="shrink-0 px-2.5 py-1.5 sm:py-1 rounded-lg bg-white hover:bg-slate-100 text-[#1A1D20] text-xs font-bold transition-all shadow-2xs flex items-center gap-1 cursor-pointer active:scale-95 border border-[#D9C7C2]/60 whitespace-nowrap"
-                    title="Inspect Previous Week"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5 text-[#D72638] shrink-0" />
-                    <span>Previous</span>
-                  </button>
-
-                  <div className="flex-1 sm:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1 font-mono text-xs font-bold text-[#1A1D20] min-w-0">
-                    <Calendar className="w-3.5 h-3.5 text-[#D72638] shrink-0" />
-                    <span className="whitespace-nowrap font-mono text-xs font-bold text-[#1A1D20]">
-                      {weekRangeLabel}
-                    </span>
-                    {weekOffset === 0 ? (
-                      <>
-                        <span className="min-[440px]:hidden inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold shrink-0 whitespace-nowrap">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          Current
-                        </span>
-                        <span className="hidden min-[440px]:inline-block whitespace-nowrap px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold shrink-0">
-                          Current Week
-                        </span>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setWeekOffset(0)}
-                        className="whitespace-nowrap ml-1 text-[10px] text-[#D72638] underline font-bold hover:text-red-800 cursor-pointer shrink-0"
-                        title="Return to Current Active Week"
-                      >
-                        Reset
-                      </button>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setWeekOffset(prev => Math.min(0, prev + 1))}
-                    disabled={weekOffset === 0}
-                    className={`shrink-0 px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap ${weekOffset === 0
-                      ? 'bg-transparent text-slate-300 cursor-not-allowed opacity-40'
-                      : 'bg-white hover:bg-slate-100 text-[#1A1D20] shadow-2xs cursor-pointer active:scale-95 border border-[#D9C7C2]/60'
-                      }`}
-                    title="Inspect Next Week"
-                  >
-                    <span>Next</span>
-                    <ChevronRight className="w-3.5 h-3.5 text-[#D72638] shrink-0" />
-                  </button>
+            <div className="flex flex-col gap-2.5 mb-2.5">
+              {/* Row 1: Section Title & Legend */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-[#D72638]" />
+                  <h2 className="text-sm font-bold text-[#1A1D20] uppercase tracking-wider">
+                    7-Day Requests &amp; Donor Activity
+                  </h2>
                 </div>
 
-                <div className="flex items-center gap-3 text-[11px] shrink-0 self-start sm:self-auto pt-0.5 sm:pt-0">
+                <div className="flex items-center gap-3 text-[11px] shrink-0">
                   <span className="flex items-center gap-1.5 text-[#D72638] font-bold whitespace-nowrap">
                     <span className="w-2.5 h-1 bg-[#D72638] rounded-sm shrink-0"></span> Hospital Requests
                   </span>
@@ -982,6 +929,60 @@ export const Dashboard: React.FC = () => {
                     <span className="w-2.5 h-1 bg-emerald-600 rounded-sm shrink-0"></span> Responded Donors
                   </span>
                 </div>
+              </div>
+
+              {/* Row 2: Weekly Navigation Bar */}
+              <div className="w-full flex items-center justify-between sm:justify-start gap-1 bg-[#F5F1EF] p-1 rounded-xl border border-[#D9C7C2] overflow-x-auto no-scrollbar">
+                <button
+                  type="button"
+                  onClick={() => setWeekOffset(prev => prev - 1)}
+                  className="shrink-0 px-2.5 py-1.5 sm:py-1 rounded-lg bg-white hover:bg-slate-100 text-[#1A1D20] text-xs font-bold transition-all shadow-2xs flex items-center gap-1 cursor-pointer active:scale-95 border border-[#D9C7C2]/60 whitespace-nowrap"
+                  title="Inspect Previous Week"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5 text-[#D72638] shrink-0" />
+                  <span>Previous</span>
+                </button>
+
+                <div className="flex-1 sm:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 sm:px-3 py-1 font-mono text-xs font-bold text-[#1A1D20] min-w-0">
+                  <Calendar className="w-3.5 h-3.5 text-[#D72638] shrink-0" />
+                  <span className="whitespace-nowrap font-mono text-xs font-bold text-[#1A1D20]">
+                    {weekRangeLabel}
+                  </span>
+                  {weekOffset === 0 ? (
+                    <>
+                      <span className="min-[440px]:hidden inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[9px] font-bold shrink-0 whitespace-nowrap">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Current
+                      </span>
+                      <span className="hidden min-[440px]:inline-block whitespace-nowrap px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold shrink-0">
+                        Current Week
+                      </span>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setWeekOffset(0)}
+                      className="whitespace-nowrap ml-1 text-[10px] text-[#D72638] underline font-bold hover:text-red-800 cursor-pointer shrink-0"
+                      title="Return to Current Active Week"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setWeekOffset(prev => Math.min(0, prev + 1))}
+                  disabled={weekOffset === 0}
+                  className={`shrink-0 px-2.5 py-1.5 sm:py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 whitespace-nowrap ${weekOffset === 0
+                    ? 'bg-transparent text-slate-300 cursor-not-allowed opacity-40'
+                    : 'bg-white hover:bg-slate-100 text-[#1A1D20] shadow-2xs cursor-pointer active:scale-95 border border-[#D9C7C2]/60'
+                    }`}
+                  title="Inspect Next Week"
+                >
+                  <span>Next</span>
+                  <ChevronRight className="w-3.5 h-3.5 text-[#D72638] shrink-0" />
+                </button>
               </div>
             </div>
 
@@ -1193,7 +1194,7 @@ export const Dashboard: React.FC = () => {
         variants={blurSectionVariants}
         initial="hidden"
         whileInView="visible"
-        viewport={{ once: true, amount: 0.15 }}
+        viewport={{ once: false, amount: 0.12 }}
         className="grid grid-cols-1 lg:grid-cols-3 gap-4"
       >
         {/* Instant Cross-Match Simulator */}
