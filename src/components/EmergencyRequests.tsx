@@ -565,10 +565,10 @@ export default function EmergencyRequests() {
     return Array.from(locSet);
   }, [requests, donors]);
   const scanSteps = [
-    'Triaging 8-Group ABO/Rh Matrix...',
-    'Scanning Locality GPS Radius Worldwide...',
-    'Calculating Spherical Haversine Distances...',
-    'Sorting Nearest Compatible Donors...'
+    'Checking blood group compatibility...',
+    'Searching registered voluntary donors...',
+    'Calculating distance to location...',
+    'Finding nearest compatible donors...'
   ];
 
   // Auto-open modal if URL contains ?action=broadcast
@@ -2610,17 +2610,25 @@ export default function EmergencyRequests() {
                 animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
                 exit={{ opacity: 0, scale: 0.95, y: 12, filter: 'blur(6px)' }}
                 transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-                className="relative w-full max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto no-scrollbar rounded-3xl bg-white/95 backdrop-blur-2xl border border-white/60 p-5 sm:p-7 md:p-8 shadow-2xl text-[#1A1D20]"
+                className={`relative w-full ${
+                  modalPhase === 'SCANNING'
+                    ? 'max-w-2xl sm:max-w-3xl overflow-hidden rounded-3xl p-0 bg-black border border-white/20 shadow-2xl'
+                    : 'max-w-4xl lg:max-w-5xl max-h-[92vh] overflow-y-auto no-scrollbar rounded-3xl bg-white/95 backdrop-blur-2xl border border-white/60 p-5 sm:p-7 md:p-8 shadow-2xl text-[#1A1D20]'
+                }`}
                 onClick={(e) => e.stopPropagation()}
                 style={{ willChange: 'transform, opacity, filter' }}
               >
                 {/* Close Button with generous clearance & non-overlapping hover boundary */}
                 <button
                   onClick={handleCancelModal}
-                  className="absolute top-3.5 right-3.5 sm:top-5 sm:right-5 z-30 p-2 rounded-xl text-slate-400 hover:text-[#1A1D20] hover:bg-[#F5F1EF] transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95"
+                  className={`absolute top-4 right-4 sm:top-5 sm:right-5 z-40 p-2 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs active:scale-95 ${
+                    modalPhase === 'SCANNING'
+                      ? 'text-white/80 hover:text-white hover:bg-white/10 bg-black/40 backdrop-blur-md border border-white/15'
+                      : 'text-slate-400 hover:text-[#1A1D20] hover:bg-[#F5F1EF]'
+                  }`}
                   aria-label="Close dialog"
                 >
-                  <X className="w-5 h-5 text-[#D72638]" />
+                  <X className={`w-5 h-5 ${modalPhase === 'SCANNING' ? 'text-white' : 'text-[#D72638]'}`} />
                 </button>
 
                 {/* Pre-warm 119846 radar video in memory to guarantee zero lag when scan initiates */}
@@ -2633,27 +2641,33 @@ export default function EmergencyRequests() {
                   aria-hidden="true"
                 />
 
-                {/* Notification Banner */}
+                {/* Notification Banner (mr-14 sm:mr-16 guarantees zero overlap with the top-right close button) */}
                 <AnimatePresence>
                   {modalNotification && (
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className={`mb-4 p-3 rounded-xl flex items-center justify-between text-xs font-bold ${modalNotification.type === 'success'
-                        ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                        : 'bg-red-50 text-red-800 border border-red-200'
-                        }`}
+                      className={`mr-14 sm:mr-16 mb-4 p-3 rounded-xl flex items-center justify-between text-xs font-bold ${
+                        modalNotification.type === 'success'
+                          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                          : 'bg-red-50 text-red-800 border border-red-200'
+                      }`}
                     >
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-1 min-w-0 pr-3">
                         {modalNotification.type === 'success' ? (
-                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                         ) : (
-                          <AlertTriangle className="w-4 h-4 text-red-600" />
+                          <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
                         )}
-                        <span>{modalNotification.message}</span>
+                        <span className="truncate sm:whitespace-normal">{modalNotification.message}</span>
                       </div>
-                      <button onClick={() => setModalNotification(null)} className="underline ml-3">Dismiss</button>
+                      <button
+                        onClick={() => setModalNotification(null)}
+                        className="underline ml-3 shrink-0 text-emerald-900 hover:text-emerald-950 font-bold cursor-pointer px-2 py-1 rounded hover:bg-emerald-100/60 transition-colors"
+                      >
+                        Dismiss
+                      </button>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -3122,18 +3136,18 @@ export default function EmergencyRequests() {
                     </motion.div>
                   )}
 
-                  {/* PHASE 2: RADAR SCANNING ANIMATION IN THE SAME POPUP (119846 VIDEO & HARDWARE-ACCELERATED BLUR) */}
+                  {/* PHASE 2: SCANNING ANIMATION (VIDEO FILLS ENTIRE POPUP, NO CIRCLES, SIMPLE ENGLISH) */}
                   {modalPhase === 'SCANNING' && (
                     <motion.div
                       key="modal-phase-scanning"
-                      initial={{ opacity: 0, filter: 'blur(14px)', scale: 0.95 }}
+                      initial={{ opacity: 0, filter: 'blur(10px)', scale: 0.98 }}
                       animate={{ opacity: 1, filter: 'blur(0px)', scale: 1 }}
-                      exit={{ opacity: 0, filter: 'blur(14px)', scale: 0.95 }}
-                      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                      className="py-14 sm:py-16 px-6 text-center space-y-6 relative overflow-hidden rounded-2xl min-h-[380px] sm:min-h-[440px] flex flex-col items-center justify-center bg-black shadow-2xl border border-red-500/20"
+                      exit={{ opacity: 0, filter: 'blur(10px)', scale: 0.98 }}
+                      transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                      className="relative w-full h-[400px] sm:h-[460px] flex flex-col items-center justify-center p-6 sm:p-10 text-center overflow-hidden"
                       style={{ willChange: 'transform, opacity, filter' }}
                     >
-                      {/* Video Background: 119846-719283256_medium.mp4 */}
+                      {/* Video Background: 119846-719283256_medium.mp4 fills the entire popup */}
                       <video
                         src="/119846-719283256_medium.mp4"
                         poster="/119846-719283256_medium_poster.jpg"
@@ -3142,33 +3156,32 @@ export default function EmergencyRequests() {
                         muted
                         playsInline
                         preload="auto"
-                        className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-80"
-                        style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden', willChange: 'transform' }}
+                        onLoadedData={(e) => {
+                          const v = e.currentTarget;
+                          if (v.paused) v.play().catch(() => {});
+                        }}
+                        className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                        style={{ transform: 'translate3d(0, 0, 0)', backfaceVisibility: 'hidden' }}
                       />
-                      {/* Dark Vignette & Frosted Blur Layer for High-Contrast Text Legibility */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/80 backdrop-blur-[1.5px] pointer-events-none" />
+                      {/* Dark Frosted Layer for High-Contrast Text Legibility */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/75 backdrop-blur-[1px] pointer-events-none" />
 
-                      {/* Radar Ripple Waves */}
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="w-80 h-80 border-2 border-red-500/25 rounded-full animate-ping" />
-                        <div className="w-64 h-64 border-2 border-red-500/35 rounded-full animate-pulse" />
-                        <div className="w-48 h-48 border border-red-500/40 rounded-full" />
-                      </div>
-
+                      {/* Content Box (NO CIRCLES) */}
                       <div className="relative z-10 space-y-4 max-w-lg mx-auto">
-                        <div className="inline-flex p-4 rounded-2xl bg-[#D72638]/20 border border-[#D72638]/50 text-[#ff4d5e] shadow-xl shadow-[#D72638]/30 backdrop-blur-md animate-bounce">
-                          <Droplet className="w-10 h-10 fill-current" />
+                        <div className="inline-flex p-3.5 rounded-2xl bg-red-600/25 border border-red-500/50 text-red-400 shadow-xl shadow-red-600/30 backdrop-blur-md animate-pulse">
+                          <Droplet className="w-8 h-8 fill-current" />
                         </div>
                         <div>
-                          <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight drop-shadow-md">
-                            Clinical Proximity Radar Active
+                          <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tight drop-shadow-md">
+                            Searching for Compatible Donors
                           </h3>
-                          <div className="mt-3 inline-block px-4 py-1.5 rounded-full bg-black/60 border border-[#D72638]/50 text-xs font-bold font-mono text-[#ff4d5e] backdrop-blur-md shadow-inner">
-                            {scanSteps[scanStepIndex]}
+                          <div className="mt-3 inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/60 border border-red-500/50 text-xs sm:text-sm font-semibold text-red-200 backdrop-blur-md shadow-inner">
+                            <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                            <span>{scanSteps[scanStepIndex]}</span>
                           </div>
                         </div>
-                        <p className="text-xs sm:text-sm text-slate-200 font-medium drop-shadow-sm leading-relaxed">
-                          Locating nearest active lifesavers matching <span className="font-bold text-white bg-[#D72638]/70 px-2 py-0.5 rounded-md">{bloodType}</span> antibodies in {customLocalityInput.trim() || selectedLocality}...
+                        <p className="text-xs sm:text-sm text-slate-200 font-medium drop-shadow-sm leading-relaxed max-w-md mx-auto">
+                          Finding available Group <span className="font-bold text-white bg-red-600/80 px-2.5 py-0.5 rounded-md">{bloodType}</span> blood donors near {customLocalityInput.trim() || selectedLocality}. Please wait...
                         </p>
                       </div>
                     </motion.div>
