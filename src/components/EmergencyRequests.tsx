@@ -234,6 +234,8 @@ export default function EmergencyRequests() {
 
   // Multi-card independent expansion tracking via Set so opening one does not close others
   const [expandedRequestIds, setExpandedRequestIds] = useState<Set<string>>(() => new Set(highlightParam ? [highlightParam] : []));
+  // State for custom in-app deletion confirmation modal (eliminates native browser OS prompt)
+  const [requestToDelete, setRequestToDelete] = useState<EmergencyRequest | null>(null);
 
   const toggleRequestExpanded = (id: string) => {
     setExpandedRequestIds(prev => {
@@ -1362,25 +1364,30 @@ export default function EmergencyRequests() {
     handleCloseModal();
   };
 
-  const handleDeleteRequest = async (requestId: string, e?: React.MouseEvent) => {
+  // Custom in-app deletion confirmation trigger (eliminates native window.confirm prompt)
+  const handleOpenDeleteModal = (req: EmergencyRequest, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    if (!window.confirm(`Permanently remove emergency request #${requestId} from the triage queue?`)) {
-      return;
-    }
-    setDeletingRequestId(requestId);
+    setRequestToDelete(req);
+  };
+
+  const handleConfirmDeleteRequest = async () => {
+    if (!requestToDelete) return;
+    const targetId = requestToDelete.id;
+    setDeletingRequestId(targetId);
     try {
-      await deleteEmergencyRequestApi(requestId, currentUserEmail);
+      await deleteEmergencyRequestApi(targetId, currentUserEmail);
     } catch {}
     setRequests(prev => {
-      const updated = prev.filter(r => r.id !== requestId);
+      const updated = prev.filter(r => r.id !== targetId);
       saveEmergencyRequests(updated, currentUserEmail);
       return updated;
     });
     setBoardNotification({
-      message: `Emergency request #${requestId} deleted from triage board.`,
+      message: `Emergency request #${targetId} permanently removed from triage board.`,
       type: 'success'
     });
     setDeletingRequestId(null);
+    setRequestToDelete(null);
   };
 
   const validateForm = (): boolean => {
@@ -2131,7 +2138,7 @@ export default function EmergencyRequests() {
                     {/* Delete Emergency Request */}
                     <button
                       type="button"
-                      onClick={(e) => handleDeleteRequest(req.id, e)}
+                      onClick={(e) => handleOpenDeleteModal(req, e)}
                       disabled={deletingRequestId === req.id}
                       className="p-2 rounded-xl bg-white hover:bg-red-50 text-slate-400 hover:text-[#D72638] border border-[#D9C7C2] hover:border-red-300 transition-all cursor-pointer shadow-2xs"
                       title="Permanently remove request"
@@ -3693,6 +3700,115 @@ export default function EmergencyRequests() {
             }
           }}
         />
+      )}
+
+      {/* =========================================================================
+          CUSTOM BRANDED IN-APP EMERGENCY REQUEST DELETION MODAL WITH WHOLE-PAGE BLUR
+          ========================================================================= */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {requestToDelete && (
+            <motion.div
+              key="delete-emergency-modal-backdrop"
+              initial={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+              animate={{ opacity: 1, backdropFilter: 'blur(16px)' }}
+              exit={{ opacity: 0, backdropFilter: 'blur(0px)' }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-xl"
+              onClick={() => { if (!deletingRequestId) setRequestToDelete(null); }}
+              style={{ willChange: 'opacity, backdrop-filter' }}
+            >
+              <motion.div
+                key="delete-emergency-modal-card"
+                initial={{ opacity: 0, scale: 0.94, y: 16, filter: 'blur(8px)' }}
+                animate={{ opacity: 1, scale: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, scale: 0.95, y: 12, filter: 'blur(6px)' }}
+                transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+                className="relative w-full max-w-md bg-white/95 rounded-3xl border border-[#D9C7C2] shadow-2xl p-6 sm:p-7 text-left space-y-4 backdrop-blur-2xl text-[#1A1D20]"
+                onClick={(e) => e.stopPropagation()}
+                style={{ willChange: 'transform, opacity, filter' }}
+              >
+                {/* Header: Trash Icon + Close Button */}
+                <div className="flex items-start justify-between">
+                  <div className="w-12 h-12 rounded-2xl bg-red-100 border border-red-200 text-[#D72638] flex items-center justify-center shrink-0 shadow-xs">
+                    <Trash2 className="w-6 h-6 text-[#D72638]" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { if (!deletingRequestId) setRequestToDelete(null); }}
+                    disabled={Boolean(deletingRequestId)}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-[#1A1D20] hover:bg-[#F5F1EF] transition-colors cursor-pointer disabled:opacity-50"
+                    aria-label="Close confirmation dialog"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Title & Description */}
+                <div>
+                  <h3 className="text-lg font-black text-[#1A1D20] tracking-tight">
+                    Remove Emergency Request?
+                  </h3>
+                  <p className="text-xs text-[#5A626A] mt-1 leading-relaxed">
+                    Are you sure you want to permanently remove emergency request <span className="font-mono font-bold text-[#D72638]">#{requestToDelete.id}</span> from the active triage board? This action will archive the case and cannot be undone.
+                  </p>
+                </div>
+
+                {/* Target Emergency Case Summary Box */}
+                <div className="p-3.5 rounded-2xl bg-[#F5F1EF]/70 border border-[#D9C7C2] flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#D72638] to-[#7A0C17] text-white flex flex-col items-center justify-center font-black shadow-xs shrink-0">
+                    <span className="text-[7px] uppercase font-bold text-red-100">Blood</span>
+                    <span className="text-sm font-black">{requestToDelete.bloodType}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-black text-[#1A1D20] truncate">
+                        {requestToDelete.patientName}
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-[#D72638]">
+                        {requestToDelete.urgency || 'CRITICAL'}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-[#5A626A] truncate mt-0.5">
+                      {requestToDelete.unitsNeeded} Pints • {requestToDelete.hospitalCity || 'Delhi NCR'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#D9C7C2]/60">
+                  <button
+                    type="button"
+                    onClick={() => setRequestToDelete(null)}
+                    disabled={Boolean(deletingRequestId)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-[#5A626A] hover:text-[#1A1D20] hover:bg-[#F5F1EF] border border-[#D9C7C2] transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmDeleteRequest}
+                    disabled={Boolean(deletingRequestId)}
+                    className="px-5 py-2 rounded-xl bg-[#D72638] hover:bg-[#b51d2c] text-white text-xs font-bold shadow-md shadow-[#D72638]/25 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 disabled:opacity-60"
+                  >
+                    {deletingRequestId ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Removing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete Request</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
       )}
     </div>
   );
